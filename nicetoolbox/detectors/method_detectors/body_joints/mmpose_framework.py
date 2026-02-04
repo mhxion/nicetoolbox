@@ -5,114 +5,79 @@ Integration of the MMPose framework into the NICE toolbox pipeline.
 import logging
 import os
 from abc import abstractmethod
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 
 from nicetoolbox_core.dataloader import ImagePathsByCameraLoader
 
-from ....configs.config_handler import load_validated_config_raw
-from ....configs.schemas.predictions_mapping import PredictionsMappingConfig
+from ....configs.schemas.detectors_algos_configs import MMPoseAlgorithmConfig
 from ....utils import check_and_exception as check
 from ....utils import triangulation as tri
 from ....utils import video as vd
 from ... import config_handler as confh
-from ..base_detector import BaseDetector
+from ..base_method import BaseMethod
 from ..filters import SGFilter
 from . import pose_utils
 
 
-class MMPose(BaseDetector):
+class MMPose(BaseMethod):
     """
     The MMPose class is a method detector for pose estimation using the MMPose
     framework.
-
-    This class is designed to perform pose estimation on video data using the MMPose
-    framework, which is an open-source toolbox for comprehensive pose estimation.
-    It provides the necessary preparations and post-inference utilities to integrate
-    the MMPose framework into our pipeline.
 
     The MMPose class supports 2D pose estimation and can handle data from multiple
     cameras. It also has the capability to perform 3D pose estimation by triangulating
     the 2D pose data from different camera views. Additionally, it offers the option to
     filter the 3D pose data to reduce noise and smooth out the results.
-
-    Available components: body_joints, hand_joints, face_landmarks
-
-    Attributes:
-        camera_names (list of str): Names of the cameras used to capture the video data.
-        video_start (int): The frame number from which to start pose estimation.
-        filtered (bool): Indicates whether the 3D pose data should be filtered.
-        filter_window_length (int): Specifies the length of the window used for
-            filtering the 3D data. filter_polyorder (int): Defines the order of the
-            polynomial used in the filtering process.
-        data_folder (str): The file path to the folder containing the input data.
-        out_folder (str): The file path to the folder where the pose estimation results
-            will be saved.
-        prediction_folders (dict of str: str): A dictionary mapping camera names to
-            their respective folders for storing the pose estimation predictions.
-        image_folders (dict of str: str): A dictionary mapping camera names to their
-            respective folders containing the input images or frames for pose
-            estimation.
-        result_folders (dict of str: str): A dictionary mapping camera names to their
-            respective folders for storing the final pose estimation results.
-        calibration (dict): Contains the calibration parameters for the cameras used
-            in pose estimation.
     """
 
-    def __init__(self, config, io, data):
+    def _initialize_detector(self) -> MMPoseAlgorithmConfig.RuntimeConfig:
         """
-        Initializes the MMPose class with configuration settings and IO handling
-        capabilities.
-
-        This constructor takes care of all inference preparation steps, including
-        setting up the input and output folders, configuring the keypoint mapping,
-        and preparing the calibration parameters for 3D pose estimation.
-
-        Args:
-            config (dict): A dictionary containing the configuration settings for the
-                method detector.
-            io (class): An instance of the IO class for input-output operations.
-            data (class): An instance of the Data class for accessing data.
+        Initializes the MMPose class with extra configuration settings.
         """
+        # === (1) Store convenience references for this class ===
+        self.fps = self.data.fps
+        self.video_start = self.data.video_start
+        self.calibration = self.data.calibration
+        self.subjects_descr = self.data.subjects_descr
+        self.cam_sees_subjects = self.data.cam_sees_subjects
 
-        logging.info(f"Prepare Inference for '{self.algorithm}' and " f"components {self.components}.")
-
-        self.camera_names = config["camera_names"]
-        self.video_start = data.video_start
-        self.filtered = config["filtered"]
+        self.camera_names = self.static_config.camera_names
+        self.filtered = self.static_config.filtered
         if self.filtered:
-            self.filter_window_length = config["window_length"]
-            self.filter_polyorder = config["polyorder"]
+            self.filter_window_length = self.static_config.window_length
+            self.filter_polyorder = self.static_config.polyorder
 
-        # output
-        main_component = self.components[0]
-        self.out_folder = io.get_detector_output_folder(main_component, self.algorithm, "output")
-        self.prediction_folders = self.get_prediction_folders(make_dirs=True)
-        self.image_folders = self.get_image_folders(make_dirs=config["visualize"])
-        config["prediction_folders"] = self.prediction_folders
-        config["image_folders"] = self.image_folders
-        self.fps = data.fps
+        # === (2) EXTRA FIELDS for MMPose ===
+        keypoint_mapping_name = self.static_config.keypoint_mapping
+        self.keypoint_mapping = getattr(self.predictions_mapping.human_pose, keypoint_mapping_name)
+        self.keypoint_indices = self.keypoint_mapping.keypoints_index
 
-        # keypoints mapping'
-        self.predictions_mapping = load_validated_config_raw(
-            "./configs/predictions_mapping.toml", PredictionsMappingConfig
+        self._kp_indices, self._kp_description = self.get_per_component_keypoint_mapping(self.keypoint_indices)
+
+        self._prediction_folders = self._get_prediction_folders(make_dirs=True)  # TODO - Get rid of both folder dicts
+        self._image_folders = self._get_image_folders(make_dirs=self.static_config.visualize)
+
+        # 3. Call BaseMethod _initialize_detector() to build runtime + add extra fields
+        base_runtime = super()._initialize_detector()
+
+        # Return extended runtime with MMPose-specific fields
+        return MMPoseAlgorithmConfig.RuntimeConfig(
+            # Spread base runtime fields
+            **base_runtime.model_dump(),
+            # Add MMPose-specific fields
+            prediction_folders=self._prediction_folders,
+            image_folders=self._image_folders,
+            keypoints_indices=self._kp_indices,
+            keypoints_description=self._kp_description,
         )
-        keypoints_indices = self.predictions_mapping["human_pose"][config["keypoint_mapping"]]["keypoints_index"]
-        mapping = self.get_per_component_keypoint_mapping(keypoints_indices)
-        config["keypoints_indices"], config["keypoints_description"] = mapping
-
-        self.keypoint_mapping = config["keypoint_mapping"]
-
-        # then, call the base class init
-        super().__init__(config, io, data)
-        self.result_folders = config["result_folders"]
-        self.calibration = config["calibration"]
-
-        logging.info("Inference Preparation completed.\n")
 
     @abstractmethod
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
+    def get_per_component_keypoint_mapping(
+        self, keypoints_indices
+    ) -> Tuple[Dict[str, List[int]], Dict[str, List[str]]]:
         """
         This method extracts the keypoint indices and descriptions for each pose
         estimation component.
@@ -139,7 +104,41 @@ class MMPose(BaseDetector):
         Returns:
             List[List[str]]: The skeleton connections for the algorithm index.
         """
-        return self.predictions_mapping["human_pose"][self.keypoint_mapping]["connections"][component_name]
+        return getattr(self.keypoint_mapping.connections, component_name)
+
+    def _get_prediction_folders(self, make_dirs: bool = False) -> Dict[str, str]:
+        """
+        Generate and return a dictionary of prediction folders for each camera.
+
+        Structure: detector_output/predictions/<camera_name>/
+        """
+        folders = {}
+        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "output")
+        for camera in self.camera_names:
+            folder = os.path.join(base_output_folder, "predictions", camera)
+            if make_dirs:
+                os.makedirs(folder, exist_ok=True)
+            folders[camera] = folder
+        return folders
+
+    def _get_image_folders(self, make_dirs=False):
+        """
+        Generate and return a dictionary of image folders for each camera.
+
+        These are the 3rd-party MMPose visualization outputs (per-frame images).
+        Structure: detector_output/images/<camera_name>/
+
+        Note: Our own visualizations (videos) are saved to the separate
+        visualization/ folder via self.viz_folder.
+        """
+        folders = {}
+        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "output")
+        for camera in self.camera_names:
+            folder = os.path.join(base_output_folder, "images", camera)
+            if make_dirs:
+                os.makedirs(folder, exist_ok=True)
+            folders[camera] = folder
+        return folders
 
     def visualization(self, data):
         """
@@ -162,7 +161,7 @@ class MMPose(BaseDetector):
         logging.info(f"VISUALIZING the method detector output of {self.components} " f"and {self.algorithm}.")
 
         # Create input data loader from nicetoolbox-core shared code
-        dataloader = ImagePathsByCameraLoader(config=self.config, expected_cameras=self.camera_names)
+        dataloader = ImagePathsByCameraLoader(config=self.data.get_input_recipe(), expected_cameras=self.camera_names)
 
         n_subj = len(self.subjects_descr)
         for _component, result_folder in self.result_folders.items():
@@ -499,46 +498,6 @@ class MMPose(BaseDetector):
                     }
                     np.savez_compressed(prediction_file, **results_dict)
 
-    def get_prediction_folders(self, make_dirs=False):
-        """
-        Generate and return a dictionary of prediction folders for each camera.
-
-        Args:
-            make_dirs (bool): If True, the function will create the directories if
-                they do not exist.
-
-        Returns:
-            dict: A dictionary where the keys are the camera names and the values are
-                the corresponding prediction folder paths.
-        """
-        out_kp = {}
-        for camera in self.camera_names:
-            out = os.path.join(self.out_folder, "predictions", camera)
-            out_kp[camera] = out
-            if make_dirs:
-                os.makedirs(out, exist_ok=True)
-        return out_kp
-
-    def get_image_folders(self, make_dirs=False):
-        """
-        Generate and return a dictionary of image folders for each camera.
-
-        Args:
-            make_dirs (bool): If True, the function will create the directories if
-                they do not exist.
-
-        Returns:
-            dict: A dictionary where the keys are the camera names and the values are
-                the corresponding image folder paths.
-        """
-        out_img = {}
-        for camera in self.camera_names:
-            out = os.path.join(self.out_folder, "images", camera)
-            out_img[camera] = out
-            if make_dirs:
-                os.makedirs(out, exist_ok=True)
-        return out_img
-
 
 def extract_key_per_value(input_dict):
     """
@@ -576,17 +535,6 @@ class HRNetw48(MMPose):
     HRNetw48 is a subclass of MMPose specialized for pose estimation using the HRNetw48
     model.
 
-    The HRNetw48 class is designed to utilize the HRNetw48 model within the MMPose
-    framework for pose estimation tasks. It provides the necessary component keypoint
-    indices and descriptions for the body joints component. The base_detector class
-    starts the algorithm as a subprocess within the base_detector's 'run_inference'
-    method.
-
-    HRNetw48, or High-Resolution Network, is a deep neural network designed for human
-    pose estimation that maintains high-resolution representations through the whole
-    process. It is particularly effective for tasks requiring precise localization of
-    body joints.
-
     Components: body_joints, hand_joints, face_landmarks
     """
 
@@ -610,22 +558,21 @@ class HRNetw48(MMPose):
                     component.
                 - The second dictionary contains the descriptions of keypoints for
                     each component.
-
         """
         indices = dict(
             body_joints=confh.flatten_list(
-                list(keypoints_indices["body"].values()) + list(keypoints_indices["foot"].values())
+                list(keypoints_indices.body.values()) + list(keypoints_indices.foot.values())
             ),
-            hand_joints=confh.flatten_list(list(keypoints_indices["hand"].values())),
-            face_landmarks=confh.flatten_list(list(keypoints_indices["face"].values())),
+            hand_joints=confh.flatten_list(list(keypoints_indices.hand.values())),
+            face_landmarks=confh.flatten_list(list(keypoints_indices.face.values())),
         )
 
         description = dict(
             body_joints=confh.flatten_list(
-                extract_key_per_value(keypoints_indices["body"]) + extract_key_per_value(keypoints_indices["foot"])
+                extract_key_per_value(keypoints_indices.body) + extract_key_per_value(keypoints_indices.foot)
             ),
-            hand_joints=confh.flatten_list(extract_key_per_value(keypoints_indices["hand"])),
-            face_landmarks=confh.flatten_list(extract_key_per_value(keypoints_indices["face"])),
+            hand_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.hand)),
+            face_landmarks=confh.flatten_list(extract_key_per_value(keypoints_indices.face)),
         )
 
         return indices, description
@@ -635,15 +582,6 @@ class VitPose(MMPose):
     """
     VitPose is a subclass of MMPose specialized for pose estimation using the Vision
     Transformer (ViT) model.
-
-    The VitPose class is designed to utilize the ViT model within the MMPose framework
-    for pose estimation tasks, focusing on body joints. It provides the necessary
-    component keypoint indices and descriptions for the body joints component. The
-    base_detector class starts the algorithm as a subprocess within the base_detector's
-    'run_inference' method.
-
-    VitPose leverages the Vision Transformer architecture, a model that applies the
-    transformer mechanism to image processing tasks, including pose estimation.
 
     Component: body_joints
     """
@@ -671,8 +609,8 @@ class VitPose(MMPose):
                     component.
 
         """
-        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices["body"].values())))
+        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
 
-        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices["body"])))
+        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
 
         return indices, description

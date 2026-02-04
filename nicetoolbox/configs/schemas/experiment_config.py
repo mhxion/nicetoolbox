@@ -13,10 +13,10 @@ class CodeConfig(BaseModel):
     Auto-placeholders saved during detectors run.
     """
 
-    user: str
+    user_name: str
     git_hash: str
     commit_message: str
-    date: str
+    yyyymmdd: str
     time: str
     pwd: Path
 

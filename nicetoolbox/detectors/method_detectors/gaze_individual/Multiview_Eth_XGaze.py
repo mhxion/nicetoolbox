@@ -14,13 +14,14 @@ import numpy as np
 
 from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 
+from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
 from ....utils import video as vd
 from ....utils import visual_utils as vis_ut
-from ..base_detector import BaseDetector
+from ..base_method import BaseMethod
 from ..filters import SGFilter
 
 
-class MultiviewEthXgaze(BaseDetector):
+class MultiviewEthXgaze(BaseMethod):
     """
     The XGaze3cams class is a method detector that computes the gaze_individual
     component.
@@ -42,40 +43,29 @@ class MultiviewEthXgaze(BaseDetector):
     components = ["gaze_individual"]
     algorithm = "multiview_eth_xgaze"
 
-    def __init__(self, config, io, data) -> None:
+    def _initialize_detector(self) -> MethodDetectorRuntime:
         """
-        Initialize the XGaze3cams method detector with all inference preparations
-        completed.
-
-        Args:
-            config (dict): A dictionary containing the configuration settings for
-                the method detector.
-            io (class): An instance of the IO class for input-output operations.
-            data (class): An instance of the Data class for accessing data.
+        Initialize the XGaze method detector.
         """
-        logging.info(f"Prepare Inference for '{self.algorithm}' and " f"components {self.components}.")
-
-        # (1) Call the base class constructor (with updated config including keypoints)
-        super().__init__(config, io, data, requires_out_folder=config["visualize"])
-
-        # (2) Specific data and config initializations
-        self.camera_names = config["camera_names"]
-        self.cam_sees_subjects = config["cam_sees_subjects"]
-        self.video_start = data.video_start
-
-        self.result_folders = config["result_folders"][self.components[0]]
-        self.alg_out_folder = config["out_folder"]
-
-        self.filtered = config["filtered"]
+        # (1) Convenience reference
+        self.video_start = self.data.video_start
+        self.calibration = self.data.calibration
+        self.subjects_descr = self.data.subjects_descr
+        self.cam_sees_subjects = self.data.cam_sees_subjects
+        self.results_folder = self.result_folders[self.components[0]]
+        self.viz_folder = self.viz_folder
+        self.camera_names = self.static_config.camera_names
+        self.filtered = self.static_config.filtered
         if self.filtered:
-            self.filter_window_length = config["window_length"]
-            self.filter_polyorder = config["polyorder"]
-        self.calibration = config["calibration"]
+            self.filter_window_length = self.static_config.window_length
+            self.filter_polyorder = self.static_config.polyorder
 
-        # (3) Initialise data loader
-        self.dataloader = ImagePathsByFrameIndexLoader(config=config, expected_cameras=self.camera_names)
+        # (2) Initialise data loader
+        self.dataloader = ImagePathsByFrameIndexLoader(
+            config=self.data.get_input_recipe(), expected_cameras=self.camera_names
+        )
 
-        logging.info("Inference Preparation completed.\n")
+        return super()._initialize_detector()  # No extras needed -> just call parents function to get common runtime
 
     def post_inference(self):
         """
@@ -84,7 +74,7 @@ class MultiviewEthXgaze(BaseDetector):
         This method is called after the inference step and is used for any
         post-processing tasks that need to be performed.
         """
-        prediction_file = os.path.join(self.result_folders, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
         try:
             prediction = np.load(prediction_file, allow_pickle=True)
             predictions_dict = {key: prediction[key] for key in prediction.files}
@@ -187,7 +177,7 @@ class MultiviewEthXgaze(BaseDetector):
         """
         n_subj = len(self.subjects_descr)
 
-        prediction_file = os.path.join(self.result_folders, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
         try:
             predictions = np.load(prediction_file, allow_pickle=True)
         except FileNotFoundError:
@@ -250,7 +240,7 @@ class MultiviewEthXgaze(BaseDetector):
             success *= vd.frames_to_video(
                 os.path.join(self.viz_folder, camera_name),
                 os.path.join(self.viz_folder, f"{camera_name}.mp4"),
-                fps=data.fps,
+                fps=self.data.fps,
                 start_frame=int(self.video_start),
             )
 

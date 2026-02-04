@@ -5,6 +5,7 @@ Helper functions for logging.
 import logging
 import os
 import sys
+from pathlib import Path
 
 from .config import config_fill_auto, save_config
 
@@ -47,7 +48,7 @@ def log_configs(configs: dict, out_folder: str, file_name: str = "log_config") -
     save_config(configs, config_log_file)
 
 
-def setup_logging(log_path: str, level=logging.DEBUG) -> None:
+def setup_logging(log_path: Path, level: int | str = logging.DEBUG) -> None:
     """
     Start logger.
 

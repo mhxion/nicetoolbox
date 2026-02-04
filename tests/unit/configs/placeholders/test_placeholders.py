@@ -2,6 +2,9 @@
 Unit tests for placeholder resolution.
 """
 
+from pathlib import Path
+from typing import List
+
 from pydantic import BaseModel, Field
 
 from nicetoolbox.configs.placeholders import resolve_placeholders
@@ -364,3 +367,194 @@ def test_resolve_placeholders_pydantic_special_cases():
     config = SimpleConfig(name="MyApp", path="/data")
     result = resolve_placeholders(config, {"unused": "value"})
     assert result.name == "MyApp"
+
+
+def test_resolve_placeholders_pydantic_simple_alias():
+    """Test resolution with a simple field alias."""
+
+    class ConfigWithAlias(BaseModel):
+        results_3d: bool = Field(alias="3d_results")
+        name: str
+
+    config = ConfigWithAlias(**{"3d_results": True, "name": "<app_name>"})
+    result = resolve_placeholders(config, {"app_name": "MyApp"})
+
+    assert isinstance(result, ConfigWithAlias)
+    assert result.results_3d is True
+    assert result.name == "MyApp"
+
+
+def test_resolve_placeholders_pydantic_alias_with_placeholder():
+    """Test resolution when aliased field contains a placeholder."""
+
+    class ConfigWithAlias(BaseModel):
+        output_path: str = Field(alias="output-path")
+        input_path: str = Field(alias="input-path")
+
+    config = ConfigWithAlias(**{"output-path": "<base_dir>/output", "input-path": "<base_dir>/input"})
+    result = resolve_placeholders(config, {"base_dir": "/home/user"})
+
+    assert isinstance(result, ConfigWithAlias)
+    assert result.output_path == "/home/user/output"
+    assert result.input_path == "/home/user/input"
+
+
+def test_resolve_placeholders_pydantic_mixed_alias_and_regular():
+    """Test resolution with both aliased and regular fields."""
+
+    class MixedConfig(BaseModel):
+        regular_field: str
+        aliased_field: str = Field(alias="aliased-field")
+        another_regular: int
+
+    config = MixedConfig(
+        **{
+            "regular_field": "<regular_val>",
+            "aliased-field": "<aliased_val>",
+            "another_regular": 42,
+        }
+    )
+    result = resolve_placeholders(config, {"regular_val": "RegularValue", "aliased_val": "AliasedValue"})
+
+    assert isinstance(result, MixedConfig)
+    assert result.regular_field == "RegularValue"
+    assert result.aliased_field == "AliasedValue"
+    assert result.another_regular == 42
+
+
+def test_resolve_placeholders_pydantic_nested_with_alias():
+    """Test resolution with nested models containing aliases."""
+
+    class InnerConfig(BaseModel):
+        inner_value: str = Field(alias="inner-value")
+
+    class OuterConfig(BaseModel):
+        outer_name: str = Field(alias="outer-name")
+        inner: InnerConfig
+
+    config = OuterConfig(
+        **{
+            "outer-name": "<outer_placeholder>",
+            "inner": {"inner-value": "<inner_placeholder>"},
+        }
+    )
+    result = resolve_placeholders(config, {"outer_placeholder": "OuterResolved", "inner_placeholder": "InnerResolved"})
+
+    assert isinstance(result, OuterConfig)
+    assert result.outer_name == "OuterResolved"
+    assert isinstance(result.inner, InnerConfig)
+    assert result.inner.inner_value == "InnerResolved"
+
+
+def test_resolve_placeholders_pydantic_alias_in_list():
+    """Test resolution with aliased fields in models within a list."""
+
+    class ItemConfig(BaseModel):
+        item_name: str = Field(alias="item-name")
+        item_value: int
+
+    class ContainerConfig(BaseModel):
+        items: List[ItemConfig]
+
+    config = ContainerConfig(
+        items=[
+            ItemConfig(**{"item-name": "<name1>", "item_value": 1}),
+            ItemConfig(**{"item-name": "<name2>", "item_value": 2}),
+        ]
+    )
+    result = resolve_placeholders(config, {"name1": "First", "name2": "Second"})
+
+    assert isinstance(result, ContainerConfig)
+    assert len(result.items) == 2
+    assert result.items[0].item_name == "First"
+    assert result.items[1].item_name == "Second"
+
+
+def test_resolve_placeholders_pydantic_alias_numeric_prefix():
+    """Test resolution with numeric-prefixed aliases (like '3d_results')."""
+
+    class FrameworkConfig(BaseModel):
+        input_data_format: str
+        camera_names: List[str]
+        results_3d: bool = Field(alias="3d_results")
+        device: str
+
+    config = FrameworkConfig(
+        **{
+            "input_data_format": "<format>",
+            "camera_names": ["<cam1>", "<cam2>"],
+            "3d_results": True,
+            "device": "<device>",
+        }
+    )
+    result = resolve_placeholders(
+        config,
+        {"format": "RGB", "cam1": "front", "cam2": "top", "device": "cuda:0"},
+    )
+
+    assert isinstance(result, FrameworkConfig)
+    assert result.input_data_format == "RGB"
+    assert result.camera_names == ["front", "top"]
+    assert result.results_3d is True
+    assert result.device == "cuda:0"
+
+
+def test_resolve_placeholders_pydantic_alias_with_path():
+    """Test resolution with aliased Path fields."""
+
+    class PathConfig(BaseModel):
+        data_dir: Path = Field(alias="data-dir")
+        output_dir: Path = Field(alias="output-dir")
+
+    config = PathConfig(
+        **{
+            "data-dir": Path("<base>/data"),
+            "output-dir": Path("<base>/output"),
+        }
+    )
+    result = resolve_placeholders(config, {"base": "/home/user"})
+
+    assert isinstance(result, PathConfig)
+    assert result.data_dir == Path("/home/user/data")
+    assert result.output_dir == Path("/home/user/output")
+
+
+def test_resolve_placeholders_pydantic_alias_unreachable():
+    """Test resolution with aliased fields containing unreachable placeholders."""
+
+    class ConfigWithAlias(BaseModel):
+        runtime_path: str = Field(alias="runtime-path")
+        static_value: str
+
+    config = ConfigWithAlias(**{"runtime-path": "<runtime_dir>/data", "static_value": "<static_val>"})
+    result = resolve_placeholders(config, {"static_val": "StaticResolved"}, unreachable={"runtime_dir"})
+
+    assert isinstance(result, ConfigWithAlias)
+    assert result.runtime_path == "<runtime_dir>/data"
+    assert result.static_value == "StaticResolved"
+
+
+def test_resolve_placeholders_pydantic_multiple_aliases_same_model():
+    """Test resolution with multiple aliased fields in the same model."""
+
+    class MultiAliasConfig(BaseModel):
+        first_field: str = Field(alias="first-field")
+        second_field: str = Field(alias="second-field")
+        third_field: str = Field(alias="third-field")
+        regular_field: str
+
+    config = MultiAliasConfig(
+        **{
+            "first-field": "<val1>",
+            "second-field": "<val2>",
+            "third-field": "<val3>",
+            "regular_field": "<val4>",
+        }
+    )
+    result = resolve_placeholders(config, {"val1": "V1", "val2": "V2", "val3": "V3", "val4": "V4"})
+
+    assert isinstance(result, MultiAliasConfig)
+    assert result.first_field == "V1"
+    assert result.second_field == "V2"
+    assert result.third_field == "V3"
+    assert result.regular_field == "V4"

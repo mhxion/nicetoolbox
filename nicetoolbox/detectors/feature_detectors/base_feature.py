@@ -1,170 +1,131 @@
 """
-A template class for Detectors.
+Base class for Feature Detectors.
+Feature detectors run computations in-process using method detector outputs.
 """
 
+import logging
 import os
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
+from ...configs.schemas.detectors_algos_configs import FeatureDetectorRuntime
+from ...utils.base_detectors import flatten_inference_config, input_map_to_string_keys
 from ...utils.config import save_config
+from ..base_detector import BaseDetector
 
 
-class BaseFeature(ABC):
+class BaseFeature(BaseDetector):
     """
-    Abstract class to setup and run follow-up computations, called features detectors.
-    Input is always the output of any method detector.
+    Abstract base class for feature detectors.
 
-    Attributes:
-        input_folders (list): A list of input folders.
-        input_files (list): A list of input files.
-        result_folders (dict): A dictionary of result folders.
-        out_folder (str): The output folder.
-        viz_folder (str): The visualization folder.
-        subjects_descr (str): The subjects description.
-        config_path (str): The path to the configuration file.
+    Feature detectors run in-process, computing derived features from
+    method detector outputs.
     """
 
-    def __init__(self, config, io, data, requires_out_folder=True) -> None:
+    def _setup_feature_detector(self, requires_out_folder: bool = True) -> None:
         """
-        Sets up the input and output folders based on the provided configurations
-        and handles any necessary file checks. Input folders contain the the results
-        of the method detectors. Saves a copy of the configuration file for the feature
-        detector.
+        Setup feature detector configuration.
+        """
+        logging.info(
+            f"Initializing feature detector {self.__class__.__name__} for '{self.algorithm}' "
+            f"and components {self.components}."
+        )
+
+        # Build runtime config
+        self.runtime = self._create_runtime(requires_out_folder)
+
+        # Build and validate composed inference config
+        self.inference_config = flatten_inference_config(self.static_config, self.runtime)
+
+        # Save config for reproducibility
+        folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
+        config_path = os.path.join(str(folder), "run_config.toml")
+        save_config(self.inference_config, config_path)
+
+        logging.info(f"Feature detector for component {self.components} and algorithm {self.algorithm} initialized.\n")
+
+    def _create_runtime(self, requires_out_folder: bool) -> FeatureDetectorRuntime:
+        """
+        Create standard feature detector runtime configuration.
+
+        Subclasses MUST override this if they have a specific RuntimeConfig
+        that requires additional extension fields.
+        """
+        visualize = getattr(self.static_config, "visualize", False)
+
+        # Resolve input paths from upstream detectors (tuple keys for internal usage)
+        self.input_map = self._resolve_input_paths()
+        # Convert to string keys for runtime config (TOML serialization)
+        input_map_str = input_map_to_string_keys(self.input_map)
+
+        return FeatureDetectorRuntime(
+            result_folders=self.compute_result_folders(),
+            out_folder=self.compute_output_folder(requires_out_folder),
+            viz_folder=self.compute_viz_folder(visualize),
+            algorithm=self.algorithm,
+            visualize=visualize,
+            subjects_descr=self.data.subjects_descr,
+            input_map=input_map_str,
+        )
+
+    def _build_inference_config(self) -> Dict[str, Any]:
+        """
+        Build flattened config dictionary (Static + Runtime).
+        """
+        config = self.static_config.model_dump(by_alias=True)
+        config.pop("RuntimeConfig", None)
+        # Runtime fields take precedence
+        config.update(self.runtime.model_dump())
+        return config
+
+    def _resolve_input_paths(self) -> Dict[Tuple[str, str], Path]:
+        """
+        Resolve input paths from upstream method detectors.
+
+        Uses input_detector_names from static config to find upstream outputs.
+        """
+        input_map = {}
+        input_detector_names = getattr(self.static_config, "input_detector_names", [])
+
+        for component, algorithm in input_detector_names:
+            input_path = self.io.get_detector_output_folder(component, algorithm, "result")
+            input_map[(component, algorithm)] = input_path / f"{algorithm}.npz"
+
+        return input_map
+
+    def get_input_file(self, component: str, algorithm: str) -> Path:
+        """
+        Get the input file path for a specific upstream detector.
 
         Args:
-            config (dict): The feature-specific configurations dictionary.
-            io (class): A class instance that handles input and output folders.
-            data (class): A class instance that contains the data.
-            requires_out_folder (bool, optional): Whether the output folder is required.
-                Defaults to True.
+            component: Component name (e.g., 'body_joints')
+            algorithm: Algorithm name (e.g., 'hrnetw48')
 
         Returns:
-            None
+            Path to the .npz result file
         """
-        self.config = config
-        self.io = io
-        self.data = data
-        self.requires_out_folder = requires_out_folder
+        return self.input_map[(component, algorithm)]
 
-        # (1) Input folder of the feature is the result folder of detector
-        self.input_map = {}
-        self.input_folders, self.input_files = [], []  # Keep for now for backward compatibility
-        for comp, alg in config["input_detector_names"]:
-            input_folder = io.get_detector_output_folder(comp, alg, "result")
-            input_file = os.path.join(input_folder, f"{alg}.npz")
-            if not os.path.isfile(input_file):
-                raise FileNotFoundError(f"Feature detector {self.components}: File '{input_file}' does " "not exist!")
-            self.input_folders.append(input_folder)
-            self.input_files.append(input_file)
-            self.input_map[(comp, alg)] = input_file
+    # -------------------------------------------------------------------------
+    # BaseDetector Interface Implementation
+    # -------------------------------------------------------------------------
 
-        # (2) output folders
-        self.result_folders = dict(
-            (comp, io.get_detector_output_folder(comp, self.algorithm, "result")) for comp in self.components
-        )
-        main_component = self.components[0]
-        if requires_out_folder:
-            self.out_folder = io.get_detector_output_folder(main_component, self.algorithm, "output")
-        if config["visualize"]:
-            self.viz_folder = io.get_detector_output_folder(main_component, self.algorithm, "visualization")
-
-        self.subjects_descr = data.subjects_descr
-
-        # (3) save this feature config
-        self.config_path = os.path.join(
-            io.get_detector_output_folder(main_component, self.algorithm, "run_config"),
-            "run_config.toml",
-        )
-        save_config(config, self.config_path)
-
-    def __str__(self):
+    def run(self) -> Any:
         """
-        Returns a description of the feature detector for printing.
+        Execute feature detector: compute() + post_compute().
+
+        Returns computed data for visualization.
+        """
+        data = self.compute()
+        return data
+
+    @abstractmethod
+    def compute(self) -> Any:
+        """
+        Compute the feature from method detector outputs.
 
         Returns:
-            str: A string representation of the feature detector, including its
-                components, and the associated algorithm.
-        """
-        return (f"Instance of component {self.components} \n\t" f"algorithm = {self.algorithm} \n\t " f"\n\t").join(
-            [f"{attr} = {value}" for (attr, value) in self.__dict__.items()]
-        )
-
-    @abstractmethod
-    def compute(self):
-        """
-        Compute the components associated to the given feature detector.
-
-        This method is responsible for performing the main computation logic of the
-        feature detector. It should take the method detector output as input, process
-        it, and generate the desired components.
-        """
-        pass
-
-    @abstractmethod
-    def post_compute(self):
-        """
-        Post-processing after computation.
-
-        This method is intended to perform any necessary post-processing tasks
-        after the main computation method (compute) has been executed. It is
-        designed to be overridden in derived classes to provide specific
-        post-processing logic.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def components(self):
-        """
-        Abstract property that returns the components of the feature.
-
-        This property should be implemented in the derived classes to specify the
-        components that the feature detector is associated with.
-
-        Returns:
-            list: A list of strings representing the components associated with the
-                feature detector.
-
-        Raises:
-            NotImplementedError: If the property is not set in the derived classes.
-        """
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def algorithm(self):
-        """
-        Abstract property that returns the algorithm of the feature detector.
-
-        This property should be implemented in the derived classes to specify the
-        algorithm that the feature detector is associated with.
-
-        Returns:
-            str: A string representing the algorithm associated with the feature
-                detector.
-
-        Raises:
-            NotImplementedError: If the property is not set in the derived classes.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def visualization(self, data):
-        """
-        Abstract method to visualize the output of the method, preferably as a video.
-
-        This method is intended to generate a visual representation of the feature
-        detector's output. The visualization should be saved in the self.viz_folder.
-
-        Args:
-            data (any): The data to be visualized. The type and content of this
-                parameter depend on the specific implementation of the feature detector.
-
-        Returns:
-            None: This method does not return any value. However, it should save the
-                visualization in the self.viz_folder.
-
-        Raises:
-            NotImplementedError: If this method is not implemented in the derived
-                classes.
+            Computed feature data (passed to visualization and post_compute)
         """
         pass

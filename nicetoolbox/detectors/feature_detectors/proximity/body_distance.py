@@ -7,8 +7,6 @@ import os
 
 import numpy as np
 
-from ....configs.config_handler import load_config, load_validated_config_raw
-from ....configs.schemas.predictions_mapping import PredictionsMappingConfig
 from ..base_feature import BaseFeature
 from . import utils as pro_utils
 
@@ -20,32 +18,12 @@ class BodyDistance(BaseFeature):
     The BodyDistance feature detector calculates the Euclidean distance between
     keypoints of different individuals in the scene, essentially determining the
     proximity between individuals from one frame to the next.
-
-    Component: proximity
-
-    Attributes:
-        components (list): A list containing the name of the component this class is
-            responsible for: proximity.
-        algorithm (str): The name of the algorithm used to compute the proximity
-            component.
-            body_distance: the Euclidean distance between individuals in the scene
-        valid_run (bool): A boolean value indicating whether the feature detector can
-            run with the given input data.
-        predictions_mapping (dict): A dictionary containing the mapping of body parts
-            to their respective indices, used to identify the keypoints for distance
-            calculation.
-        camera_names (list): A list containing the names of the cameras used to capture
-            the original input data.
-        used_keypoints (list): A list containing the names of the keypoints used for
-            calculating the distance.
-        keypoint_index (list): A list containing the indices of the keypoints used for
-        calculating
     """
 
     components = ["proximity"]
     algorithm = "body_distance"
 
-    def __init__(self, config, io, data):
+    def __init__(self, io, data, runtime_config):
         """Initialize Movement class.
         Setup the BodyDistance feature detector and extract gaze component from method
         detector output.
@@ -60,41 +38,46 @@ class BodyDistance(BaseFeature):
             io (class): A class instance that handles input and output folders.
             data (class): A class instance that stores all input file locations.
         """
-        self.valid_run = True
-        if len(data.subjects_descr) == 1:
-            logging.warning("Feature detector 'proximity' requires data of more than one persons. " "Skipping.")
-            self.valid_run = False
-            return
+        if len(data.subjects_descr) != 2:
+            raise ValueError("Feature detector 'proximity' requires data of 2 persons.")
 
-        super().__init__(config, io, data, requires_out_folder=False)
+        super().__init__(io, data, runtime_config)
 
-        # POSE
-        joints_component, joints_algorithm = [
-            name for name in config["input_detector_names"] if any(["joints" in s for s in name])
-        ][0]
-        pose_config_folder = io.get_detector_output_folder(joints_component, joints_algorithm, "run_config")
-        pose_config = load_config(os.path.join(pose_config_folder, "run_config.toml"))
-        predictions_mapping_config = load_validated_config_raw(
-            "./configs/predictions_mapping.toml", PredictionsMappingConfig
-        )
-        self.predictions_mapping = predictions_mapping_config["human_pose"][pose_config["keypoint_mapping"]]
-        self.camera_names = pose_config["camera_names"]
+        # 1. Setup feature detector (builds runtime, resolves inputs, validates, saves config)
+        self._setup_feature_detector(requires_out_folder=False)
 
-        # # will be used during visualizations
-        # viz_camera_name = config['viz_camera_name'].strip('<').strip('>')
-        # self.frames_data = os.path.join(pose_config['input_data_folder'],
-        # data.camera_mapping[viz_camera_name])
-        # self.frames_data_list = [os.path.join(self.frames_data, f)
-        # for f in sorted(os.listdir(self.frames_data))]
-        self.used_keypoints = config["used_keypoints"]
-        # proximity index
+        # 2. Find the body_joints input from input_map (using tuple keys)
+        joints_key = None
+        for comp, alg in self.input_map:
+            if comp == "body_joints":
+                joints_key = (comp, alg)
+                break
+        if joints_key is None:
+            raise ValueError("No body_joints input found in input_detector_names")
+        joints_component, joints_algorithm = joints_key
+
+        self.input_file = self.get_input_file(joints_component, joints_algorithm)
+
+        # 3. Get upstream detector config to extract keypoint_mapping and camera_names
+        upstream_config = self.runtime_config.get_detector_config(joints_algorithm)
+        keypoint_mapping_name = upstream_config.keypoint_mapping  # e.g., "coco_wholebody"
+        self.camera_names = upstream_config.camera_names  # Cameras used by pose detector
+
+        # 4. Get predictions_mapping from runtime_config (already loaded) for proximity index
+        self.keypoint_mapping = getattr(self.predictions_mapping.human_pose, keypoint_mapping_name)
+
+        self.used_keypoints = self.static_config.used_keypoints
+        keypoints_index = self.keypoint_mapping.keypoints_index.body
         for keypoint in self.used_keypoints:
-            if keypoint not in self.predictions_mapping["keypoints_index"]["body"]:
-                logging.error(f"Given used_keypoint could not find in " f"predictions_mapping {keypoint}")
-        self.keypoint_index = [
-            self.predictions_mapping["keypoints_index"]["body"][keypoint] for keypoint in self.used_keypoints
-        ]
-        logging.info(f"Feature detector for component {self.components} initialized.")
+            if keypoint not in keypoints_index:
+                logging.error(f"Given used_keypoint could not be found in predictions_mapping: {keypoint}")
+
+        self.keypoint_index = [keypoints_index[keypoint] for keypoint in self.used_keypoints]
+
+        # 5. Store config values and convenience references
+        self.subjects_descr = self.runtime.subjects_descr
+        self.result_folders = self.runtime.result_folders
+        self.viz_folder = self.runtime.viz_folder
 
     def compute(self):
         """
@@ -115,10 +98,8 @@ class BodyDistance(BaseFeature):
             (2D and/or 3D).
 
         """
-        if not self.valid_run:
-            return None
 
-        joint_data = np.load(self.input_files[0], allow_pickle=True)
+        joint_data = np.load(self.input_file, allow_pickle=True)
         dimensions = ["2d"]
         if "3d" in joint_data["data_description"].item():
             dimensions.append("3d")
@@ -208,6 +189,3 @@ class BodyDistance(BaseFeature):
                 #         out.write(combined)
                 # out.release()
             logging.info(f"Visualization of feature detector {self.components} completed.")
-
-    def post_compute(self, distance_data):
-        pass

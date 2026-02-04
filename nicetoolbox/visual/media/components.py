@@ -17,8 +17,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import rerun as rr
 
-from ...configs.config_handler import load_validated_config_raw
 from ...configs.schemas.predictions_mapping import PredictionsMappingConfig
+from ...configs.utils import load_validated_config_raw
 
 PREDICTIONS_MAPPING_FILE = "configs/predictions_mapping.toml"
 PREDICTIONS_MAPPING = load_validated_config_raw(PREDICTIONS_MAPPING_FILE, PredictionsMappingConfig)

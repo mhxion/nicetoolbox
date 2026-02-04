@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, PrivateAttr
 
@@ -31,7 +31,7 @@ class DatasetConfig(BaseModel):
     cam_face2: str = ""
 
     subjects_descr: List[str]
-    cam_sees_subjects: Optional[dict] = Field(default_factory=dict)
+    cam_sees_subjects: Optional[Dict[str, List[int]]] = Field(default_factory=dict)
 
     data_input_folder: Path
     path_to_calibrations: Optional[Path] = None

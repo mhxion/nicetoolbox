@@ -7,8 +7,6 @@ import os
 
 import numpy as np
 
-from ....configs.config_handler import load_config, load_validated_config_raw
-from ....configs.schemas.predictions_mapping import PredictionsMappingConfig
 from ....utils import check_and_exception as check
 from ..base_feature import BaseFeature
 from . import utils as kinematics_utils
@@ -19,40 +17,18 @@ class VelocityBody(BaseFeature):
     The VelocityBody class is a feature detector that computes the kinematics component.
 
     The VelocityBody feature detector accepts the human_pose component (body_joints) as
-    itsprimary input, which is computed using the human_pose method detector. The
+    its primary input, which is computed using the human_pose method detector. The
     kinematics component of this feature detector calculates the Euclidean distance
     between adjacent frames, essentially determining the velocity of body movement from
     one frame to the next.
-
-    Component: kinematics
-
-    Attributes:
-        components (list): A list containing the name of the component this class is
-        responsible for:
-            kinematics:
-        algorithm (str): The name of the algorithm used to compute the kinematics
-            component.
-            velocity_body: the velocity of body movement from one frame to the next
-        predictions_mapping (dict): A dictionary containing the mapping of body parts
-            to their respective indices.
-        camera_names (list): A list containing the names of the cameras used to capture
-            the original input data.
-        bodyparts_list (list): A list containing the names of the body parts.
-        fps (int): The frames per second of the input data.
     """
 
     components = ["kinematics"]
     algorithm = "velocity_body"
 
-    def __init__(self, config, io, data):
+    def __init__(self, io, data, runtime_config):
         """
         Setup input/output folders and data for the Kinematics feature detector.
-
-        This method initializes the Kinematics class by setting up the necessary
-        configurations, input/output handler, and data. It also extracts the
-        body_joints component and algorithm from the configuration and prepares the
-        list of body parts. It supports handling of multiple cameras by loading the
-        camera names from the pose configuration.
 
         Args:
             config (dict): The configuration settings for the feature detector. It
@@ -64,32 +40,38 @@ class VelocityBody(BaseFeature):
             data (object): The data object containing the input data. It should have
                 an attribute 'fps' which represents the frames per second of the input
                 data.
-
         """
-        super().__init__(config, io, data, requires_out_folder=False)
+        # 1. Call parent init
+        super().__init__(io, data, runtime_config)
 
-        joints_component, joints_algorithm = [
-            name for name in config["input_detector_names"] if any(["joints" in s for s in name])
-        ][0]
-        pose_config_folder = io.get_detector_output_folder(joints_component, joints_algorithm, "run_config")
-        pose_config = load_config(os.path.join(pose_config_folder, "run_config.toml"))
-        predictions_mapping_config = load_validated_config_raw(
-            "./configs/predictions_mapping.toml", PredictionsMappingConfig
-        )
-        self.predictions_mapping = predictions_mapping_config["human_pose"][pose_config["keypoint_mapping"]]
+        # 2. Setup feature detector (builds runtime, resolves inputs, validates)
+        self._setup_feature_detector(requires_out_folder=False)
 
-        self.camera_names = pose_config["camera_names"]
-        self.bodyparts_list = list(self.predictions_mapping["bodypart_index"].keys())
+        # 3. Find the body_joints input from input_map (using tuple keys)
+        input_key = None
+        for comp, alg in self.input_map:
+            if comp == "body_joints":
+                input_key = (comp, alg)
+                break
+        if input_key is None:
+            raise ValueError("No body_joints input found in input_detector_names")
+
+        self.input_file = self.get_input_file(*input_key)
+
+        # 4. Get upstream detector config
+        upstream_config = self.runtime_config.get_detector_config(input_key[1])
+        keypoints_mapping_name = upstream_config.keypoint_mapping  # e.g. coco_wholebody
+        self.camera_names = upstream_config.camera_names  # Same cameras used by pose algorithm
+
+        # 5. Get predictions mapping from runtime_config (already loaded and validated)
+        self.keypoints_mapping = getattr(self.predictions_mapping.human_pose, keypoints_mapping_name)
+        self.bodyparts_list = list(self.keypoints_mapping.bodypart_index.model_dump().keys())
+
+        # 6. Store other convenience references
         self.fps = data.fps
-
-        # # will be used during visualizations
-        # viz_camera_name = config['viz_camera_name'].strip('<').strip('>')
-        # self.frames_data = os.path.join(pose_config['input_data_folder'],
-        #   data.camera_mapping[viz_camera_name])
-        # self.frames_data_list = [os.path.join(self.frames_data, f)
-        #    for f in sorted(os.listdir(self.frames_data))]
-
-        logging.info(f"Feature detector {self.components} {self.algorithm} initialized.")
+        self.subjects_descr = self.runtime.subjects_descr
+        self.result_folders = self.runtime.result_folders
+        self.viz_folder = self.runtime.viz_folder
 
     def compute(self):
         """
@@ -118,7 +100,7 @@ class VelocityBody(BaseFeature):
             out_dict (dict): A dictionary containing the above mentioned parts of the
                 kinematics component.
         """
-        joint_data = np.load(self.input_files[0], allow_pickle=True)
+        joint_data = np.load(self.input_file, allow_pickle=True)
         dimensions = ["2d"]
         if "3d" in joint_data["data_description"].item():
             dimensions.append("3d")
@@ -227,7 +209,7 @@ class VelocityBody(BaseFeature):
 
         for dim, velocity_body in data.items():
             # Calculate sum of movement per bodypart
-            motion_per_bodypart = self.post_compute(velocity_body)
+            motion_per_bodypart = self._calculate_bodypart_motion(velocity_body)
 
             # Determine global_min and global_max - define y-lims of graphs
             # global_min = np.nanmin(motion_per_bodypart) - 0.05
@@ -246,7 +228,7 @@ class VelocityBody(BaseFeature):
 
         logging.info(f"Visualization of feature detector {self.components} completed.")
 
-    def post_compute(self, motion_velocity):
+    def _calculate_bodypart_motion(self, motion_velocity):
         """
         Calculates the sum of movement per body part.
 
@@ -268,7 +250,10 @@ class VelocityBody(BaseFeature):
                 sum of movement per body part.
         """
         bodypart_motion = []
-        for joint_indices in self.predictions_mapping["bodypart_index"].values():
+        bodypart_index = self.keypoints_mapping.bodypart_index
+
+        for bodypart_name in self.bodyparts_list:
+            joint_indices = getattr(bodypart_index, bodypart_name)
             bodypart_motion.append(np.nanmean(motion_velocity[:, :, :, joint_indices, :], axis=-2))
 
         bodypart_motion = np.concatenate(bodypart_motion, axis=-1)

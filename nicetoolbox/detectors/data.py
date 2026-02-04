@@ -10,9 +10,10 @@ from pathlib import Path
 
 import numpy as np
 
+from ..configs.video_runtime_config import VideoRuntimeConfig
 from ..utils import check_and_exception as exc
 from ..utils import video as vid
-from .in_out import IO
+from .in_out import VideoIO
 
 
 class Data:
@@ -22,19 +23,15 @@ class Data:
 
     def __init__(
         self,
-        config: dict,  # TODO: pydantic model?
-        io: IO,
-        data_formats: list[str],
-        all_camera_names: list[str],
-        all_dataset_names: list[str],
+        config: VideoRuntimeConfig,
+        io: VideoIO,
     ) -> None:
         """
         Initialize the Data class.
 
         Args:
-            config (dict): The configuration dictionary.
+            config (VideoRuntimeConfig): The runtime config containing all relevant fields.
             io (IO): The IO object for file and folder operations.
-            data_formats (list): The list of data formats required.
             all_camera_names (list): The list of all camera names.
 
         Returns:
@@ -42,30 +39,34 @@ class Data:
         """
         logging.info("Start DATA PREPARATION.")
 
-        self.io: IO = io
-        self.data_formats = data_formats  # currently ['frames'] for all detectors
-        self.all_camera_names = all_camera_names
-        self.all_dataset_names = all_dataset_names
+        self.io: VideoIO = io
 
         # --- Path Definitions ---
         self.input_folder = io.get_nice_input_folder()  # nicetoolbox_input (frames)
         self.source_folder = io.get_data_source_folder()  # original folder (vids)
 
         # --- Config Parameters ---
-        self.dataset_name = config["dataset_name"]
-        self.session_ID = config["session_ID"]
-        self.sequence_ID = config["sequence_ID"]
+        self.dataset_name = config.dataset_name
+        self.session_ID = config.video_config.session_ID
+        self.sequence_ID = config.video_config.sequence_ID
 
-        self.start_frame_index: int = config["start_frame_index"]
-        self.video_start = config["video_start"]
-        self.video_length_config = config["video_length"]  # Can be -1 for full length
+        self.start_frame_index: int = config.dataset_properties.start_frame_index
+        self.video_start = config.video_config.video_start
+        self.video_length_config = config.video_config.video_length  # Can be -1 for full length
 
         self.video_skip_frames = None  # Hardcoded - No access via config yet
         self.annotation_interval = 2.0  # Keep? Hardcoded - No access via config yet
-        self.subjects_descr = config["subjects_descr"]
-        self.camera_mapping = dict((key, config[key]) for key in config if "cam_" in key)
+        self.subjects_descr = config.subjects_descr
+        self.camera_mapping = {
+            "cam_front": config.dataset_properties.cam_front,
+            "cam_face1": config.dataset_properties.cam_face1,
+            "cam_face2": config.dataset_properties.cam_face2,
+            "cam_top": config.dataset_properties.cam_top,
+        }
+        self.cam_sees_subjects = config.dataset_properties.cam_sees_subjects
+        self.all_camera_names = config.all_camera_names
 
-        self.filename_template = config.get("filename_template", "{idx:09d}.png")
+        self.filename_template = getattr(config.dataset_properties, "filename_template", "{idx:09d}.png")
 
         # --- Data Preparation Steps ---
 
@@ -74,7 +75,7 @@ class Data:
         self.video_sample_path: Path = self._get_example_video_path()
 
         # 2. Validate fps and video length given an example video file
-        self.fps: int = self._get_fps_validated(config["fps"])
+        self.fps: int = self._get_fps_validated(config.fps)
         self.video_length = self._resolve_video_length()
 
         # 3. Check and create input data if necessary
@@ -299,15 +300,14 @@ class Data:
             input_folder = os.path.join(self.input_folder, camera_name)
             os.makedirs(input_folder, exist_ok=True)
 
-            if "frames" in self.data_formats:
-                os.makedirs(os.path.join(input_folder, "frames"), exist_ok=True)
-                vid.split_into_frames(
-                    video_file,
-                    os.path.join(input_folder, "frames/"),
-                    video_info.frames,
-                    start_frame=self.start_frame_index,
-                    keep_indices=True,
-                )
+            os.makedirs(os.path.join(input_folder, "frames"), exist_ok=True)
+            vid.split_into_frames(
+                video_file,
+                os.path.join(input_folder, "frames/"),
+                video_info.frames,
+                start_frame=self.start_frame_index,
+                keep_indices=True,
+            )
 
     def _load_calibration(self) -> dict | None:
         """

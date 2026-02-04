@@ -14,6 +14,7 @@ log_frame_idx_interval = 200
 filtered = true
 window_length = 11
 polyorder = 2
+visualize = true
 
 # body_joints, hand_joints, face_landmarks
 [frameworks.mmpose]
@@ -28,6 +29,7 @@ filtered = true
 window_length = 11
 polyorder = 2
 3d_results = true
+visualize = true
 
 [algorithms.hrnetw48]
 framework = "mmpose"
@@ -50,16 +52,19 @@ min_detection_confidence = 0.5
 # kinematics
 [algorithms.velocity_body]
 input_detector_names = [["body_joints", "hrnetw48"]]
+visualize = true
 
 # proximity
 [algorithms.body_distance]
 used_keypoints = ["nose"]  # if the list is more than one keypoint, the midpoint
 input_detector_names = [["body_joints", "hrnetw48"]]
+visualize = true
 
 # leaning
 [algorithms.body_angle]
 used_keypoints = [["left_shoulder", "right_shoulder"], ["left_hip", "right_hip"], ["left_knee", "right_knee"]]
 input_detector_names = [["body_joints", "hrnetw48"]]
+visualize = true
 
 # gaze_interaction
 [algorithms.gaze_distance]
@@ -67,6 +72,7 @@ input_detector_names = [["body_joints", "hrnetw48"]]
 input_detector_names = [["gaze_individual", "multiview_eth_xgaze"], ["face_landmarks", "hrnetw48"]]
 keypoint_mapping = "coco_wholebody"
 threshold_look_at = 0.4
+visualize = true
 
 [algorithms.gaze_fusion]
 input_detector_names = [["gaze_individual", "multiview_eth_xgaze"]]
@@ -76,6 +82,7 @@ window_length = 11
 polyorder = 2
 ensemble_enabled = true
 # ensemble_weights = [0.5, 0.5]  # TODO should we add this?
+visualize = true
 
 # emotion_individual
 [algorithms.py_feat]
@@ -86,6 +93,7 @@ log_frame_idx_interval = 200
 # For batch_size, ensure:
 # [(batch_size) * (~Size of one frame (GB))] < Available vRAM (RAM) (GB)
 batch_size = 512
+visualize = true
 
 # head_orientation
 [algorithms.spiga]
@@ -94,6 +102,7 @@ camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam
 env_name = "venv:spiga"
 log_frame_idx_interval = 200
 batch_size = 32
+visualize = true
 # Choose the SPIGA model configuration:
 # "wflw" — Wider Facial Landmarks in-the-Wild (98 landmarks)
 # "300w" — 300-W dataset (68 landmarks)
