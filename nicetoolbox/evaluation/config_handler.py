@@ -16,7 +16,7 @@ from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..configs.utils import (
     default_auto_placeholders,
     default_runtime_placeholders,
-    get_latest_expirement_config_path,
+    get_latest_experiment_config_path,
     model_to_dict,
 )
 from ..utils.logging_utils import log_configs
@@ -66,7 +66,7 @@ class ConfigHandler:
         # Load the latest run configuration from the experiment folder
         # It contains the run_config and dataset_properties
         experiment_folder = self.io_config.experiment_folder
-        experiment_cfg_path = get_latest_expirement_config_path(experiment_folder)
+        experiment_cfg_path = get_latest_experiment_config_path(experiment_folder)
         logging.info(f"Loading latest experiment run configuration from: {experiment_cfg_path}")
         self.experiment_config = self.cfg_loader.load_config(
             str(experiment_cfg_path),

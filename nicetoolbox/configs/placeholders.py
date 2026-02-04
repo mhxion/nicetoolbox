@@ -1,7 +1,8 @@
 import re
+from pathlib import PurePath
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from .utils import keys_collision_dict, model_to_dict
 
@@ -219,6 +220,7 @@ def resolve_placeholders(
         KeyError: If there's a field name collision between input dict and placeholders
             dict when processing inputs.
     """
+    # CASE 1 - DICT
     if isinstance(input, dict):
         new_placeholders = dict(placeholders)
         # resolve placeholders on a local level
@@ -232,19 +234,52 @@ def resolve_placeholders(
             for k, v in result.items()
         }
 
+    # CASE 2 - LIST
     if isinstance(input, list):
         return [resolve_placeholders(item, placeholders, unreachable) for item in input]
 
     # TODO: support for sets and tuples?
 
-    # for pydantic models: convert them to dict, recursively resolve it and convert back
-    # we do it with validation in case of custom post-validation hooks
+    # CASE 3 - Pydantic BaseModel
+    # Note 1: BaseModel.__iter__() yields (field_name, field_value) tuples for all fields.
+    # This preserves nested BaseModel types in dicts (e.g., Dict[str, SpigaConfig]
+    # stays as Dict[str, SpigaConfig], not Dict[str, dict]).
+    # Note 2: We must handle field aliases. When a field has an alias (e.g.,
+    # `results_3d: bool = Field(alias="3d_results")`), iteration yields the
+    # Python name ("results_3d"), but model_validate expects the alias ("3d_results").
+    # We use model_fields to look up the alias for each field.
     if isinstance(input, BaseModel):
-        input_dict = model_to_dict(input)
-        processed_dict = resolve_placeholders(input_dict, placeholders, unreachable)
-        return type(input).model_validate(processed_dict)
+        # RootModel wraps a single 'root' field (We have this in DatasetProperties, it wraps a single dict)
+        # For this special case, the below loop over field_name and field_value won't work,
+        # so we handle it separately here.
+        if isinstance(input, RootModel):
+            resolved_root = resolve_placeholders(input.root, placeholders, unreachable)
+            return type(input).model_validate(resolved_root)
 
-    # finally strings are just properly resolved
+        resolved_fields = {}
+        model_fields = type(input).model_fields
+        for field_name, field_value in input:
+            resolved_value = resolve_placeholders(field_value, placeholders, unreachable)
+
+            # Use alias if defined, otherwise use the field name
+            field_info = model_fields.get(field_name)
+            if field_info and field_info.alias:
+                key = field_info.alias
+            else:
+                key = field_name
+
+            resolved_fields[key] = resolved_value
+
+        return type(input).model_validate(resolved_fields)
+
+    # CASE 4 - PATH
+    # Path objects contain string paths that may have placeholders.
+    # Convert to string, resolve, and convert back to the same Path type.
+    if isinstance(input, PurePath):
+        resolved_str = resolve_placeholders_str_strict(str(input), placeholders, unreachable)
+        return type(input)(resolved_str)
+
+    # CASE 5 - STR
     if isinstance(input, str):
         return resolve_placeholders_str_strict(input, placeholders, unreachable)
 

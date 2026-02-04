@@ -10,11 +10,10 @@ import numpy as np
 
 from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 
-from ....configs.config_handler import load_validated_config_raw
-from ....configs.schemas.predictions_mapping import PredictionsMappingConfig
+from ....configs.schemas.detectors_algos_configs import SpigaConfig
 from ....utils import video as vd
 from ... import config_handler as confh
-from ..base_detector import BaseDetector
+from ..base_method import BaseMethod
 
 
 def extract_key_per_value(input_dict):
@@ -63,7 +62,7 @@ def return_direction_vector(rotation_matrix, axis):
     return direction_2D[:2].flatten()
 
 
-class Spiga(BaseDetector):
+class Spiga(BaseMethod):
     """
     SPIGA is a method detector that computes the head_orientation component.
 
@@ -78,36 +77,35 @@ class Spiga(BaseDetector):
     components = ["head_orientation"]
     algorithm = "spiga"
 
-    def __init__(self, config, io, data) -> None:
+    def _initialize_detector(self) -> SpigaConfig.RuntimeConfig:
         """
-        Initialize the SPIGA method detector with all inference preparation.
-
-        Args:
-            config (dict): Configuration settings for SPIGA.
-            io (class): IO class instance for input/output operations.
-            data (class): Data class instance for frame and subject data.
+        Initializes the Spiga class with extra configuration settings.
         """
-        logging.info(f"Prepare Inference for '{self.algorithm}' and component {self.components}.")
+        # === (1) Store convenience references for this class ===
+        self.video_start = self.data.video_start
+        self.subjects_descr = self.data.subjects_descr
+        self.cam_sees_subjects = self.data.cam_sees_subjects
+        self.results_folder = self.result_folders[self.components[0]]
+        self.viz_folder = self.viz_folder
+        self.camera_names = self.static_config.camera_names
 
-        # (1) Get keypoint indices and add to config
-        predictions_mapping = load_validated_config_raw("./configs/predictions_mapping.toml", PredictionsMappingConfig)
-        self.keypoints_indices = predictions_mapping[self.components[0]][self.algorithm]["keypoints_index"]
-        config["face_landmarks_description"] = confh.flatten_list(extract_key_per_value(self.keypoints_indices["face"]))
+        self.keypoints_indices = self.predictions_mapping.head_orientation.spiga.keypoints_index
 
-        # (2) Call the base class constructor (with updated config including keypoints)
-        super().__init__(config, io, data, requires_out_folder=config["visualize"])
+        # Initialise data loader
+        self.dataloader = ImagePathsByFrameIndexLoader(
+            config=self.data.get_input_recipe(), expected_cameras=self.camera_names
+        )
+        # === (2) EXTRA FIELDS for Spiga ===
+        self._face_landmarks_description = confh.flatten_list(extract_key_per_value(self.keypoints_indices.face))
 
-        # (3) Specific data config initializations
-        self.video_start = data.video_start
+        # Call BaseMethod _initialize_detector() to build runtime + add extra fields
+        base_runtime = super()._initialize_detector()
 
-        self.camera_names = config["camera_names"]
-        self.cam_sees_subjects = config["cam_sees_subjects"]
-        self.results_folder = config["result_folders"][self.components[0]]
-
-        # (4) Initialise data loader
-        self.dataloader = ImagePathsByFrameIndexLoader(config=config, expected_cameras=self.camera_names)
-
-        logging.info("Inference Preparation completed.\n")
+        # Return extended runtime with Spiga-specific fields
+        return SpigaConfig.RuntimeConfig(
+            **base_runtime.model_dump(),
+            face_landmarks_description=self._face_landmarks_description,
+        )
 
     def post_inference(self):
         """
@@ -139,7 +137,7 @@ class Spiga(BaseDetector):
                     rotation_matrix = self._euler_to_rotation_matrix(euler_yzx)
 
                     # 2D nose projection
-                    nose_down = self.keypoints_indices["face"]["nose_down"]
+                    nose_down = self.keypoints_indices.face["nose_down"]
                     # select middle point of nose_down landmarks
                     nose_down_index = nose_down[int(len(nose_down) / 2)]
                     nose_org = np.array(
@@ -194,6 +192,8 @@ class Spiga(BaseDetector):
         logging.info("SPIGA post-processing result saved successfully.")
 
     def visualization(self, data):
+        _data = data  # TODO Remove argument!
+
         n_subj = len(self.subjects_descr)
 
         prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
@@ -237,7 +237,7 @@ class Spiga(BaseDetector):
             success *= vd.frames_to_video(
                 os.path.join(self.viz_folder, camera_name),
                 os.path.join(self.viz_folder, f"{camera_name}.mp4"),
-                fps=data.fps,
+                fps=self.data.fps,
                 start_frame=int(self.video_start),
             )
 

@@ -2,9 +2,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from .config_handler import ModelT, load_config
 from .placeholders import PLACEHOLDERS_TYPE, resolve_placeholders
-from .utils import dict_to_model, merge_dicts, model_to_dict
+from .utils import ModelT, dict_to_model, load_raw_config, merge_dicts, model_to_dict
 
 
 class ConfigLoader:
@@ -58,7 +57,7 @@ class ConfigLoader:
             ConfigValidationError: If the resolved configuration fails
                 schema validation).
         """
-        cfg_raw = load_config(path)
+        cfg_raw = load_raw_config(path)
         cfg_raw_resolved = self.resolve(cfg_raw, None, ignore_auto_and_global)
         cfg = dict_to_model(cfg_raw_resolved, schema)
         return cfg

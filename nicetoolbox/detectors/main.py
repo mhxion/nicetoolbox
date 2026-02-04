@@ -9,32 +9,33 @@ import time
 
 from nicetoolbox_core.errors import ErrorLevel
 
+from ..configs.schemas.detectors_run_file import LoggingLevelEnum
 from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
 from ..utils.error_handling import manage_error_scope
 from . import config_handler as confh
 from .data import Data
+from .feature_detectors.base_feature import BaseFeature
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
 from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.leaning.body_angle import BodyAngle
 from .feature_detectors.proximity.body_distance import BodyDistance
-from .in_out import IO
+from .in_out import VideoIO
+from .method_detectors.base_method import BaseMethod
 from .method_detectors.body_joints.mmpose_framework import HRNetw48, VitPose
 from .method_detectors.emotion_individual.py_feat import PyFeat
 from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
 from .method_detectors.head_orientation.spiga_detector import Spiga
 
-all_method_detectors = dict(
+ALL_DETECTORS = dict(
+    # method detectors
     multiview_eth_xgaze=MultiviewEthXgaze,
     hrnetw48=HRNetw48,
     vitpose=VitPose,
     py_feat=PyFeat,
     spiga=Spiga,
-)
-
-
-all_feature_detectors = dict(
+    # feature detectors
     velocity_body=VelocityBody,
     body_distance=BodyDistance,
     gaze_distance=GazeDistance,
@@ -45,95 +46,78 @@ all_feature_detectors = dict(
 
 def main(run_config_file, machine_specifics_file):
     """
-    The main function of the NICE Toolbox.
+    Main entry point for the NICE Toolbox detectors pipeline.
 
     Args:
         run_config_file (str): The path to the run configuration file.
         detector_config_file (str): The path to the detector configuration file.
         machine_specifics_file (str): The path to the machine specifics file.
-
-    This function is the entry point of the NICE toolbox. It performs the following
-    steps:
-
-    1. Initializes the configuration handler with the provided configuration files.
-    2. Initializes the IO module with the IO configuration from the configuration
-        handler.
-    3. Sets up logging and logs the start of the NICE toolbox.
-    4. Checks the configuration consistency and saves the experiment configuration.
-    5. Runs the datasets specified in the configuration.
-    6. For each dataset, initializes the IO module and prepares the data.
-    7. Runs the method detectors specified in the configuration for each dataset.
-    8. Runs the feature extraction pipeline specified in the configuration for each
-        dataset.
     """
-    # CONFIG I
-    config_handler = confh.Configuration(run_config_file, machine_specifics_file)
+    # ==================================
+    # PHASE 1: Load Static Configuration
+    # ==================================
+    config = confh.Configuration(run_config_file, machine_specifics_file)
 
-    # IO
-    io = IO(config_handler.get_io_config())
+    error_level = ErrorLevel(config.error_level)
+    log_level = LoggingLevelEnum(config.log_level)
 
-    # LOGGING
-    log_ut.setup_logging(*io.get_log_file_level())
-    logging.info(f"\n{'#' * 80}\n\nNICE TOOLBOX STARTED. Saving results to " f"'{io.out_folder}'.\n\n{'#' * 80}\n\n")
+    main_output_folder = config.run_config.io.out_folder
+    main_output_folder.mkdir(parents=True, exist_ok=True)
 
-    # Save experiment configs
-    config_handler.save_experiment_config(io.get_config_file())
+    log_file = main_output_folder / "nicetoolbox.log"
+    log_ut.setup_logging(log_file, log_level.name)
+    logging.info(
+        f"\n{'#' * 80}\n\nNICE TOOLBOX STARTED. Saving results to " f"'{main_output_folder}'.\n\n{'#' * 80}\n\n"
+    )
+    config.save_experiment_config(main_output_folder)
 
-    # Error handling level
-    error_level = ErrorLevel(config_handler.run_config["error_level"])
+    all_algorithms = config.get_all_detector_names()
 
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # RUNNING
-    for video_config, component_dict in config_handler.get_video_and_comps_configs():
+    # ========================
+    # PHASE 2: Process Videos
+    # ========================
+    for runtime_config in config.iter_video_contexts():  # for each video
         with manage_error_scope(error_level, ErrorLevel.VIDEO, "video processing"):
+            # Video loop started
             logging.info(
-                f"\n{'=' * 80}\nRUNNING dataset {video_config['dataset_name']} and "
-                f"{video_config['session_ID']}.\n{'=' * 80}\n\n"
-            )
-            algorithm_names = list(set(confh.flatten_list(list(component_dict.values()))))
-            method_names = [alg for alg in algorithm_names if alg in all_method_detectors]
-            feature_names = [alg for alg in algorithm_names if alg in all_feature_detectors]
-
-            # IO
-            io.initialization(video_config, config_handler.get_all_detector_names())
-
-            # DATA preparation
-            data = Data(
-                video_config,
-                io,
-                config_handler.get_all_input_data_formats(algorithm_names),
-                config_handler.get_all_camera_names(algorithm_names),
-                config_handler.get_all_dataset_names(),
+                f"\n{'=' * 80}\nRUNNING dataset {runtime_config.dataset_name} and "
+                f"{runtime_config.video_config.session_ID}.\n{'=' * 80}\n\n"
             )
 
-            # RUN method detectors
-            for method_config, method_name in config_handler.get_method_configs(method_names):
-                with manage_error_scope(error_level, ErrorLevel.DETECTOR, method_name):
-                    start_time = time.time()
-                    logging.info(f"STARTING method '{method_name}'.\n{'-' * 80}")
-                    detector = all_method_detectors[method_name](method_config, io, data)
-                    detector.run_inference()
-                    if method_config["visualize"]:
-                        detector.visualization(data)
-                    logging.info(f"FINISHED method '{method_name}' in {time.time() - start_time}s.\n\n")
+            # Create IO and Data from runtime config for the current video
+            io = VideoIO(runtime_config, all_algorithms)
+            data = Data(runtime_config, io)
 
-            # RUN feature detectors
-            for feature_config, feature_name in config_handler.get_feature_configs(feature_names):
-                with manage_error_scope(error_level, ErrorLevel.DETECTOR, feature_name):
-                    start_time = time.time()
-                    logging.info(f"STARTING feature '{feature_name}'.\n{'-' * 80}")
-                    feature = all_feature_detectors[feature_name](feature_config, io, data)
-                    feature_data = feature.compute()
-                    if feature_config["visualize"]:
-                        feature.visualization(feature_data)
-                    logging.info(f"FINISHED feature '{feature_name}' in {time.time() - start_time}s.\n\n")
+            # Algorithms based on user-selected components
+            selected_algorithms = runtime_config.all_selected_algorithms
+            method_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseMethod)]
+            feature_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseFeature)]
+            ordered_detectors = method_names + feature_names
 
-            # convert results
-            logging.info(f"Detectors finished.\n{'-' * 80}")
-            if config_handler.save_csv():
-                logging.info("START converting results to CSV-files.")
-                csv.results_to_csv(io.get_output_folder("output"), io.get_output_folder("csv"))
-                logging.info("FINISHED converting results to CSV-files.")
+            # ======================
+            # PHASE 3: RUN DETECTORS
+            # ======================
+            for detector_name in ordered_detectors:  # for each detector
+                with manage_error_scope(error_level, ErrorLevel.DETECTOR, detector_name):
+                    start_time = time.time()
+                    logging.info(f"STARTING '{detector_name}'.\n{'-' * 80}")
+
+                    detector_class = ALL_DETECTORS[detector_name]
+                    detector = detector_class(io, data, runtime_config)
+
+                    result_data = detector.run()
+
+                    if config.visualize:
+                        detector.visualization(result_data)
+
+                    logging.info(f"FINISHED '{detector_name}' in {time.time() - start_time}s.\n\n")
+
+            # Convert results to .csv
+            if config.save_csv:
+                csv.results_to_csv(io.out_sub_folder, io.csv_folder)
+                logging.info("Converting current video results to CSV successful.")
+
+    logging.info(f"Detectors finished.\n{'-' * 80}")
 
 
 def entry_point():

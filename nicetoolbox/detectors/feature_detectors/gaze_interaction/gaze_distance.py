@@ -24,63 +24,39 @@ class GazeDistance(BaseFeature):
     landmarks within a 2-person context.
     Additionally, it has the ability to determine whether the gaze is directed
     at the face and if the gaze interaction is mutual.
-
-    Component: gaze_interaction
-
-    Attributes:
-        components (list): A list containing the name of the component this class is
-        responsible for:
-            gaze_interaction:
-                - distance_gaze , distances from the gaze (of person 1) to the face
-                    (of person 2)
-                - gaze_look_at  , boolean array indicating whether the gaze is directed
-                    at the face
-                - gaze_mutual   , boolean array indicating whether the gaze is mutual
-        algorithm (str): The name of the algorithm used to compute the components
-            (gaze_interaction).
-        gaze_detector_file_list (list): A list of file paths for the gaze detector
-            output.
-        threshold_look_at (float): The threshold value for determining whether the
-            gaze is directed at the face.
     """
 
     components = ["gaze_interaction"]
     algorithm = "gaze_distance"
 
-    def __init__(self, config, io, data):
+    def __init__(self, io, data, runtime_config):
         """
         Setup the GazeDistance feature detector and extract gaze component from method
         detector output.
-
-        This method initializes the GazeDistance class by setting up the necessary
-        configurations, input/output handler, and data. It supports handling of multiple
-        cameras.
-
-        Args:
-            config (dict): The configuration settings for the feature detector. It
-                should include 'input_detector_names' key which contains gaze component
-                and algorithm.
-            io (class): The input/output handler , including
-                'get_detector_output_folder' method which returns the output folder for
-                the gaze detector.
-            data (class): The data class.
-
         """
-        super().__init__(config, io, data, requires_out_folder=False)
+        # 1. Call parent init (stores static_config, io, data)
+        super().__init__(io, data, runtime_config)
 
-        self.threshold_look_at = config["threshold_look_at"]
-        logging.info(f"Feature detector for component {self.components} initialized.")
+        # 2. Setup feature detector (builds runtime, resolves inputs, validates, saves config)
+        self._setup_feature_detector(requires_out_folder=False)
+
+        # 3. Store config values
+        self.threshold_look_at = self.static_config.threshold_look_at
+
+        # 4. Store convenience references
+        self.subjects_descr = self.runtime.subjects_descr
+        self.result_folders = self.runtime.result_folders
+        self.viz_folder = self.runtime.viz_folder
 
     def _get_input(self, component: str) -> np.ndarray:
         """
         Finds input file given a component.
         """
-        # TODO: Handle components from multiple algorithms if needed in future
         for (comp, _algo), path in self.input_map.items():
             if comp == component:
                 return np.load(path, allow_pickle=True)
 
-        raise ValueError(f"Required input component '{component}' not found.")
+        raise ValueError(f"Required input component '{component}' not found in input_map.")
 
     def compute(self):
         """
@@ -236,6 +212,3 @@ class GazeDistance(BaseFeature):
                 input_data, categories, self.viz_folder, self.subjects_descr
             )
             logging.info(f"Visualization of feature detector {self.components} completed.")
-
-    def post_compute(self, data):
-        pass

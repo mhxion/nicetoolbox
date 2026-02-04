@@ -23,22 +23,24 @@ class DetectorsRunIO(BaseModel):
 
     experiment_name: str
     out_folder: Path
+    csv_out_folder: Path
+
+    out_sub_folder_name: str
     out_sub_folder: Path
+
+    nicetoolbox_input_folder: Path
+
+    code_folder: Path
     dataset_properties: Path
     detectors_config: Path
+    predictions_mapping: Path
     assets: Path
 
-    process_data_to: Path
-    data_folder: Path
     detector_out_folder: Path
     detector_visualization_folder: Path
     detector_additional_output_folder: Path
     detector_run_config_path: Path
     detector_final_result_folder: Path
-    csv_out_folder: Path
-    code_folder: Path
-
-    log_level: LoggingLevelEnum
 
 
 class RunConfigVideo(BaseModel):
@@ -76,6 +78,7 @@ class DetectorsRunFile(BaseModel):
     save_csv: bool
 
     error_level: ErrorLevel
+    log_level: LoggingLevelEnum
 
     component_algorithm_mapping: dict[str, list[str]]
     run: dict[str, DetectorsRunConfig]

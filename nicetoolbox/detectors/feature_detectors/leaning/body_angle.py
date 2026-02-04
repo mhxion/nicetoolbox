@@ -7,12 +7,12 @@ import os
 
 import numpy as np
 
-from ....configs.config_handler import load_config, load_validated_config_raw
 from ....configs.schemas.predictions_mapping import PredictionsMappingConfig
 from ..base_feature import BaseFeature
 from . import utils as lean_utils
 
 
+# ! DEPRECATED (NEEDS TO BE UPDATED IN THE FUTURE)
 class BodyAngle(BaseFeature):
     """
     The BodyAngle class is a feature detector that computes the leaning component.
@@ -58,8 +58,8 @@ class BodyAngle(BaseFeature):
             name for name in config["input_detector_names"] if any(["joints" in s for s in name])
         ][0]
         pose_config_folder = io.get_detector_output_folder(joints_component, joints_algorithm, "run_config")
-        pose_config = load_config(os.path.join(pose_config_folder, "run_config.toml"))
-        predictions_mapping_config = load_validated_config_raw(
+        pose_config = load_config(os.path.join(pose_config_folder, "run_config.toml"))  # noqa: F821
+        predictions_mapping_config = load_validated_config_raw(  # noqa: F821
             "./configs/predictions_mapping.toml", PredictionsMappingConfig
         )
         self.predictions_mapping = predictions_mapping_config["human_pose"][pose_config["keypoint_mapping"]]

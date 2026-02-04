@@ -12,10 +12,11 @@ import numpy as np
 
 from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 
+from ....configs.video_runtime_config import VideoRuntimeConfig
 from ....utils import video as vd
 from ....utils import visual_utils as vis_ut
 from ...data import Data
-from ...in_out import IO
+from ...in_out import VideoIO
 from ...method_detectors.filters import SGFilter
 from ..base_feature import BaseFeature
 
@@ -39,7 +40,7 @@ class GazeFusion(BaseFeature):
     components = ["gaze_multiview"]
     algorithm = "gaze_fusion"
 
-    def __init__(self, config: Dict, io: IO, data: Data) -> None:
+    def __init__(self, io: VideoIO, data: Data, runtime_config: VideoRuntimeConfig) -> None:
         """
         Initialize the MultiviewFusion detector.
 
@@ -48,32 +49,36 @@ class GazeFusion(BaseFeature):
             io (Any): IO handler.
             data (Any): Data handler.
         """
-        super().__init__(config, io, data, requires_out_folder=True)
+        super().__init__(io, data, runtime_config)
 
-        self.config = config
-        self.calibration = data.calibration
+        # 1. Setup feature detector (builds runtime, resolves inputs, validates, saves config)
+        self._setup_feature_detector(requires_out_folder=True)
 
-        # Load Metadata from inputs immediately
-        self.camera_names = []
-        self.subjects = []
-        self.frame_indices = []
+        # 2. Initialize metadata (populated by _load_inputs)
+        self.camera_names: List[str] = []
+        self.subjects: List[str] = []
+        self.frame_indices: List[int] = []
 
-        # Data Cache
+        # 3. Data cache for raw inputs + load
         self.raw_inputs: List[Dict[str, Any]] = []
-
-        # Parse inputs
         self._load_inputs()
 
-        # Config Parameters
-        self.filtered = config.get("filtered", True)
-        self.window = config.get("window_length", 11)
-        self.poly = config.get("polyorder", 2)
-        self.fusion_method = config.get("fusion_method", "average")
-        self.ensemble_enabled = config.get("ensemble_fusion", False)
+        # 4. Store config parameters from static_config
+        self.filtered = self.static_config.filtered
+        self.window = self.static_config.window_length
+        self.poly = self.static_config.polyorder
+        self.fusion_method = self.static_config.fusion_method
+        self.ensemble_enabled = self.static_config.ensemble_enabled
 
-        # Init DataLoader config for visualization if needed
-        self.dataloader = None
-        if config.get("visualize", False) and self.camera_names:
+        # 5. Store convenience references
+        self.calibration = data.calibration
+        self.viz_folder = self.runtime.viz_folder
+        self.subjects_descr = self.runtime.subjects_descr
+        self.result_folders = self.runtime.result_folders
+
+        # 6. Init DataLoader config for visualization if needed
+        self.dataloader_config = None
+        if self.static_config.visualize and self.camera_names:
             self.dataloader_config = data.get_input_recipe().copy()
 
     def _load_inputs(self) -> None:
@@ -349,10 +354,6 @@ class GazeFusion(BaseFeature):
 
         return projected
 
-    def post_compute(self):
-        """No post-compute needed."""
-        pass
-
     def visualization(self, results_list: List[Dict[str, Any]]) -> None:
         """
         Generates visualization images with fused gaze overlays.
@@ -433,6 +434,6 @@ class GazeFusion(BaseFeature):
                 vd.frames_to_video(
                     os.path.join(self.viz_folder, cam),
                     os.path.join(self.viz_folder, f"{cam}.mp4"),
-                    fps=self.config.get("fps", 30),
+                    fps=self.data.fps,
                     start_frame=int(dataloader.start),
                 )

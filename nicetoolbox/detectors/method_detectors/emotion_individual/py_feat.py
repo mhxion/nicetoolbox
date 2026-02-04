@@ -10,11 +10,12 @@ import numpy as np
 
 from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 
+from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
 from ....utils import video as vd
-from ..base_detector import BaseDetector
+from ..base_method import BaseMethod
 
 
-class PyFeat(BaseDetector):
+class PyFeat(BaseMethod):
     """
     The Python - Facial Expression Analysis Toolbox (Py-feat) is a method
     detector that computes emotion_individual component.
@@ -23,25 +24,23 @@ class PyFeat(BaseDetector):
     components = ["emotion_individual"]
     algorithm = "py_feat"
 
-    def __init__(self, config, io, data) -> None:
+    def _initialize_detector(self) -> MethodDetectorRuntime:
         """
-        Initialize the PyFeat method detector with all inference preparation.
+        Initialize the Py-Feat method detector.
         """
+        # (1) Convenience references
+        self.video_start = self.data.video_start
+        self.subjects_descr = self.data.subjects_descr
+        self.cam_sees_subjects = self.data.cam_sees_subjects
+        self.camera_names = self.static_config.camera_names
+        self.results_folder = self.result_folders[self.components[0]]
 
-        logging.info(f"Prepare Inference for '{self.algorithm}' and component {self.components}.")
+        # (2) Initialise data loader
+        self.dataloader = ImagePathsByFrameIndexLoader(
+            config=self.data.get_input_recipe(), expected_cameras=self.camera_names
+        )
 
-        # Base class setup
-        super().__init__(config, io, data, requires_out_folder=config["visualize"])
-
-        self.video_start = data.video_start
-        self.camera_names = [n for n in config["camera_names"] if n != ""]
-        self.cam_sees_subjects = config["cam_sees_subjects"]
-        self.results_folder = config["result_folders"][self.components[0]]
-
-        # Initialize standardized data loader
-        self.dataloader = ImagePathsByFrameIndexLoader(config=config, expected_cameras=self.camera_names)
-
-        logging.info("Inference Preparation complete.\n")
+        return super()._initialize_detector()  # No extras needed -> just call parents function to get common runtime
 
     def post_inference(self):
         """
@@ -49,7 +48,7 @@ class PyFeat(BaseDetector):
         """
         pass
 
-    def visualization(self, data):
+    def visualization(self, _):
         """
         Visualizes the processed frames of the pyfeat algorithm as a video.
         """
@@ -124,7 +123,7 @@ class PyFeat(BaseDetector):
             success *= vd.frames_to_video(
                 os.path.join(self.viz_folder, camera_name),
                 os.path.join(self.viz_folder, f"{camera_name}.mp4"),
-                fps=data.fps,
+                fps=self.data.fps,
                 start_frame=int(self.video_start),
             )
 

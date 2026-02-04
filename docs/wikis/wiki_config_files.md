@@ -5,19 +5,22 @@ The configuration files are Python dictionaries saved in `.toml` - files that co
 
 <br>
 
-- [Placeholders](#placeholders)
-- [Machine specifics](#machine-specifics)
-- [Run file](#run-file)
+- [Understanding the config files](#understanding-the-config-files)
+  - [Placeholders](#placeholders)
+  - [Machine specifics](#machine-specifics)
+  - [Run file](#run-file)
     - [General properties](#general-properties)
     - [Choosing algorithms per component](#choosing-algorithms-per-component)
     - [Defining the experiments](#defining-the-experiments)
     - [Input and output files](#input-and-output-files)
-- [Dataset properties](#dataset-properties)
-- [Detectors config](#detectors-config)
+  - [Dataset properties](#dataset-properties)
+  - [Detectors config](#detectors-config)
     - [Method detectors](#method-detectors)
     - [Feature detectors](#feature-detectors)
-- [Predictions mapping](#predictions-mapping)
-- [Visualizer config](#visualizer-config)
+  - [Predictions mapping](#predictions-mapping)
+  - [Visualizer Config](#visualizer-config)
+    - [Configuring Component Data Display in Rerun Windows](#configuring-component-data-display-in-rerun-windows)
+    - [Configuring Rerun Viewer and Blueprint in Rerun](#configuring-rerun-viewer-and-blueprint-in-rerun)
 
 <br>
 
@@ -145,8 +148,7 @@ dataset_properties = "configs/dataset_properties.toml"
 detectors_config = "configs/detectors_config.toml"
 assets = "<code_folder>/nicetoolbox/detectors/assets"
 
-process_data_to = "data_folder"
-data_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
+nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
 detector_out_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/detector_output"
 detector_visualization_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/visualization"
 detector_additional_output_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/additional_output"
@@ -161,8 +163,7 @@ conda_path = "<conda_path>"
 - `out_sub_folder` is the output directory for a single experiment run (str).
 - `dataset_properties` and `detectors_config` store where to find the config files [dataset properties](#dataset-properties) and [detectors config](#detectors-config) (str).
 - `assets` stores the folder path of additional assets, like model checkpoints and weights (str). See [download assets](../installation.md#2-download-assets) in the installation instructions.
-- `process_data_to` currently only supports the option "data_folder" (str), defined in the next line.
-- `data_folder` is the path to the directory in which pre-processed input data gets stored during run time (str). As different algorithms require different file formats and folder structures as input, the NICE Toolbox prepares the given data accordingly. This pre-processed data is stored/cashed for faster run times when repeating runs over the same data.
+- `nicetoolbox_input_folder` is the path to the directory in which pre-processed input data gets stored during run time (str). As different algorithms require different file formats and folder structures as input, the NICE Toolbox prepares the given data accordingly. This pre-processed data is stored/cashed for faster run times when repeating runs over the same data.
 - `detector_out_folder`, `detector_visualization_folder`, `detector_additional_output_folder`, `detector_run_config_path`, and `detector_final_result_folder` define where each detector stores (possible) intermediate outputs (str). Depending on the components and algorithms run per detector and the [visualization settings](#general-properties), different intermediate outputs are produced. The final results of all components and algorithms per detector are saved under `detector_final_result_folder`.
 - `code_folder` names the machine's folder path to the nicetoolbox repo (str), by default, it is filled automatically.
 - `conda_path` names the folder path to the machine's conda installation (str), by default, it is filled automatically.
