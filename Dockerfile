@@ -1,11 +1,17 @@
-FROM docker.io/nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 
+FROM docker.io/nvidia/cuda:12.6.0-cudnn-runtime-ubuntu24.04
 
-# install python 3.10, make, git + some essential stuff
+# install make, git, ffmpeg + some essential stuff
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 RUN apt update && \
-    apt install -y python3 python3-venv python3-dev \
-    build-essential unzip git-all ffmpeg wget
+    apt install -y build-essential software-properties-common \
+    unzip git-all ffmpeg wget curl
+
+# install python from deadsnakes and pip from get-pip
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt update && \
+    apt install -y python3.10 python3.10-venv python3.10-dev && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 
 # conda from miniforge
 ENV CONDA_DIR=/opt/conda
