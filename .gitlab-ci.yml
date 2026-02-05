@@ -18,7 +18,7 @@ pre-commit-checks:
     - pip install pre-commit
     - pre-commit run --all-files
 
-test-job:
+unit-test:
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: recursive # repo and submodules
@@ -29,9 +29,26 @@ test-job:
     - docker run --rm mpioslab/nicetoolbox:cicd bash -c
       "source ./envs/nicetoolbox/bin/activate && pytest -v"
 
+publish-apptainer:
+  stage: publish
+  when: manual
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive # repo and submodules
+  tags:
+    - shell
+  script:
+    - apptainer registry login -u 'robot$'${HARBOR_ROBOT_NAME} -p $HARBOR_ROBOT_TOKEN $HARBOR_URL
+    - bash scripts/build_docker.sh cicd false
+    - apptainer build nicetoolbox.sif docker-daemon://mpioslab/nicetoolbox:cicd
+    - apptainer push nicetoolbox.sif ${HARBOR_URL}/oslab/nicetoolbox:${CI_COMMIT_SHORT_SHA}
+  after_script:
+    - apptainer registry logout $HARBOR_URL
+
 publish-to-github:
   stage: publish
   when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
   tags:
     - docker
   image: 
@@ -41,8 +58,6 @@ publish-to-github:
     GIT_STRATEGY: clone # make sure to clone it again, if tags were updated
     GIT_DEPTH: 0  # Fetch full history
     GITHUB_URL: https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/nicetoolbox.git
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
   script:
     - TAGS=$(git tag --points-at HEAD) 
     - TAG_COUNT=$(echo "$TAGS" | wc -l)
