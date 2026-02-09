@@ -14,12 +14,11 @@ from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
 from ..utils.error_handling import manage_error_scope
 from . import config_handler as confh
-from .data import Data
+from .data import VideoData
 from .feature_detectors.base_feature import BaseFeature
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
 from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
-from .feature_detectors.leaning.body_angle import BodyAngle
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import VideoIO
 from .method_detectors.base_method import BaseMethod
@@ -39,7 +38,6 @@ ALL_DETECTORS = dict(
     velocity_body=VelocityBody,
     body_distance=BodyDistance,
     gaze_distance=GazeDistance,
-    body_angle=BodyAngle,
     gaze_fusion=GazeFusion,
 )
 
@@ -66,9 +64,7 @@ def main(run_config_file, machine_specifics_file):
 
     log_file = main_output_folder / "nicetoolbox.log"
     log_ut.setup_logging(log_file, log_level.name)
-    logging.info(
-        f"\n{'#' * 80}\n\nNICE TOOLBOX STARTED. Saving results to " f"'{main_output_folder}'.\n\n{'#' * 80}\n\n"
-    )
+    log_ut.log_main_banner(f"NICE TOOLBOX STARTED. Saving results to '{main_output_folder}'.")
     config.save_experiment_config(main_output_folder)
 
     all_algorithms = config.get_all_detector_names()
@@ -76,20 +72,21 @@ def main(run_config_file, machine_specifics_file):
     # ========================
     # PHASE 2: Process Videos
     # ========================
-    for runtime_config in config.iter_video_contexts():  # for each video
-        with manage_error_scope(error_level, ErrorLevel.VIDEO, "video processing"):
-            # Video loop started
-            logging.info(
-                f"\n{'=' * 80}\nRUNNING dataset {runtime_config.dataset_name} and "
-                f"{runtime_config.video_config.session_ID}.\n{'=' * 80}\n\n"
-            )
+    for video_context in config.iter_video_contexts():  # for each video
+        # get video meta information for logging
+        dataset_name = video_context.dataset_name
+        session_id = video_context.video_config.session_ID
+        sequence_id = video_context.video_config.sequence_ID
+        sequence_name = f"{dataset_name}:{session_id}:{sequence_id}"
 
+        log_ut.log_banner(f"RUNNING dataset: '{dataset_name}', session: '{session_id}', sequence: '{sequence_id}'")
+        with manage_error_scope(error_level, ErrorLevel.VIDEO, sequence_name):
             # Create IO and Data from runtime config for the current video
-            io = VideoIO(runtime_config, all_algorithms)
-            data = Data(runtime_config, io)
+            io = VideoIO(video_context, all_algorithms)
+            data = VideoData(video_context, io)
 
             # Algorithms based on user-selected components
-            selected_algorithms = runtime_config.all_selected_algorithms
+            selected_algorithms = video_context.all_selected_algorithms
             method_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseMethod)]
             feature_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseFeature)]
             ordered_detectors = method_names + feature_names
@@ -99,11 +96,11 @@ def main(run_config_file, machine_specifics_file):
             # ======================
             for detector_name in ordered_detectors:  # for each detector
                 with manage_error_scope(error_level, ErrorLevel.DETECTOR, detector_name):
+                    log_ut.log_with_underscore(f"STARTING '{detector_name}'.")
                     start_time = time.time()
-                    logging.info(f"STARTING '{detector_name}'.\n{'-' * 80}")
 
                     detector_class = ALL_DETECTORS[detector_name]
-                    detector = detector_class(io, data, runtime_config)
+                    detector = detector_class(io, data, video_context)
 
                     result_data = detector.run()
 
@@ -117,7 +114,7 @@ def main(run_config_file, machine_specifics_file):
                 csv.results_to_csv(io.out_sub_folder, io.csv_folder)
                 logging.info("Converting current video results to CSV successful.")
 
-    logging.info(f"Detectors finished.\n{'-' * 80}")
+    log_ut.log_with_underscore("Detectors finished.")
 
 
 def entry_point():

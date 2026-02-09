@@ -6,8 +6,10 @@ Provides common interface and shared functionality.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel
+
 from ..configs.video_runtime_config import VideoRuntimeConfig
-from .data import Data
+from .data import VideoData
 from .in_out import VideoIO
 
 
@@ -20,17 +22,17 @@ class BaseDetector(ABC):
     """
 
     # Instance attributes set during initialization
-    data: Data
+    data: VideoData
     io: VideoIO
-    runtime_config: VideoRuntimeConfig
-    static_config: Any
+    video_context: VideoRuntimeConfig
+    detector_config: BaseModel
 
     # Class attributes to be defined by subclasses
     inference_config: Any
     components: List[str]
     algorithm: str
 
-    def __init__(self, io: VideoIO, data: Data, runtime_config: VideoRuntimeConfig) -> None:
+    def __init__(self, io: VideoIO, data: VideoData, video_context: VideoRuntimeConfig) -> None:
         """
         Initialize base detector with references.
 
@@ -38,9 +40,8 @@ class BaseDetector(ABC):
         """
         self.io = io
         self.data = data
-        self.runtime_config = runtime_config
-
-        self.static_config = runtime_config.get_detector_config(self.algorithm)
+        self.video_context = video_context
+        self.detector_config = video_context.get_detector_config(self.algorithm)
 
     @abstractmethod
     def run(self) -> Optional[Any]:
@@ -84,7 +85,7 @@ class BaseDetector(ABC):
     @property
     def predictions_mapping(self):
         """Access predictions mapping from runtime config."""
-        return self.runtime_config.predictions_mapping
+        return self.video_context.predictions_mapping
 
     def compute_result_folders(self) -> Dict[str, str]:
         """Compute result folders for all components."""

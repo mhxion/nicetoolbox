@@ -29,25 +29,6 @@ class GazeDistance(BaseFeature):
     components = ["gaze_interaction"]
     algorithm = "gaze_distance"
 
-    def __init__(self, io, data, runtime_config):
-        """
-        Setup the GazeDistance feature detector and extract gaze component from method
-        detector output.
-        """
-        # 1. Call parent init (stores static_config, io, data)
-        super().__init__(io, data, runtime_config)
-
-        # 2. Setup feature detector (builds runtime, resolves inputs, validates, saves config)
-        self._setup_feature_detector(requires_out_folder=False)
-
-        # 3. Store config values
-        self.threshold_look_at = self.static_config.threshold_look_at
-
-        # 4. Store convenience references
-        self.subjects_descr = self.runtime.subjects_descr
-        self.result_folders = self.runtime.result_folders
-        self.viz_folder = self.runtime.viz_folder
-
     def _get_input(self, component: str) -> np.ndarray:
         """
         Finds input file given a component.
@@ -123,7 +104,7 @@ class GazeDistance(BaseFeature):
         distances_face = np.stack((distance_p1, distance_p2), axis=0)
 
         # calculate look_at and mutual_gaze
-        look_at = distances_face <= self.threshold_look_at
+        look_at = distances_face <= self.detector_config.threshold_look_at
         mutual = np.all(look_at, axis=0, keepdims=True)
         visualization_data = [distances_face, look_at, mutual]
 

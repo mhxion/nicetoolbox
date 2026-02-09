@@ -44,21 +44,21 @@ class MMPose(BaseMethod):
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects
 
-        self.camera_names = self.static_config.camera_names
-        self.filtered = self.static_config.filtered
+        self.camera_names = self.detector_config.camera_names
+        self.filtered = self.detector_config.filtered
         if self.filtered:
-            self.filter_window_length = self.static_config.window_length
-            self.filter_polyorder = self.static_config.polyorder
+            self.filter_window_length = self.detector_config.window_length
+            self.filter_polyorder = self.detector_config.polyorder
 
         # === (2) EXTRA FIELDS for MMPose ===
-        keypoint_mapping_name = self.static_config.keypoint_mapping
+        keypoint_mapping_name = self.detector_config.keypoint_mapping
         self.keypoint_mapping = getattr(self.predictions_mapping.human_pose, keypoint_mapping_name)
         self.keypoint_indices = self.keypoint_mapping.keypoints_index
 
         self._kp_indices, self._kp_description = self.get_per_component_keypoint_mapping(self.keypoint_indices)
 
         self._prediction_folders = self._get_prediction_folders(make_dirs=True)  # TODO - Get rid of both folder dicts
-        self._image_folders = self._get_image_folders(make_dirs=self.static_config.visualize)
+        self._image_folders = self._get_image_folders(make_dirs=self.detector_config.visualize)
 
         # 3. Call BaseMethod _initialize_detector() to build runtime + add extra fields
         base_runtime = super()._initialize_detector()

@@ -50,6 +50,7 @@ class Configuration:
     run_config: DetectorsRunFile
     detectors_config: DetectorsConfig
     dataset_properties: DatasetProperties
+    predictions_mapping: PredictionsMappingConfig
 
     def __init__(self, run_config_file, machine_specifics_file):
         """
@@ -63,8 +64,6 @@ class Configuration:
         self.auto_placeholders = default_auto_placeholders()
         self.runtime_placeholders = default_runtime_placeholders()
         self.cfg_loader = ConfigLoader(self.auto_placeholders, self.runtime_placeholders)
-        # code config
-        self.code_config = CodeConfig(**self.auto_placeholders)
         # machine specific
         self.machine_specific_config = self.cfg_loader.load_config(machine_specifics_file, MachineSpecificConfig)
         self.cfg_loader.extend_global_ctx(self.machine_specific_config)
@@ -231,15 +230,17 @@ class Configuration:
         return list(self.detectors_config.algorithms.keys())
 
     def save_experiment_config(self, output_folder) -> None:
+        # we save current auto_placeholders for reproduction purposes
+        code_config = CodeConfig(**self.auto_placeholders)
         # save all experiment configurations
         config = DetectorsExperimentConfig(
             run_config=self.run_config,
             dataset_config=self.dataset_properties,
             detector_config=self.detectors_config,
             machine_specific_config=self.machine_specific_config,
-            code_config=self.code_config,
+            code_config=code_config,
         )
-        save_config(model_to_dict(config), output_folder / f"config_{self.code_config.time}.toml")
+        save_config(model_to_dict(config), output_folder / f"config_{code_config.time}.toml")
 
     @property
     def visualize(self) -> bool:

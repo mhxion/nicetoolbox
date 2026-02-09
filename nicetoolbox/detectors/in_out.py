@@ -33,25 +33,25 @@ class VideoIO:
     data_source_folder: Path
     calibration_file: Optional[Path]
     conda_path: Path
-    _runtime_config: VideoRuntimeConfig
+    _video_context: VideoRuntimeConfig
 
     def __init__(
         self,
-        runtime_config: VideoRuntimeConfig,
+        video_context: VideoRuntimeConfig,
         algorithm_names: List[str],
     ):
         """
         Initialize for video processing.
 
         Args:
-            runtime_config: Frozen video runtime configuration
+            video_context: Frozen video runtime configuration
             algorithm_names: List of all algorithm names for folder creation
         """
         self.algorithm_names = algorithm_names
-        self._runtime_config = runtime_config
+        self._video_context = video_context
 
         # All paths from resolved IO config
-        io = runtime_config.io
+        io = video_context.io
         self.out_folder = io.out_folder
         self.out_sub_folder = io.out_sub_folder
         self.csv_folder = io.csv_out_folder
@@ -59,11 +59,11 @@ class VideoIO:
         self.nice_input_folder = io.nicetoolbox_input_folder
 
         # Dataset properties
-        self.data_source_folder = runtime_config.data_source_folder
-        self.calibration_file = runtime_config.calibration_path
+        self.data_source_folder = video_context.data_source_folder
+        self.calibration_file = video_context.calibration_path
 
         # Machine config
-        self.conda_path = runtime_config.machine.conda_path
+        self.conda_path = video_context.machine.conda_path
 
         # Create folders
         self._create_folders()
@@ -196,12 +196,6 @@ class VideoIO:
             algorithm: Algorithm name (e.g., 'hrnetw48')
             token: Folder type - 'output', 'visualization', 'additional', 'run_config', 'result'
         """
-        path = self._runtime_config.get_detector_folder(component, algorithm, token)
+        path = self._video_context.get_detector_folder(component, algorithm, token)
         os.makedirs(path, exist_ok=True)
         return path
-
-    def get_log_file(self):
-        return self._runtime_config.log_file
-
-    def get_log_level(self):
-        return self._runtime_config.log_level

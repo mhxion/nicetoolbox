@@ -4,7 +4,7 @@ Created by Configuration factory, discarded after video processing.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -102,7 +102,7 @@ class VideoRuntimeConfig(BaseModel):
     # Config Access (no resolution needed - already resolved)
     # -------------------------------------------------------------------------
 
-    def get_detector_config(self, algorithm_name: str) -> Any:
+    def get_detector_config(self, algorithm_name: str) -> BaseModel:
         """
         Get the pre-resolved configuration for a detector.
 

@@ -59,12 +59,6 @@ used_keypoints = ["nose"]  # if the list is more than one keypoint, the midpoint
 input_detector_names = [["body_joints", "hrnetw48"]]
 visualize = true
 
-# leaning
-[algorithms.body_angle]
-used_keypoints = [["left_shoulder", "right_shoulder"], ["left_hip", "right_hip"], ["left_knee", "right_knee"]]
-input_detector_names = [["body_joints", "hrnetw48"]]
-visualize = true
-
 # gaze_interaction
 [algorithms.gaze_distance]
 # camera_names = ["3d"]
