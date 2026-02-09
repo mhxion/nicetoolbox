@@ -9,6 +9,7 @@ import os
 import subprocess
 from abc import abstractmethod
 from pathlib import Path
+from typing import final
 
 from nicetoolbox_core.entrypoint import SubprocessError
 
@@ -18,7 +19,7 @@ from ...utils.base_detectors import flatten_inference_config
 from ...utils.config import save_config
 from ...utils.system import detect_os_type
 from ..base_detector import BaseDetector
-from ..data import Data
+from ..data import VideoData
 from ..in_out import VideoIO
 
 
@@ -30,7 +31,6 @@ class BaseMethod(BaseDetector):
     """
 
     runtime: MethodDetectorRuntime
-    config_path: Path
 
     # subprocess settings
     os_type: str
@@ -45,16 +45,15 @@ class BaseMethod(BaseDetector):
     out_folder: str
     result_folders: dict[str, str]
     viz_folder: str
-    config_path: str
+    config_path: Path
 
-    def __init__(self, io: VideoIO, data: Data, runtime_config: VideoRuntimeConfig) -> None:
+    @final
+    def __init__(self, io: VideoIO, data: VideoData, video_context: VideoRuntimeConfig) -> None:
         """
         Initialize base method detector with references.
-
-        Subclasses should call super().__init__() and set inference_config.
         """
         # (1) Call BaseDetector __init__()
-        super().__init__(io, data, runtime_config)
+        super().__init__(io, data, video_context)
 
         logging.info(
             f"Initializing method detector {self.__class__.__name__} with algorithm '{self.algorithm}' "
@@ -65,8 +64,8 @@ class BaseMethod(BaseDetector):
         self._setup_subprocess_settings()
 
         # (3) Setup method detector (builds runtime, validates, saves config)
-        self.visualize = getattr(self.static_config, "visualize", False)
-        self.requires_out_folder = getattr(self.static_config, "visualize", False)
+        self.visualize = getattr(self.detector_config, "visualize", False)
+        self.requires_out_folder = getattr(self.detector_config, "visualize", False)
         self.out_folder = self.compute_output_folder(self.requires_out_folder)
         self.result_folders = self.compute_result_folders()
         self.viz_folder = self.compute_viz_folder(self.visualize)
@@ -74,11 +73,11 @@ class BaseMethod(BaseDetector):
         self.runtime = self._initialize_detector()  # This will be overloaded by child detectors!
 
         # (4) Flatten config for subprocess
-        inference_config = flatten_inference_config(self.static_config, self.runtime)
+        inference_config = flatten_inference_config(self.detector_config, self.runtime)
 
         # (5) Save config for subprocess
         folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
-        self.config_path = os.path.join(str(folder), "run_config.toml")
+        self.config_path = folder / "run_config.toml"
         save_config(inference_config, self.config_path)
 
         logging.info("Inference preparation completed.\n")
@@ -102,8 +101,8 @@ class BaseMethod(BaseDetector):
             algorithm=self.algorithm,
             visualize=self.visualize,
             subjects_descr=self.data.subjects_descr,
-            log_file=str(self.io.get_log_file()),
-            log_level=self.io.get_log_level(),
+            log_file=str(self.video_context.log_file),
+            log_level=self.video_context.log_level,
             calibration=self.data.calibration,
             cam_sees_subjects=self.data.cam_sees_subjects,
             input_recipe=self.data.get_input_recipe()["input_recipe"],
@@ -114,10 +113,10 @@ class BaseMethod(BaseDetector):
         self.os_type = detect_os_type()
         self.conda_path = self.io.get_conda_path()
 
-        env_name = getattr(self.static_config, "env_name", "venv:nicetoolbox")  # Default to nicetoolbox env
+        env_name = getattr(self.detector_config, "env_name", "venv:nicetoolbox")  # Default to nicetoolbox env
         self.venv, self.env_name = env_name.split(":")
 
-        framework = getattr(self.static_config, "framework", self.algorithm)
+        framework = getattr(self.detector_config, "framework", self.algorithm)
         self.script_path = self.io.get_inference_path(self.components[0], framework)
 
         if self.venv == "venv":

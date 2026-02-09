@@ -54,11 +54,11 @@ class MultiviewEthXgaze(BaseMethod):
         self.cam_sees_subjects = self.data.cam_sees_subjects
         self.results_folder = self.result_folders[self.components[0]]
         self.viz_folder = self.viz_folder
-        self.camera_names = self.static_config.camera_names
-        self.filtered = self.static_config.filtered
+        self.camera_names = self.detector_config.camera_names
+        self.filtered = self.detector_config.filtered
         if self.filtered:
-            self.filter_window_length = self.static_config.window_length
-            self.filter_polyorder = self.static_config.polyorder
+            self.filter_window_length = self.detector_config.window_length
+            self.filter_polyorder = self.detector_config.polyorder
 
         # (2) Initialise data loader
         self.dataloader = ImagePathsByFrameIndexLoader(

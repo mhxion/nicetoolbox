@@ -7,7 +7,7 @@ import logging
 import os
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, final
 
 from ...configs.schemas.detectors_algos_configs import FeatureDetectorRuntime
 from ...utils.base_detectors import flatten_inference_config, input_map_to_string_keys
@@ -23,20 +23,30 @@ class BaseFeature(BaseDetector):
     method detector outputs.
     """
 
-    def _setup_feature_detector(self, requires_out_folder: bool = True) -> None:
-        """
-        Setup feature detector configuration.
-        """
+    requires_out_folder: bool = False
+
+    @final
+    def __init__(self, io, data, video_context):
+        super().__init__(io, data, video_context)
         logging.info(
             f"Initializing feature detector {self.__class__.__name__} for '{self.algorithm}' "
             f"and components {self.components}."
         )
 
-        # Build runtime config
-        self.runtime = self._create_runtime(requires_out_folder)
+        # Some common fields
+        self.visualize = getattr(self.detector_config, "visualize", False)
+        self.subjects_descr = self.data.subjects_descr
+        self.input_map = self._resolve_input_paths()
+        self.viz_folder = self.compute_viz_folder(self.visualize)
+        self.out_folder = self.compute_output_folder(self.requires_out_folder)
+        self.result_folders = self.compute_result_folders()
 
-        # Build and validate composed inference config
-        self.inference_config = flatten_inference_config(self.static_config, self.runtime)
+        # This hook is used to allow detector initialize custom fields
+        self._initialize_detector()
+
+        # Prepare infernce config
+        self.runtime = self._build_runtime()
+        self.inference_config = flatten_inference_config(self.detector_config, self.runtime)
 
         # Save config for reproducibility
         folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
@@ -45,35 +55,28 @@ class BaseFeature(BaseDetector):
 
         logging.info(f"Feature detector for component {self.components} and algorithm {self.algorithm} initialized.\n")
 
-    def _create_runtime(self, requires_out_folder: bool) -> FeatureDetectorRuntime:
+    def _build_runtime(self) -> FeatureDetectorRuntime:
         """
         Create standard feature detector runtime configuration.
 
         Subclasses MUST override this if they have a specific RuntimeConfig
-        that requires additional extension fields.
+        that requires additional extension fields. Currently, this used purely for logging.
         """
-        visualize = getattr(self.static_config, "visualize", False)
-
-        # Resolve input paths from upstream detectors (tuple keys for internal usage)
-        self.input_map = self._resolve_input_paths()
-        # Convert to string keys for runtime config (TOML serialization)
-        input_map_str = input_map_to_string_keys(self.input_map)
-
         return FeatureDetectorRuntime(
-            result_folders=self.compute_result_folders(),
-            out_folder=self.compute_output_folder(requires_out_folder),
-            viz_folder=self.compute_viz_folder(visualize),
+            result_folders=self.result_folders,
+            out_folder=self.out_folder,
+            viz_folder=self.viz_folder,
             algorithm=self.algorithm,
-            visualize=visualize,
-            subjects_descr=self.data.subjects_descr,
-            input_map=input_map_str,
+            visualize=self.visualize,
+            subjects_descr=self.subjects_descr,
+            input_map=input_map_to_string_keys(self.input_map),
         )
 
     def _build_inference_config(self) -> Dict[str, Any]:
         """
         Build flattened config dictionary (Static + Runtime).
         """
-        config = self.static_config.model_dump(by_alias=True)
+        config = self.detector_config.model_dump(by_alias=True)
         config.pop("RuntimeConfig", None)
         # Runtime fields take precedence
         config.update(self.runtime.model_dump())
@@ -86,7 +89,7 @@ class BaseFeature(BaseDetector):
         Uses input_detector_names from static config to find upstream outputs.
         """
         input_map = {}
-        input_detector_names = getattr(self.static_config, "input_detector_names", [])
+        input_detector_names = getattr(self.detector_config, "input_detector_names", [])
 
         for component, algorithm in input_detector_names:
             input_path = self.io.get_detector_output_folder(component, algorithm, "result")
@@ -110,6 +113,9 @@ class BaseFeature(BaseDetector):
     # -------------------------------------------------------------------------
     # BaseDetector Interface Implementation
     # -------------------------------------------------------------------------
+
+    def _initialize_detector(self) -> None:
+        pass
 
     def run(self) -> Any:
         """

@@ -16,21 +16,26 @@ from ..utils import video as vid
 from .in_out import VideoIO
 
 
-class Data:
+class VideoData:
     """
     A data class for NICE toolbox input data validation and creation.
+
+    Handles:
+    - Video-frames input recepies
+    - Frames extraction
+    - FPS and video length
     """
 
     def __init__(
         self,
-        config: VideoRuntimeConfig,
+        video_context: VideoRuntimeConfig,
         io: VideoIO,
     ) -> None:
         """
         Initialize the Data class.
 
         Args:
-            config (VideoRuntimeConfig): The runtime config containing all relevant fields.
+            video_context (VideoRuntimeConfig): The runtime config containing all relevant fields.
             io (IO): The IO object for file and folder operations.
             all_camera_names (list): The list of all camera names.
 
@@ -46,27 +51,29 @@ class Data:
         self.source_folder = io.get_data_source_folder()  # original folder (vids)
 
         # --- Config Parameters ---
-        self.dataset_name = config.dataset_name
-        self.session_ID = config.video_config.session_ID
-        self.sequence_ID = config.video_config.sequence_ID
+        self.dataset_name = video_context.dataset_name
+        dataset_properties = video_context.dataset_properties
+        video_config = video_context.video_config
 
-        self.start_frame_index: int = config.dataset_properties.start_frame_index
-        self.video_start = config.video_config.video_start
-        self.video_length_config = config.video_config.video_length  # Can be -1 for full length
+        self.session_ID = video_config.session_ID
+        self.sequence_ID = video_config.sequence_ID
+        self.start_frame_index: int = dataset_properties.start_frame_index
+        self.video_start = video_config.video_start
+        self.video_length_config = video_config.video_length  # Can be -1 for full length
 
         self.video_skip_frames = None  # Hardcoded - No access via config yet
         self.annotation_interval = 2.0  # Keep? Hardcoded - No access via config yet
-        self.subjects_descr = config.subjects_descr
+        self.subjects_descr = video_context.subjects_descr
         self.camera_mapping = {
-            "cam_front": config.dataset_properties.cam_front,
-            "cam_face1": config.dataset_properties.cam_face1,
-            "cam_face2": config.dataset_properties.cam_face2,
-            "cam_top": config.dataset_properties.cam_top,
+            "cam_front": dataset_properties.cam_front,
+            "cam_face1": dataset_properties.cam_face1,
+            "cam_face2": dataset_properties.cam_face2,
+            "cam_top": dataset_properties.cam_top,
         }
-        self.cam_sees_subjects = config.dataset_properties.cam_sees_subjects
-        self.all_camera_names = config.all_camera_names
+        self.cam_sees_subjects = dataset_properties.cam_sees_subjects
+        self.all_camera_names = video_context.all_camera_names
 
-        self.filename_template = getattr(config.dataset_properties, "filename_template", "{idx:09d}.png")
+        self.filename_template = getattr(dataset_properties, "filename_template", "{idx:09d}.png")
 
         # --- Data Preparation Steps ---
 
@@ -75,7 +82,7 @@ class Data:
         self.video_sample_path: Path = self._get_example_video_path()
 
         # 2. Validate fps and video length given an example video file
-        self.fps: int = self._get_fps_validated(config.fps)
+        self.fps: int = self._get_fps_validated(video_context.fps)
         self.video_length = self._resolve_video_length()
 
         # 3. Check and create input data if necessary

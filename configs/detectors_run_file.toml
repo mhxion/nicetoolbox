@@ -19,7 +19,6 @@ hand_joints = ['hrnetw48']
 face_landmarks = ['hrnetw48']
 kinematics = ['velocity_body']
 proximity = ['body_distance']
-leaning = ['body_angle']
 emotion_individual = ['py_feat']
 head_orientation = ['spiga']
 

@@ -26,28 +26,8 @@ class VelocityBody(BaseFeature):
     components = ["kinematics"]
     algorithm = "velocity_body"
 
-    def __init__(self, io, data, runtime_config):
-        """
-        Setup input/output folders and data for the Kinematics feature detector.
-
-        Args:
-            config (dict): The configuration settings for the feature detector. It
-                should include 'input_detector_names' key which contains joints
-                component and algorithm.
-            io (object): The input/output handler object. It should have a method
-                'get_detector_output_folder' which returns the output folder for the
-                joints detector.
-            data (object): The data object containing the input data. It should have
-                an attribute 'fps' which represents the frames per second of the input
-                data.
-        """
-        # 1. Call parent init
-        super().__init__(io, data, runtime_config)
-
-        # 2. Setup feature detector (builds runtime, resolves inputs, validates)
-        self._setup_feature_detector(requires_out_folder=False)
-
-        # 3. Find the body_joints input from input_map (using tuple keys)
+    def _initialize_detector(self) -> None:
+        # 1. Find the body_joints input from input_map (using tuple keys)
         input_key = None
         for comp, alg in self.input_map:
             if comp == "body_joints":
@@ -58,20 +38,17 @@ class VelocityBody(BaseFeature):
 
         self.input_file = self.get_input_file(*input_key)
 
-        # 4. Get upstream detector config
-        upstream_config = self.runtime_config.get_detector_config(input_key[1])
+        # 2. Get upstream detector config
+        upstream_config = self.video_context.get_detector_config(input_key[1])
         keypoints_mapping_name = upstream_config.keypoint_mapping  # e.g. coco_wholebody
         self.camera_names = upstream_config.camera_names  # Same cameras used by pose algorithm
 
-        # 5. Get predictions mapping from runtime_config (already loaded and validated)
+        # 3. Get predictions mapping from runtime_config (already loaded and validated)
         self.keypoints_mapping = getattr(self.predictions_mapping.human_pose, keypoints_mapping_name)
         self.bodyparts_list = list(self.keypoints_mapping.bodypart_index.model_dump().keys())
 
-        # 6. Store other convenience references
-        self.fps = data.fps
-        self.subjects_descr = self.runtime.subjects_descr
-        self.result_folders = self.runtime.result_folders
-        self.viz_folder = self.runtime.viz_folder
+        # 4. Store other convenience references
+        self.fps = self.data.fps
 
     def compute(self):
         """

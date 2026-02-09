@@ -23,7 +23,7 @@ class BodyDistance(BaseFeature):
     components = ["proximity"]
     algorithm = "body_distance"
 
-    def __init__(self, io, data, runtime_config):
+    def _initialize_detector(self) -> None:
         """Initialize Movement class.
         Setup the BodyDistance feature detector and extract gaze component from method
         detector output.
@@ -32,21 +32,11 @@ class BodyDistance(BaseFeature):
         configurations, input/output handler, and data. It extracts the body_joints
         component and prepares the used keypoints and keypoint indices given the
         predictions mapping.
-
-        Args:
-            config (dict): The method-specific configurations dictionary.
-            io (class): A class instance that handles input and output folders.
-            data (class): A class instance that stores all input file locations.
         """
-        if len(data.subjects_descr) != 2:
+        if len(self.data.subjects_descr) != 2:
             raise ValueError("Feature detector 'proximity' requires data of 2 persons.")
 
-        super().__init__(io, data, runtime_config)
-
-        # 1. Setup feature detector (builds runtime, resolves inputs, validates, saves config)
-        self._setup_feature_detector(requires_out_folder=False)
-
-        # 2. Find the body_joints input from input_map (using tuple keys)
+        # 1. Find the body_joints input from input_map (using tuple keys)
         joints_key = None
         for comp, alg in self.input_map:
             if comp == "body_joints":
@@ -58,26 +48,21 @@ class BodyDistance(BaseFeature):
 
         self.input_file = self.get_input_file(joints_component, joints_algorithm)
 
-        # 3. Get upstream detector config to extract keypoint_mapping and camera_names
-        upstream_config = self.runtime_config.get_detector_config(joints_algorithm)
+        # 2. Get upstream detector config to extract keypoint_mapping and camera_names
+        upstream_config = self.video_context.get_detector_config(joints_algorithm)
         keypoint_mapping_name = upstream_config.keypoint_mapping  # e.g., "coco_wholebody"
         self.camera_names = upstream_config.camera_names  # Cameras used by pose detector
 
-        # 4. Get predictions_mapping from runtime_config (already loaded) for proximity index
+        # 3. Get predictions_mapping from runtime_config (already loaded) for proximity index
         self.keypoint_mapping = getattr(self.predictions_mapping.human_pose, keypoint_mapping_name)
 
-        self.used_keypoints = self.static_config.used_keypoints
+        self.used_keypoints = self.detector_config.used_keypoints
         keypoints_index = self.keypoint_mapping.keypoints_index.body
         for keypoint in self.used_keypoints:
             if keypoint not in keypoints_index:
                 logging.error(f"Given used_keypoint could not be found in predictions_mapping: {keypoint}")
 
         self.keypoint_index = [keypoints_index[keypoint] for keypoint in self.used_keypoints]
-
-        # 5. Store config values and convenience references
-        self.subjects_descr = self.runtime.subjects_descr
-        self.result_folders = self.runtime.result_folders
-        self.viz_folder = self.runtime.viz_folder
 
     def compute(self):
         """

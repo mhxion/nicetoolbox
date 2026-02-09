@@ -32,7 +32,7 @@ class PyFeat(BaseMethod):
         self.video_start = self.data.video_start
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects
-        self.camera_names = self.static_config.camera_names
+        self.camera_names = self.detector_config.camera_names
         self.results_folder = self.result_folders[self.components[0]]
 
         # (2) Initialise data loader
