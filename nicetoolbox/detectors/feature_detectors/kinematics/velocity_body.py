@@ -148,7 +148,10 @@ class VelocityBody(BaseFeature):
             # standardized_magnitudes = (motion_magnitude - motion_magnitude_mean) /
             # motion_magnitude_std
 
+            # save subjects information
+            subjects_list = data_description["axis0"]
             # save results
+            del data_description["axis0"]
             del data_description["axis4"]
             out_dict.update(
                 {
@@ -160,6 +163,7 @@ class VelocityBody(BaseFeature):
                 {
                     f"displacement_vector_body_{dim}": dict(
                         **data_description,
+                        axis0=subjects_list,
                         axis4=[
                             "coordinate_x",
                             "coordinate_y",
@@ -169,7 +173,9 @@ class VelocityBody(BaseFeature):
                         if dim == "3d"
                         else ["coordinate_x", "coordinate_y", "confidence_score"],
                     ),
-                    f"velocity_body_{dim}": dict(**data_description, axis4=["velocity", "confidence_score"]),
+                    f"velocity_body_{dim}": dict(
+                        **data_description, axis0=subjects_list, axis4=["velocity", "confidence_score"]
+                    ),
                 }
             )
 

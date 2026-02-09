@@ -21,9 +21,7 @@ visualize = true
 input_data_format = "frames"
 camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
 env_name = "conda:openmmlab"
-multi_person = true
 save_images = true
-resolution = [1000, 700]
 device = "cuda:0"
 filtered = true
 window_length = 11
@@ -53,6 +51,7 @@ min_detection_confidence = 0.5
 [algorithms.velocity_body]
 input_detector_names = [["body_joints", "hrnetw48"]]
 visualize = true
+
 
 # proximity
 [algorithms.body_distance]
