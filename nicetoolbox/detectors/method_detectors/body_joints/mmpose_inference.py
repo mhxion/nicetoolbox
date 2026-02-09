@@ -163,7 +163,7 @@ def check_correct_and_sort_person_detections(
             keep_bbox_indices = filter_overlapping_bboxes(
                 updated_bboxes, updated_bbox_conf_scores, bbox_overlapping_threshold
             )
-            updated_bboxes = updated_bboxes[indices]
+            updated_bboxes = updated_bboxes[keep_bbox_indices]
             updated_frame_predictions = [updated_frame_predictions[index] for index in keep_bbox_indices]
             if len(updated_frame_predictions) != num_subjects:
                 is_correct_num_detections = False
@@ -191,7 +191,7 @@ def check_correct_and_sort_person_detections(
     return updated_frame_predictions_list
 
 
-def convert_output_to_numpy(data, num_persons):
+def convert_output_to_numpy(data, camera_subjects, number_subjects):
     """
     Convert the output data from a pose estimation model to numpy arrays.
 
@@ -206,13 +206,15 @@ def convert_output_to_numpy(data, num_persons):
 
     Args:
         data (list): The output data from the pose estimation model.
-        num_persons (int): The number of persons detected in the data.
+        camera_subjects (list): The index of subjects seen by the camera.
+        number_subjects (int): Total number of subjects for all used cameras.
 
     Returns:
         tuple: A tuple containing the keypoints array, bbox array, and data description.
     """
 
     num_frames = len(data)
+    num_persons = len(camera_subjects)
     num_keypoints = len(
         data[0]["predictions"][0][0]["keypoints"]
     )  # results[0] first frame: ["predictions"][0][0] first person
@@ -221,11 +223,12 @@ def convert_output_to_numpy(data, num_persons):
     sorted_frame_predictions = check_correct_and_sort_person_detections(data, num_persons)
 
     # Initialize numpy arrays
-    keypoints_array = np.zeros((num_persons, num_frames, num_keypoints, num_estimations))
-    bbox_array = np.zeros((num_persons, num_frames, 1, 5))  # 1 is because detected category is person
+    keypoints_array = np.full((number_subjects, num_frames, num_keypoints, num_estimations), np.nan)
+    bbox_array = np.full((number_subjects, num_frames, 1, 5), np.nan)  # 1 is because detected category is person
 
     for frame_index, frame in enumerate(sorted_frame_predictions):
-        for person_index, person in enumerate(frame):
+        for detection_index, person in enumerate(frame):
+            person_index = camera_subjects[detection_index]
             # keypoints and scores
             for kp_index, (kp, score) in enumerate(zip(person["keypoints"], person["keypoint_scores"])):
                 keypoints_array[person_index, frame_index, kp_index] = [
@@ -282,6 +285,12 @@ def main(config):
     # Create input data loader from nicetoolbox-core shared code
     dataloader = ImagePathsByCameraLoader(config=config, expected_cameras=config["camera_names"])
 
+    # all camera subjects
+    subjects_in_any_camera_view = [
+        s
+        for i, s in enumerate(config["subjects_descr"])
+        if any(i in config["cam_sees_subjects"].get(cam, []) for cam in config["camera_names"])
+    ]
     # Create inferencer object from MMPose API
     inferencer = MMPoseInferencer(
         pose2d=config["pose_config"],
@@ -295,6 +304,10 @@ def main(config):
     # Prepare to collect outputs
     camera_keypoints_output = []
     camera_bbox_output = []
+
+    number_subjects = 0
+    for camera_name in config["camera_names"]:
+        number_subjects = max(number_subjects, len(config["cam_sees_subjects"][camera_name]))
 
     # Inference per camera
     for camera_name, image_paths in dataloader:
@@ -317,8 +330,10 @@ def main(config):
         results = [r for r in result_generator]
 
         # convert results to numpy array
-        num_subjects = len(config["subjects_descr"])
-        keypoints_array, bbox_array, estimations_data_descr = convert_output_to_numpy(results, num_subjects)
+        camera_subjects = config["cam_sees_subjects"][camera_name]
+        keypoints_array, bbox_array, estimations_data_descr = convert_output_to_numpy(
+            results, camera_subjects, number_subjects
+        )
         camera_keypoints_output.append(keypoints_array)
         camera_bbox_output.append(bbox_array)
 
@@ -333,14 +348,14 @@ def main(config):
 
         data_desc = {
             "2d": {
-                "axis0": config["subjects_descr"],
+                "axis0": subjects_in_any_camera_view,
                 "axis1": config["camera_names"],
                 "axis2": frame_indices,
                 "axis3": config["keypoints_description"][component],
                 "axis4": estimations_data_descr["2d"],
             },
             "bbox_2d": {
-                "axis0": config["subjects_descr"],
+                "axis0": subjects_in_any_camera_view,
                 "axis1": config["camera_names"],
                 "axis2": frame_indices,
                 "axis3": ["full_body"],

@@ -83,9 +83,7 @@ class FrameworksMMPoseConfig(BaseModel):
     input_data_format: str
     camera_names: List[str]
     env_name: str
-    multi_person: bool
     save_images: bool
-    resolution: List[int]
     device: str
     filtered: bool
     window_length: int

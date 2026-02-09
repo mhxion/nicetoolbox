@@ -180,7 +180,10 @@ def main(visualizer_config_file, machine_specifics_file):
             entity_path_cams = viewer.get_camera_pos_entity_path(camera)
             viewer.log_camera(calib[camera], entity_path_cams)
     frame_idx = viewer.get_start_frame()
+    end_frame = viewer.get_end_frame()
     while True:
+        if end_frame != -1 and frame_idx > end_frame:
+            break
         viewer.go_to_timestamp(frame_idx)
         frame_no = viewer.get_video_start() + frame_idx + config_handler.get_dataset_starting_index()
         image_name = f"{frame_no:09}.png"

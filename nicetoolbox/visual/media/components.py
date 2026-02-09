@@ -141,7 +141,9 @@ class BodyJointsComponent(Component):
         # by design all algorithms in same component shares the same cameras and
         # subjects -- therefore the camera_names and subject_names results will be
         # read from first algorithm data description axis0 gives subject information
-        self.subject_names = self.algorithms_results[0]["data_description"].item()["2d"]["axis0"]
+        self.subject_names_2d = self.algorithms_results[0]["data_description"].item()["2d"]["axis0"]
+        if "3D_Canvas" in self.canvas_list:
+            self.subject_names_3d = self.algorithms_results[0]["data_description"].item()["3d"]["axis0"]
         # data description axis1 gives camera information
         self.camera_names = self.algorithms_results[0]["data_description"].item()["2d"]["axis1"]
 
@@ -299,7 +301,7 @@ class BodyJointsComponent(Component):
                     if frame_idx >= alg_data.shape[2]:  # number of frames
                         continue
                     alg_name = self.algorithm_list[alg_idx]
-                    for subject_idx, subject in enumerate(self.subject_names):
+                    for subject_idx, subject in enumerate(self.subject_names_3d):
                         subject_3d_points = alg_data[subject_idx, 0, frame_idx][
                             :, :3
                         ]  # select first 3 values, 4th is confidence score
@@ -325,7 +327,7 @@ class BodyJointsComponent(Component):
                         if frame_idx >= alg_data.shape[2]:  # number of frames
                             continue
                         alg_name = self.algorithm_list[alg_idx]
-                        for subject_idx, subject in enumerate(self.subject_names):
+                        for subject_idx, subject in enumerate(self.subject_names_2d):
                             subject_2d_points = alg_data[subject_idx, camera_index, frame_idx][
                                 :, :2
                             ]  # select first 2 values, 3rd is confidence score
@@ -1057,6 +1059,9 @@ class KinematicsComponent(Component):
         super().__init__(visualizer_config, io, logger, component_name)
         self.camera_names = self.algorithms_results[0]["data_description"].item()["velocity_body_2d"]["axis1"]
         self.subject_names = self.algorithms_results[0]["data_description"].item()["velocity_body_2d"]["axis0"]
+        self.subject_names_2d = self.algorithms_results[0]["data_description"].item()["velocity_body_2d"]["axis0"]
+        if "velocity_body_3d" in self.canvas_data:
+            self.subject_names_3d = self.algorithms_results[0]["data_description"].item()["velocity_body_3d"]["axis0"]
 
     def _get_algorithms_labels(self) -> List[List[str]]:
         """
@@ -1110,9 +1115,14 @@ class KinematicsComponent(Component):
             frame_idx (int): The frame index.
         """
         for data_name, data in self.canvas_data.items():
+            if data_name == "velocity_body_3d":
+                subject_names = self.subject_names_3d
+            else:
+                subject_names = self.subject_names_2d
+
             for alg_idx, _alg_data in enumerate(data):
                 alg_name = self.algorithm_list[alg_idx]
-                for subject_idx, subject in enumerate(self.subject_names):
+                for subject_idx, subject in enumerate(subject_names):
                     joints_bodypart_motion = self._get_joints_movement_by_bodypart(alg_idx)
                     for idx, bodypart in enumerate(
                         self.visualizer_config["media"][self.component_name]["joints"].keys()

@@ -163,7 +163,6 @@ class MMPose(BaseMethod):
         # Create input data loader from nicetoolbox-core shared code
         dataloader = ImagePathsByCameraLoader(config=self.data.get_input_recipe(), expected_cameras=self.camera_names)
 
-        n_subj = len(self.subjects_descr)
         for _component, result_folder in self.result_folders.items():
             viz_dir = os.path.join(result_folder, self.algorithm, "visualization")
             os.makedirs(viz_dir, exist_ok=True)
@@ -172,6 +171,7 @@ class MMPose(BaseMethod):
 
             data = prediction["2d_interpolated"]
             algorithm_labels = prediction["data_description"].item()["2d_interpolated"]["axis3"]
+            subject_names = prediction["data_description"].item()["2d"]["axis0"]
 
             # visualization parameters
             if _component == "body_joints":
@@ -191,7 +191,7 @@ class MMPose(BaseMethod):
 
                 for frame_idx, image_file in enumerate(frames_list):
                     image = cv2.imread(image_file)
-                    for subject_idx in range(n_subj):
+                    for subject_idx in range(len(subject_names)):
                         # the predicted joints data
                         subject_2d_points = data[subject_idx, cam_idx, frame_idx][
                             :, :2
@@ -387,13 +387,15 @@ class MMPose(BaseMethod):
                     results_2d_interpolated[:, 1],
                 )
 
-                if results_2d.shape[0] != len(data_description["2d"]["axis0"]) != len(self.subjects_descr):
-                    logging.error("Loaded prediction results differ in the number of persons.")
+                # Find subject idx common in both camera view
+                subjects_cam1 = set(self.cam_sees_subjects[self.camera_names[0]])
+                subjects_cam2 = set(self.cam_sees_subjects[self.camera_names[1]])
+                common_subjects_idx = list(subjects_cam1 & subjects_cam2)
 
                 person_data_list = []
-                for i in range(len(self.subjects_descr)):
-                    person_cam1 = cam1_data[i]
-                    person_cam2 = cam2_data[i]
+                for subject_idx in common_subjects_idx:
+                    person_cam1 = cam1_data[subject_idx]
+                    person_cam2 = cam2_data[subject_idx]
 
                     # Extract the x and y values
                     xy_points_cam1 = person_cam1[:, :, :2].reshape(-1, 1, 2)
@@ -459,10 +461,11 @@ class MMPose(BaseMethod):
 
                 # save results
                 descr_2d = data_description["2d"]
+                common_subjects = [s for i, s in enumerate(self.subjects_descr) if i in common_subjects_idx]
                 data_description.update(
                     {
                         "3d": dict(
-                            axis0=descr_2d["axis0"],
+                            axis0=common_subjects,
                             axis1=["3d"],
                             axis2=descr_2d["axis2"],
                             axis3=descr_2d["axis3"],
