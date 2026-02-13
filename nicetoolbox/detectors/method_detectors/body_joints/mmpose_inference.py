@@ -313,19 +313,17 @@ def main(config):
     for camera_name, image_paths in dataloader:
         logging.info(f"Camera - {camera_name}")
 
-        if config["visualize"]:
-            result_generator = inferencer(
-                image_paths,
-                pred_out_dir=config["prediction_folders"][camera_name],
-                show=False,
-                vis_out_dir=config["image_folders"][camera_name],
-            )
-        else:
-            result_generator = inferencer(
-                image_paths,
-                pred_out_dir=config["prediction_folders"][camera_name],
-                show=False,
-            )
+        kwargs = {
+            "show": False,
+        }
+
+        if config["save_detector_predictions"]:
+            kwargs["pred_out_dir"] = config["prediction_folders"][camera_name]
+
+        if config["save_detector_images"]:
+            kwargs["vis_out_dir"] = config["image_folders"][camera_name]
+
+        result_generator = inferencer(image_paths, **kwargs)
 
         results = [r for r in result_generator]
 

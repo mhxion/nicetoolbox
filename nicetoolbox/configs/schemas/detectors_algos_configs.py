@@ -83,7 +83,8 @@ class FrameworksMMPoseConfig(BaseModel):
     input_data_format: str
     camera_names: List[str]
     env_name: str
-    save_images: bool
+    save_detector_images: bool
+    save_detector_predictions: bool
     device: str
     filtered: bool
     window_length: int
