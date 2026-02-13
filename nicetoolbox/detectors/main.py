@@ -104,7 +104,7 @@ def main(run_config_file, machine_specifics_file):
 
                     result_data = detector.run()
 
-                    if config.visualize:
+                    if config.visualize and detector.visualize:
                         detector.visualization(result_data)
 
                     logging.info(f"FINISHED '{detector_name}' in {time.time() - start_time}s.\n\n")

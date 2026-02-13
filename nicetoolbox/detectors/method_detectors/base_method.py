@@ -64,7 +64,6 @@ class BaseMethod(BaseDetector):
         self._setup_subprocess_settings()
 
         # (3) Setup method detector (builds runtime, validates, saves config)
-        self.visualize = getattr(self.detector_config, "visualize", False)
         self.requires_out_folder = getattr(self.detector_config, "visualize", False)
         self.out_folder = self.compute_output_folder(self.requires_out_folder)
         self.result_folders = self.compute_result_folders()

@@ -34,7 +34,6 @@ class BaseFeature(BaseDetector):
         )
 
         # Some common fields
-        self.visualize = getattr(self.detector_config, "visualize", False)
         self.subjects_descr = self.data.subjects_descr
         self.input_map = self._resolve_input_paths()
         self.viz_folder = self.compute_viz_folder(self.visualize)

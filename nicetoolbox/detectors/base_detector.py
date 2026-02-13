@@ -32,6 +32,9 @@ class BaseDetector(ABC):
     components: List[str]
     algorithm: str
 
+    # Additional attributes
+    visualize: bool
+
     def __init__(self, io: VideoIO, data: VideoData, video_context: VideoRuntimeConfig) -> None:
         """
         Initialize base detector with references.
@@ -42,6 +45,7 @@ class BaseDetector(ABC):
         self.data = data
         self.video_context = video_context
         self.detector_config = video_context.get_detector_config(self.algorithm)
+        self.visualize = getattr(self.detector_config, "visualize", False)
 
     @abstractmethod
     def run(self) -> Optional[Any]:
