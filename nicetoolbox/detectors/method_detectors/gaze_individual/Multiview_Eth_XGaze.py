@@ -83,44 +83,32 @@ class MultiviewEthXgaze(BaseMethod):
             logging.error("Prediction file is not found, skipping the visualization of output")
             return 2
 
-        # Filter the 3d results for less flickering estimates
-        if self.filtered:
-            # Apply filter
-            logging.info("APPLYING filtering to Gaze Individual data...")
-            results_3d_filtered = prediction["3d_multiview"].copy()[:, :, :, None]
-            filter = SGFilter(self.filter_window_length, self.filter_polyorder)
-            results_3d_filtered = filter.apply(results_3d_filtered, is_3d=True)
-            data_description.update({"3d_filtered": data_description["3d_multiview"]})
-            predictions_dict["3d_filtered"] = results_3d_filtered[:, :, :, 0]
-
-            if len(self.camera_names) == 1:
-                results_2d = prediction["2d"]
-                results_2d_filtered = results_2d.copy()[:, :, :, None]
-                results_2d_filtered = filter.apply(results_2d_filtered, is_3d=False)
-                data_description.update({"2d_filtered": data_description["2d"]})
-                predictions_dict["2d_filtered"] = results_2d_filtered[:, :, :, 0]
-
-            results_3d = predictions_dict["3d_filtered"]
-
-        else:
-            results_3d = prediction["3d_multiview"]
-
         assert self.camera_names == data_description["landmarks_2d"]["axis1"]
 
-        # project the 3d results back to all camera's 2d images
-        projected_data = self._project_gaze_to_camera_views(results_3d)
-        k = "2d_projected_from_3d_filtered" if self.filtered else "2d_projected_from_3d"
-        predictions_dict[k] = projected_data
-        data_description.update(
-            {
-                k: dict(
-                    axis0=data_description["3d_multiview"]["axis0"],
-                    axis1=self.camera_names,
-                    axis2=data_description["3d_multiview"]["axis2"],
-                    axis3=["coordinate_u", "coordinate_v"],
-                )
-            }
+        # Project each 3d prediction to their original npz
+        results_3d = prediction["3d"]
+        results_2d = self._project_gaze_to_camera_views(results_3d)
+        data_description_2d = dict(
+            axis0=data_description["3d"]["axis0"],
+            axis1=self.camera_names,
+            axis2=data_description["3d"]["axis2"],
+            axis3=["coordinate_u", "coordinate_v"],
         )
+        data_description["2d_projected_from_3d"] = data_description_2d
+        predictions_dict["2d_projected_from_3d"] = results_2d
+
+        # Filter the 3d results for less flickering estimates
+        if self.filtered:
+            logging.info("APPLYING filtering to Gaze Individual data...")
+            filter = SGFilter(self.filter_window_length, self.filter_polyorder)
+            results_3d_filtered = filter.apply(results_3d, is_3d=True)
+            data_description["3d_filtered"] = data_description["3d"]
+            predictions_dict["3d_filtered"] = results_3d_filtered
+
+            # Now project filtered data
+            results_2d_filtered = self._project_gaze_to_camera_views(results_3d_filtered)
+            data_description["2d_projected_from_3d_filtered"] = data_description_2d
+            predictions_dict["2d_projected_from_3d_filtered"] = results_2d_filtered
 
         np.savez_compressed(prediction_file, **predictions_dict)
         return 0
@@ -152,7 +140,7 @@ class MultiviewEthXgaze(BaseMethod):
             for subject_idx, _subject_name in enumerate(self.subjects_descr):
                 if subject_idx in self.cam_sees_subjects[cam_name]:
                     # Extract all frames at once
-                    gaze_vectors = data[subject_idx, 0, :, :]
+                    gaze_vectors = data[subject_idx, cam_idx, :, :]
                     dx, dy = vis_ut.reproject_gaze_to_camera_view_vectorized(cam_R, gaze_vectors, image_width)
                     projected_data[subject_idx, cam_idx, :, 0] = -dx
                     projected_data[subject_idx, cam_idx, :, 1] = -dy

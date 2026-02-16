@@ -57,8 +57,6 @@ def eth_xgaze_inference(config, debug=False):
     face_detector = lm.get_face_detector(config["shape_predictor_filename"], config["face_detector_filename"])
 
     # (4) Prepare to store results
-    results = np.zeros((n_frames, n_subjects, 3))  # Back compatibility
-    results_2d = np.zeros((n_frames, n_cams, n_subjects, 2))  # for single camera setup
     results_per_camera = np.full((n_subjects, n_cams, n_frames, 3), np.nan)  # raw
     landmarks_2d = np.full((n_frames, n_cams, n_subjects, 6, 3), np.nan)  # with scores
 
@@ -124,8 +122,6 @@ def eth_xgaze_inference(config, debug=False):
 
         # (B) OK, now let's do gaze estimation - per subject
         for sub_id in range(n_subjects):
-            gaze_world = []  # back compatibility
-
             # loop over the cameras and predict the gaze for each in 2d
             for camera_idx, camera_name in enumerate(camera_names):
                 # Camera image loaded?
@@ -158,34 +154,7 @@ def eth_xgaze_inference(config, debug=False):
                     # SAVE per camera results (RAW)
                     results_per_camera[sub_id, camera_idx, frame_idx] = pred_gaze_world
 
-                    # Below: back compatibility
-                    gaze_world.append(pred_gaze_world.reshape((1, 3)))
-                else:
-                    gaze_world.append(np.full((1, 3), np.nan))
-
-            # Multiview fusion - TODO: Cut from here
-            gaze_world = np.asarray(gaze_world).reshape((-1, 3))
-            gaze_world = np.nanmean(gaze_world, axis=0).reshape((-1, 3))
-            results[frame_idx][sub_id] = gaze_world.flatten()
-
-        # (C) 2D Projection for single camera setup
-        if len(camera_names) == 1:
-            gaze_camera = np.matmul(cam_rotation, results[frame_idx].T).T
-            # vector to pitchyaw
-            pitchyaw = np.empty((n_subjects, 2))
-            gaze_norm = gaze_camera / np.linalg.norm(gaze_camera, axis=1, keepdims=True)
-            pitchyaw[:, 0] = np.arcsin(-1 * gaze_norm[:, 1])  # theta
-            pitchyaw[:, 1] = np.arctan2(-1 * gaze_norm[:, 0], -1 * gaze_norm[:, 2])  # phi
-
-            length_ratio = 5.0
-            length = image.shape[1] / length_ratio
-            dx = (-length * np.sin(pitchyaw[:, 1]) * np.cos(pitchyaw[:, 0])).astype(int)
-            dy = (-length * np.sin(pitchyaw[:, 0])).astype(int)
-
-            # shape (n_subjects, 2)
-            results_2d[frame_idx, 0] = np.stack((dx, dy), axis=-1)
-
-        # (D) Visualization
+        # (C) Visualization
         if config["visualize"]:
             # create camera folders
             for camera_name in camera_names:
@@ -202,7 +171,7 @@ def eth_xgaze_inference(config, debug=False):
                         continue
 
                     landmarks = landmarks_2d[frame_idx, camera_idx, sub_id, :, :2]
-                    gaze_result = results[frame_idx][sub_id]
+                    gaze_result = results_per_camera[sub_id, camera_idx, frame_idx]
 
                     if not np.isnan(landmarks).all() and not np.isnan(gaze_result).all():
                         # project 3D gaze to 2D
@@ -233,16 +202,9 @@ def eth_xgaze_inference(config, debug=False):
 
     #  save as npz file
     out_dict = {
-        "3d_multiview": results[None].transpose(2, 0, 1, 3),
         "3d": results_per_camera,
         "landmarks_2d": np.array(landmarks_2d, dtype=float).transpose(2, 1, 0, 3, 4),
         "data_description": {
-            "3d_multiview": dict(
-                axis0=config["subjects_descr"],
-                axis1=["3d"],
-                axis2=frame_indices,
-                axis3=["coordinate_x", "coordinate_y", "coordinate_z"],
-            ),
             "3d": dict(
                 axis0=config["subjects_descr"],  # Subjects
                 axis1=camera_names,  # Cameras
@@ -265,18 +227,6 @@ def eth_xgaze_inference(config, debug=False):
             ),
         },
     }
-    if len(camera_names) == 1:
-        out_dict.update({"2d": results_2d.transpose(2, 1, 0, 3)})
-        out_dict["data_description"].update(
-            {
-                "2d": dict(
-                    axis0=config["subjects_descr"],
-                    axis1=camera_names,
-                    axis2=frame_indices,
-                    axis3=["coordinate_x", "coordinate_y"],
-                )
-            }
-        )
 
     save_file_name = os.path.join(config["result_folders"]["gaze_individual"], f"{config['algorithm']}.npz")
     np.savez_compressed(save_file_name, **out_dict)

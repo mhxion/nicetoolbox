@@ -9,6 +9,9 @@ save_csv = true               # whether to save all results to csv-files
 error_level = "DETECTOR"      # Options: "DETECTOR", "VIDEO", "STRICT" (from least to most strict)
 log_level = "INFO"            # Options: "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
 
+# checks that all detectors have their input dependencies enabled
+check_missing_detectors_dependnencies = true 
+
 # each component can be assigned to / run with multiple different algorithms
 [component_algorithm_mapping]
 gaze_individual = ['multiview_eth_xgaze']

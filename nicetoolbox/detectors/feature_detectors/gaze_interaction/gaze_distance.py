@@ -68,27 +68,23 @@ class GazeDistance(BaseFeature):
             the face, a boolean array indicating whether the gaze is directed at the
             face, and a boolean array indicating whether the gaze is mutual.
         """
-
-        gaze_data = self._get_input("gaze_individual")
-        camera_names = gaze_data["data_description"].item()["landmarks_2d"]["axis1"]
-        dim = "2d" if len(camera_names) == 1 else "3d"
-        if f"{dim}_filtered" in gaze_data["data_description"].item():
-            data_name = f"{dim}_filtered"
+        keypoints_data = self._get_input("face_landmarks")
+        if "3d" in keypoints_data:
+            dim = "3d"
+            dim_gaze = "gaze_fused_filtered"
         else:
-            data_name = dim
-        gaze = gaze_data[data_name]
-        gaze_description = gaze_data["data_description"].item()[data_name]
+            dim = "2d"
+            dim_gaze = "gaze_2d_filtered"
 
-        if dim == "3d":
-            keypoints_data = self._get_input("face_landmarks")
-            keypoints = keypoints_data["3d"]
-            keypoints_description = keypoints_data["data_description"].item()["3d"]
-            indices = ["face_landmarks" in key for key in keypoints_description["axis3"]]
-            keypoint_values = keypoints[:, :, :, indices]
-            head = keypoint_values[..., :3].mean(axis=-2)
-        else:
-            head = gaze_data["landmarks_2d"].mean(axis=-2)
-            keypoints_description = gaze_data["data_description"].item()["landmarks_2d"]
+        keypoints = keypoints_data[dim]
+        keypoints_description = keypoints_data["data_description"].item()[dim]
+        indices = ["face_landmarks" in key for key in keypoints_description["axis3"]]
+        keypoint_values = keypoints[:, :, :, indices]
+        head = keypoint_values[..., :-1].mean(axis=-2)
+
+        gaze_data = self._get_input("gaze_multiview")
+        gaze = gaze_data[dim_gaze]
+        gaze_description = gaze_data["data_description"].item()[dim_gaze]
 
         assert gaze_description["axis0"] == keypoints_description["axis0"]
         subject_description = gaze_description["axis0"]
