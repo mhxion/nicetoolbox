@@ -45,7 +45,7 @@ class GazeFusion(BaseFeature):
         self.frame_indices: List[int] = []
 
         # 2. Data cache for raw inputs + load
-        self.raw_inputs: List[Dict[str, Any]] = []
+        self.raw_inputs: Dict[str, Any] = {}
         self._load_inputs()
 
         # 3. Store config parameters from static_config
@@ -72,44 +72,45 @@ class GazeFusion(BaseFeature):
             logging.error("No input files found for MultiviewFusion.")
             return
 
-        for (_comp, algo), file_path in self.input_map.items():
-            try:
-                data = np.load(file_path, allow_pickle=True)
-                if "3d" not in data.files:
-                    logging.warning(f"File {file_path} missing '3d'. Skipping.")
-                    continue
+        # TODO: pleasse refactor me
+        (_comp, algo), file_path = list(self.input_map.items())[0]
+        try:
+            data = np.load(file_path, allow_pickle=True)
+            if "3d" not in data.files:
+                logging.warning(f"File {file_path} missing '3d'. Skipping.")
+                return
 
-                # Extract Metadata from the first valid file
-                if not self.camera_names:
-                    desc = data["data_description"].item()
-                    self.camera_names = desc["3d"]["axis1"]
-                    self.subjects = desc["3d"]["axis0"]
-                    self.frame_indices = desc["3d"]["axis2"]
+            # Extract Metadata from the first valid file
+            if not self.camera_names:
+                desc = data["data_description"].item()
+                self.camera_names = desc["3d"]["axis1"]
+                self.subjects = desc["3d"]["axis0"]
+                self.frame_indices = desc["3d"]["axis2"]
 
-                # Extract Confidence from Landmarks
-                # Landmarks shape: (S, C, F, 6, 3) -> [u, v, conf]
-                conf = None
-                landmarks = data.get("landmarks_2d")
+            # Extract Confidence from Landmarks
+            # Landmarks shape: (S, C, F, 6, 3) -> [u, v, conf]
+            conf = None
+            landmarks = data.get("landmarks_2d")
 
-                if landmarks is not None and landmarks.shape[-1] == 3:
-                    # Take the 3rd element (index 2) from the last axis
-                    raw_conf = landmarks[..., 2]  # Result: (S, C, F, 6)
+            if landmarks is not None and landmarks.shape[-1] == 3:
+                # Take the 3rd element (index 2) from the last axis
+                raw_conf = landmarks[..., 2]  # Result: (S, C, F, 6)
 
-                    # Reduce the 6 landmarks to 1 score per face (mean)
-                    conf = np.nanmean(raw_conf, axis=-1)  # Result: (S, C, F)
+                # Reduce the 6 landmarks to 1 score per face (mean)
+                conf = np.nanmean(raw_conf, axis=-1)  # Result: (S, C, F)
 
-                input_entry = {
-                    "name": algo,
-                    "vectors": data["3d"],
-                    "conf": conf,  # for weighted fusion
-                    "landmarks": landmarks[..., :2],  # for viz arrow with face origin
-                }
-                self.raw_inputs.append(input_entry)
+            input_entry = {
+                "name": algo,
+                "vectors": data["3d"],
+                "conf": conf,  # for weighted fusion
+                "landmarks": landmarks[..., :2],  # for viz arrow with face origin
+            }
+            self.raw_inputs = input_entry
 
-            except Exception as e:
-                logging.error(f"Failed to load input {file_path}: {e}")
+        except Exception as e:
+            logging.error(f"Failed to load input {file_path}: {e}")
 
-    def compute(self) -> List[Dict[str, Any] | None]:
+    def compute(self) -> Dict[str, Any] | None:
         """
         Run the fusion pipeline.
 
@@ -117,56 +118,21 @@ class GazeFusion(BaseFeature):
             A list of dictionaries containing fused results.
         """
         if not self.raw_inputs:
-            return [None]
+            return None
 
-        all_results = []
+        base_algo_name = self.raw_inputs["name"]
+        vectors = self.raw_inputs["vectors"]
+        conf_scores = self.raw_inputs["conf"]
 
-        # 1. Individual Fusion (Per Algorithm)
-        for inp in self.raw_inputs:
-            base_algo_name = inp["name"]
-            vectors = inp["vectors"]
-            conf_scores = inp["conf"]
+        logging.info(f"Fusing results for {base_algo_name}...")
 
-            logging.info(f"Fusing results for {base_algo_name}...")
+        # Fuse -> Filter
+        fused_3d, fused_3d_filtered = self._process_single_input(vectors, conf_scores)
 
-            # Fuse -> Filter
-            fused_3d, fused_3d_filtered = self._process_single_input(vectors, conf_scores)
-
-            # Save and collect
-            filename = f"{self.algorithm}_{base_algo_name}"
-            out_dict = self._save_fused_result(fused_3d, fused_3d_filtered, filename)
-            out_dict["_meta_title"] = f"Algorithm: {base_algo_name}"
-            all_results.append(out_dict)
-
-        # 2. Ensemble Fusion (Across Base Algorithms - Optional)
-        if self.ensemble_enabled and len(self.raw_inputs) > 1:
-            logging.info("Running Ensemble Fusion...")
-
-            all_vectors = [inp["vectors"] for inp in self.raw_inputs]
-            # Stack along Camera axis (axis 1) to treat as "more views"
-            # (S, C, F, 3) -> (S, Total_C, F, 3)
-            combined_vectors = np.concatenate(all_vectors, axis=1)
-
-            all_conf_scores = None
-            if self.fusion_method == "weighted_average":
-                conf_scores = []
-                for inp in self.raw_inputs:
-                    if inp["conf"] is not None:
-                        conf_scores.append(inp["conf"])
-                    else:
-                        # Fallback to ones if missing
-                        conf_scores.append(np.ones(inp["vectors"].shape[:3]))
-                all_conf_scores = np.concatenate(conf_scores, axis=1)
-
-            # Fuse combined data
-            ensemble_fused, ensemble_fused_filtered = self._process_single_input(combined_vectors, all_conf_scores)
-
-            # Save
-            out_dict = self._save_fused_result(ensemble_fused, ensemble_fused_filtered, f"{self.algorithm}_ensemble")
-            out_dict["_meta_title"] = "Ensemble Fusion"
-            all_results.append(out_dict)
-
-        return all_results
+        # Save and collect
+        filename = f"{self.algorithm}"
+        out_dict = self._save_fused_result(fused_3d, fused_3d_filtered, filename)
+        return out_dict
 
     def _process_single_input(
         self, vectors: np.ndarray, confidence: Optional[np.ndarray]
@@ -336,7 +302,7 @@ class GazeFusion(BaseFeature):
 
         return projected
 
-    def visualization(self, results_list: List[Dict[str, Any]]) -> None:
+    def visualization(self, result: Dict[str, Any]) -> None:
         """
         Generates visualization images with fused gaze overlays.
         """
@@ -345,8 +311,7 @@ class GazeFusion(BaseFeature):
         # We need landmarks for the origin point.
         # We use the first input's landmarks as the reference.
         # TODO: Different algorithms may have different landmark sets.
-        first_input = self.raw_inputs[0]
-        landmarks_2d = first_input.get("landmarks")  # (S, C, F, 6, 3)
+        landmarks_2d = self.raw_inputs["landmarks"]  # (S, C, F, 6, 3)
 
         if landmarks_2d is None:
             logging.warning("No landmarks found in input. Cannot visualize gaze origin.")
@@ -354,68 +319,65 @@ class GazeFusion(BaseFeature):
 
         landmarks_2d = landmarks_2d[..., :2]  # Use only (u, v)
         face_centers = np.nanmean(landmarks_2d, axis=-2)  # (S, C, F, 2)
+        logging.info(f"Visualizing: {self.algorithm}")
 
-        for result in results_list:
-            title = result.get("_meta_title", "Gaze Fusion Result")
-            logging.info(f"Visualizing: {title}")
+        dataloader = ImagePathsByFrameIndexLoader(self.dataloader_config, expected_cameras=self.camera_names)
 
-            dataloader = ImagePathsByFrameIndexLoader(self.dataloader_config, expected_cameras=self.camera_names)
+        # Prefer to use filtered gaze if available
+        if "gaze_2d_filtered" in result:
+            gaze_2d = result["gaze_2d_filtered"]  # (S, C, F, 2)
+            logging.info("Visualizing FILTERED fused gaze.")
+        else:
+            gaze_2d = result["gaze_2d"]  # (S, C, F, 2)
+            logging.info("Visualizing RAW fused gaze.")
 
-            # Prefer to use filtered gaze if available
-            if "gaze_2d_filtered" in result:
-                gaze_2d = result["gaze_2d_filtered"]  # (S, C, F, 2)
-                logging.info("Visualizing FILTERED fused gaze.")
-            else:
-                gaze_2d = result["gaze_2d"]  # (S, C, F, 2)
-                logging.info("Visualizing RAW fused gaze.")
+        for frame_idx, (real_idx, files) in enumerate(dataloader):
+            for cam_name, path in files.items():
+                if cam_name not in self.camera_names:
+                    continue
+                cam_idx = self.camera_names.index(cam_name)
 
-            for frame_idx, (real_idx, files) in enumerate(dataloader):
-                for cam_name, path in files.items():
-                    if cam_name not in self.camera_names:
+                img = cv2.imread(str(path))
+                if img is None:
+                    continue
+
+                for sub_id in range(gaze_2d.shape[0]):
+                    # Check Landmarks
+                    lms = landmarks_2d[sub_id, cam_idx, frame_idx]
+                    # lms shape is (6, 3) -> [u, v, score]
+                    if np.isnan(lms).all():
                         continue
-                    cam_idx = self.camera_names.index(cam_name)
 
-                    img = cv2.imread(str(path))
-                    if img is None:
+                    face_center = face_centers[sub_id, cam_idx, frame_idx]
+
+                    vec = gaze_2d[sub_id, cam_idx, frame_idx]
+                    if np.isnan(vec).any():
                         continue
 
-                    for sub_id in range(gaze_2d.shape[0]):
-                        # Check Landmarks
-                        lms = landmarks_2d[sub_id, cam_idx, frame_idx]
-                        # lms shape is (6, 3) -> [u, v, score]
-                        if np.isnan(lms).all():
-                            continue
+                    # Draw Arrow (vec is dx, dy)
+                    end_point = np.round(face_center + vec).astype(np.int32)
+                    face_center = np.round(face_center).astype(np.int32)
 
-                        face_center = face_centers[sub_id, cam_idx, frame_idx]
+                    cv2.arrowedLine(
+                        img,
+                        face_center,
+                        end_point,
+                        color=(0, 0, 255),  # Red
+                        thickness=2,
+                        line_type=cv2.LINE_AA,
+                        tipLength=0.2,
+                    )
 
-                        vec = gaze_2d[sub_id, cam_idx, frame_idx]
-                        if np.isnan(vec).any():
-                            continue
+                # TODO: Different viz folders per result! (Also for MP4)
+                out_dir = os.path.join(self.viz_folder, cam_name)
+                os.makedirs(out_dir, exist_ok=True)
+                cv2.imwrite(os.path.join(out_dir, f"{real_idx:09d}.jpg"), img)
 
-                        # Draw Arrow (vec is dx, dy)
-                        end_point = np.round(face_center + vec).astype(np.int32)
-                        face_center = np.round(face_center).astype(np.int32)
-
-                        cv2.arrowedLine(
-                            img,
-                            face_center,
-                            end_point,
-                            color=(0, 0, 255),  # Red
-                            thickness=2,
-                            line_type=cv2.LINE_AA,
-                            tipLength=0.2,
-                        )
-
-                    # TODO: Different viz folders per result! (Also for MP4)
-                    out_dir = os.path.join(self.viz_folder, cam_name)
-                    os.makedirs(out_dir, exist_ok=True)
-                    cv2.imwrite(os.path.join(out_dir, f"{real_idx:09d}.jpg"), img)
-
-            # Generate MP4
-            for cam in self.camera_names:
-                vd.frames_to_video(
-                    os.path.join(self.viz_folder, cam),
-                    os.path.join(self.viz_folder, f"{cam}.mp4"),
-                    fps=self.data.fps,
-                    start_frame=int(dataloader.start),
-                )
+        # Generate MP4
+        for cam in self.camera_names:
+            vd.frames_to_video(
+                os.path.join(self.viz_folder, cam),
+                os.path.join(self.viz_folder, f"{cam}.mp4"),
+                fps=self.data.fps,
+                start_frame=int(dataloader.start),
+            )

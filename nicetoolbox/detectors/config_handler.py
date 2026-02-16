@@ -165,6 +165,14 @@ class Configuration:
         }
         # 5. RESOLVE
         resolved_runtime = self.cfg_loader.resolve(runtime_config, runtime_ctx, ignore_auto_and_global=True)
+
+        # TODO: nasty quickfix, remove empty camera names if they aren't available for this dataset
+        # please add a better solution for camera handling
+        resolved_runtime.__dict__["all_camera_names"] = list(set(resolved_runtime.all_camera_names) - {""})
+        for algo in resolved_runtime.detectors_config.algorithms.values():
+            if hasattr(algo, "camera_names"):
+                algo.camera_names = list(set(algo.camera_names) - {""})
+
         return resolved_runtime
 
     def _expand_dependencies(self, algorithm_names: List[str]) -> List[str]:
@@ -215,8 +223,6 @@ class Configuration:
                 # Filter out empty strings that might result from placeholder resolution
                 cameras.update(c for c in camera_names if c)
 
-        cameras -= set([""])  # Remove empty strings when camera parsing fails
-
         return sorted(list(cameras))
 
     # -------------------------------------------------------------------------
@@ -253,6 +259,10 @@ class Configuration:
     @property
     def error_level(self) -> str:
         return self.run_config.error_level
+
+    @property
+    def check_missing_detectors_dependnencies(self) -> bool:
+        return self.run_config.check_missing_detectors_dependnencies
 
     @property
     def log_level(self) -> LoggingLevelEnum:

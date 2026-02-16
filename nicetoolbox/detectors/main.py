@@ -12,16 +12,15 @@ from nicetoolbox_core.errors import ErrorLevel
 from ..configs.schemas.detectors_run_file import LoggingLevelEnum
 from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
+from ..utils.dependency_sort import sort_detectors_order
 from ..utils.error_handling import manage_error_scope
 from . import config_handler as confh
 from .data import VideoData
-from .feature_detectors.base_feature import BaseFeature
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
 from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import VideoIO
-from .method_detectors.base_method import BaseMethod
 from .method_detectors.body_joints.mmpose_framework import HRNetw48, VitPose
 from .method_detectors.emotion_individual.py_feat import PyFeat
 from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
@@ -81,11 +80,11 @@ def main(run_config_file, machine_specifics_file):
             io = VideoIO(video_context, all_algorithms)
             data = VideoData(video_context, io)
 
-            # Algorithms based on user-selected components
+            # Algorithms based on user-selected components, topologically sorted
             selected_algorithms = video_context.all_selected_algorithms
-            method_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseMethod)]
-            feature_names = [a for a in selected_algorithms if issubclass(ALL_DETECTORS[a], BaseFeature)]
-            ordered_detectors = method_names + feature_names
+            ordered_detectors = sort_detectors_order(
+                video_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependnencies
+            )
 
             # ======================
             # PHASE 3: RUN DETECTORS
