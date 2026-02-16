@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..configs.models.video_timestamp import VideoTimestamp, timestamp_to_frame_index
 from ..configs.video_runtime_config import VideoRuntimeConfig
 from ..utils import check_and_exception as exc
 from ..utils import video as vid
@@ -24,7 +25,14 @@ class VideoData:
     - Video-frames input recepies
     - Frames extraction
     - FPS and video length
+
+    Attributes:
+        video_start_frame_index (int): Frame index for video segment start.
+        video_length_frames (int): Non-negative number of video segment frames.
     """
+
+    video_start_frame_index: int
+    video_length_frames: int
 
     def __init__(
         self,
@@ -58,8 +66,6 @@ class VideoData:
         self.session_ID = video_config.session_ID
         self.sequence_ID = video_config.sequence_ID
         self.start_frame_index: int = dataset_properties.start_frame_index
-        self.video_start = video_config.video_start
-        self.video_length_config = video_config.video_length  # Can be -1 for full length
 
         self.video_skip_frames = None  # Hardcoded - No access via config yet
         self.annotation_interval = 2.0  # Keep? Hardcoded - No access via config yet
@@ -83,7 +89,9 @@ class VideoData:
 
         # 2. Validate fps and video length given an example video file
         self.fps: int = self._get_fps_validated(video_context.fps)
-        self.video_length = self._resolve_video_length()
+        # now we can get frame indexes for start and end
+        self.video_start_frame_index = timestamp_to_frame_index(video_config.video_start, self.fps)
+        self.video_length_frames = self._resolve_video_length(video_config.video_length)
 
         # 3. Check and create input data if necessary
         self._input_data_creation()
@@ -110,8 +118,8 @@ class VideoData:
                 "root_path": str(root),
                 "camera_names": sorted(list(self.all_camera_names)),
                 "filename_template": template,
-                "range_start": self.video_start,
-                "range_end": self.video_start + self.video_length,
+                "range_start": self.video_start_frame_index,
+                "range_end": self.video_start_frame_index + self.video_length_frames,
                 "step": 1 if self.video_skip_frames is None else self.video_skip_frames,
             }
         }
@@ -179,7 +187,7 @@ class VideoData:
 
         raise NotImplementedError(f"FPS validation for input format '{self.input_format}' is not implemented.")
 
-    def _resolve_video_length(self) -> int:
+    def _resolve_video_length(self, config_video_length: int | VideoTimestamp) -> int:
         """
         Resolves the video length in frames. If the video_length is specified in the
         configuration, it is returned directly. If it is (-1), the length is determined
@@ -188,24 +196,25 @@ class VideoData:
         Returns:
             int: The resolved video length in frames.
         """
-        if self.video_length_config > 0:
-            return self.video_length_config
+        video_length = timestamp_to_frame_index(config_video_length, self.fps)
+        if video_length > 0:
+            return video_length
 
         # If length is -1, we need to figure out the length from the video file
 
         if self.input_format in [".mp4", ".avi"]:
             total_frames = vid.get_number_of_frames(str(self.video_sample_path))
-            available_length = total_frames - self.video_start
+            available_length = total_frames - self.video_start_frame_index
 
             if available_length <= 0:
                 raise ValueError(
-                    f"video_start ({self.video_start}) is beyond the end of the video "
+                    f"video_start ({self.video_start_frame_index}) is beyond the end of the video "
                     f"({total_frames} frames) in {self.video_sample_path.name}"
                 )
 
             logging.info(
                 f"Auto-detected length: {available_length} frames "
-                f"(Total: {total_frames}, Start: {self.video_start})"
+                f"(Total: {total_frames}, Start: {self.video_start_frame_index})"
             )
             return available_length
 
@@ -244,8 +253,8 @@ class VideoData:
         root = self.source_folder if is_source else self.input_folder
         template = self.filename_template
 
-        start_idx = self.video_start
-        end_idx = self.video_start + self.video_length - 1
+        start_idx = self.video_start_frame_index
+        end_idx = self.video_start_frame_index + self.video_length_frames - 1
 
         for cam in self.all_camera_names:
             if is_source:

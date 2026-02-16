@@ -6,6 +6,8 @@ from pydantic import BaseModel, NonNegativeInt, PrivateAttr
 
 from nicetoolbox_core.errors import ErrorLevel
 
+from ..models.video_timestamp import VideoTimestamp
+
 
 # Enum of python logging levels
 class LoggingLevelEnum(str, Enum):
@@ -50,8 +52,8 @@ class RunConfigVideo(BaseModel):
 
     session_ID: str
     sequence_ID: str
-    video_start: NonNegativeInt
-    video_length: int  # -1 for full length
+    video_start: NonNegativeInt | VideoTimestamp  # can be frame index or timestamp
+    video_length: int | VideoTimestamp  # frame index, timestamp or -1 for full length
 
 
 class DetectorsRunConfig(BaseModel):

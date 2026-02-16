@@ -206,8 +206,8 @@ videos = [
     {                           # define which data to run on
     session_ID = "",            # select the session_ID (str)
     sequence_ID="",             # select the sequence_ID (str, may be empty)
-    video_start = 0,            # start of the video in frames, 0 for starting from beginning (int)
-    video_length = 100,         # number of frames to run, defines the length of the video (int)
+    video_start = 0,            # start of the video from beginning (int frame index or timestamp)
+    video_length = 100,         # defines the length of the video (int number of frames or timestamp)
     },
     ...
 ]
@@ -223,6 +223,8 @@ Some notes:
 - `run.dataset_name.videos` contains the information of the video that should be processed. Enter the details for your dataset's video here. You can extend the list with more dictionaries to run multiple videos.
 - `io.experiment_name` defaults to the current date (in format YYYYMMDD).
 - `io.out_folder` is the experiment output directory. It supports placeholders such as `<output_folder_path>` and `<experiment_name>` that get filled automaticaclly when running the code.
+- `video_start` and `video_length` define the video segment to process, accepting either frame numbers (e.g., `0`, `150`) or timestamps (e.g., `00:01:30`, `00:00:45.500`).
+
 
 A more detailed and complete description of the `./configs/detectors_run_file.toml` file can be found in the wiki page on config files under [run file](../wikis/wiki_config_files.md#run-file).
 

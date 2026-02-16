@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from .models.video_timestamp import VideoTimestamp
 from .schemas.dataset_properties import DatasetConfig
 from .schemas.detectors_config import DetectorsConfig
 from .schemas.detectors_run_file import DetectorsRunIO, LoggingLevelEnum, RunConfigVideo
@@ -66,11 +67,11 @@ class VideoRuntimeConfig(BaseModel):
         return self.video_config.sequence_ID
 
     @property
-    def video_start(self) -> int:
+    def video_start(self) -> int | VideoTimestamp:
         return self.video_config.video_start
 
     @property
-    def video_length(self) -> int:
+    def video_length(self) -> int | VideoTimestamp:
         return self.video_config.video_length
 
     @property

@@ -48,7 +48,7 @@ class MultiviewEthXgaze(BaseMethod):
         Initialize the XGaze method detector.
         """
         # (1) Convenience reference
-        self.video_start = self.data.video_start
+        self.video_start = self.data.video_start_frame_index
         self.calibration = self.data.calibration
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects

@@ -39,7 +39,7 @@ class MMPose(BaseMethod):
         """
         # === (1) Store convenience references for this class ===
         self.fps = self.data.fps
-        self.video_start = self.data.video_start
+        self.video_start = self.data.video_start_frame_index
         self.calibration = self.data.calibration
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects

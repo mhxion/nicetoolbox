@@ -126,8 +126,23 @@ data_selections = [
 - `data_selections` defines which data of the chosen dataset to run on (list of dict). Each dictionary of the form `{session_ID = "", ...}` selects one video snippet to run and defines a new experiment. Multiple such dictionaries, or experiments, in this list will run sequentially.
     - `session_ID` select the dataset's session (str), must match a session_ID defined in the [dataset's properties](#dataset-properties).
     - `sequence_ID` select the dataset's sequence, if applicable, may be an empty string (str, optional), must match a sequence_ID defined in the [dataset's properties](#dataset-properties).
-    - `video_start` starting point in frames, 0 for starting from beginning of the video (int), must not exceed the total number of frames.
-    - `video_length` number of frames to run, defines the length of the selected video (int), video_start + video_length must not exceed the total number of frames.
+    - `video_start` - starting point of the video (int or timestamp).
+    - `video_length` - duration of the video segment (int or timestamp).
+    
+    Both `video_start` and `video_length` accept either frame numbers or timestamps:
+
+    - **Frame-based format:**
+      - `video_start`: Frame number (0 for the beginning).
+      - `video_length`: Number of frames.
+      - `video_start` + `video_length` must not exceed the total frame count.
+      - `video_length` can be set to `-1`, which means all frames until the end of the video.
+
+    - **Timestamp format:**
+      - Accepts: `HH-MM-SS`, `HH-MM-SS.mmm`, `HH:MM:SS` or `HH:MM:SS.mmm`
+      - Examples:
+        - `00:01:12.100` - starts 1 minute, 12 seconds, and 100 milliseconds from the beginning
+        - `00-05-30` - starts 5 minutes and 30 seconds from the beginning
+      - Constraint: `video_start` + `video_length` must not exceed the video duration
 
 ```{note}
 The [folder structures](../tutorials/tutorial1_dataset_single_view.md#folder-structure) of a dataset inside the NICE Toolbox are designed such that the session ID and, if applicable, the sequence ID of a given dataset clearly define one video (stored as a video file or frames) of the data. The keys video_start and video_length refer to this video.

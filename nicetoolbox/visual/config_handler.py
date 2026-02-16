@@ -167,6 +167,9 @@ class Configuration:
 
     def _check_start_stop_frames(self):
         video_length = self.visualizer_config["video"]["video_length"]
+        # TODO: currently, we don't support validation check for str timestamps
+        if isinstance(video_length, str):
+            return
 
         # check start frame
         if self.visualizer_config["media"]["visualize"]["start_frame"] < 0:
