@@ -11,6 +11,8 @@ Classes:
 import numpy as np
 import rerun as rr
 
+from ...configs.models.video_timestamp import timestamp_to_frame_index
+
 
 class Viewer:
     """
@@ -64,14 +66,16 @@ class Viewer:
             frame_time = 0.00001
         rr.set_time_seconds("time", frame_time)
 
-    def get_start_frame(self):
+    def get_start_frame(self) -> int:
         """
         Returns the start frame for visualization specified in the visualizer config.
 
         Returns:
             int: The start frame for visualization.
         """
-        return self.visualizer_config["media"]["visualize"]["start_frame"]
+        start_frame = self.visualizer_config["media"]["visualize"]["start_frame"]
+        start_frame_index = timestamp_to_frame_index(start_frame, self.fps)
+        return start_frame_index
 
     def get_end_frame(self) -> int:
         """
@@ -83,7 +87,8 @@ class Viewer:
         end_frame = self.visualizer_config["media"]["visualize"]["end_frame"]
         if end_frame == -1:
             end_frame = self.visualizer_config["video"]["video_length"]
-        return end_frame
+        end_frame_index = timestamp_to_frame_index(end_frame, self.fps)
+        return end_frame_index
 
     def get_step(self) -> int:
         """
@@ -104,7 +109,9 @@ class Viewer:
         Returns:
             int: The start time of the video in seconds.
         """
-        return self.visualizer_config["video"]["video_start"]
+        video_start = self.visualizer_config["video"]["video_start"]
+        video_start_index = timestamp_to_frame_index(video_start, self.fps)
+        return video_start_index
 
     def _create_canvas_roots(self) -> None:
         """

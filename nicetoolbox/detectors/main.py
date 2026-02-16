@@ -74,13 +74,9 @@ def main(run_config_file, machine_specifics_file):
     # ========================
     for video_context in config.iter_video_contexts():  # for each video
         # get video meta information for logging
-        dataset_name = video_context.dataset_name
-        session_id = video_context.video_config.session_ID
-        sequence_id = video_context.video_config.sequence_ID
-        sequence_name = f"{dataset_name}:{session_id}:{sequence_id}"
-
-        log_ut.log_banner(f"RUNNING dataset: '{dataset_name}', session: '{session_id}', sequence: '{sequence_id}'")
-        with manage_error_scope(error_level, ErrorLevel.VIDEO, sequence_name):
+        video_str = str(video_context.video_config)
+        log_ut.log_banner(f"RUNNING {video_str}")
+        with manage_error_scope(error_level, ErrorLevel.VIDEO, video_str):
             # Create IO and Data from runtime config for the current video
             io = VideoIO(video_context, all_algorithms)
             data = VideoData(video_context, io)

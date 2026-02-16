@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from ...configs.models.video_timestamp import timestamp_to_frame_index
 from ...configs.schemas.dataset_properties import DatasetConfig
 from ...configs.schemas.detectors_run_file import DetectorsRunConfig
 from ...configs.schemas.evaluation_config import EvaluationMetricType
@@ -140,10 +141,13 @@ class DiscoveryEngine:
         """
         all_chunk_items: List[ChunkWorkItem] = []
         logging.info(f"Starting discovery for dataset '{self.run_config._dataset_name}'...")
+
         for video_config in self.run_config.videos:
             session, sequence = video_config.session_ID, video_config.sequence_ID
-            start_frame = video_config.video_start
-            end_frame = video_config.video_start + video_config.video_length
+
+            start_frame = timestamp_to_frame_index(video_config.video_start, self.dataset_props.fps)
+            video_length = timestamp_to_frame_index(video_config.video_length, self.dataset_props.fps)
+            end_frame = start_frame + video_length
 
             for mt, components in self.eval_config.prediction_components.items():
                 metric_cfg: EvaluationMetricType = self.eval_config.metric_types[mt]
