@@ -84,7 +84,7 @@ def get_ffmpeg_input_string(video_file: str) -> str:
     Returns:
         str: The constructed ffmpeg input string.
     """
-    return f"ffmpeg -i {video_file} -loglevel error "
+    return f"ffmpeg -i {video_file} -loglevel error -vsync passthrough -bsf:v setts=pts=N:dts=N "
 
 
 def sequential2frame_number(number: int, start_frame: int) -> int:
@@ -129,21 +129,31 @@ def split_into_frames(
         The `skip_frames` option is not properly working yet. Its output is not fully
             understood yet.
     """
-    string = get_ffmpeg_input_string(video_file)
-    string += os.path.join(output_base, "%09d_tmp.png")
+    output_pattern = os.path.join(output_base, "%09d_tmp.png")
 
-    # split the video
-    os.system(string)
+    # Construct the command with the modern flag
+    cmd_base = get_ffmpeg_input_string(video_file)
+    full_command = f"{cmd_base} {output_pattern}"
 
+    # Split the video
+    try:
+        subprocess.check_call(full_command, shell=True)
+    except subprocess.CalledProcessError:
+        logging.error(f"FFmpeg failed to process {video_file}.")
+        logging.error("Please update FFmpeg to version >= 5.1.")
+        raise AssertionError("Splitting video into frames failed. See log for details.") from None
+
+    # Verify extraction count
     frames_list_tmp = glob.glob(os.path.join(output_base, "*_tmp.png"))
     n_frames_extracted = len(frames_list_tmp)
+
     if n_frames_expected and n_frames_expected != n_frames_extracted:
         logging.warning(
-            f"Expected {n_frames_expected} frames, but extracted " f"{n_frames_extracted} frames from {video_file}."
+            f"Expected {n_frames_expected} frames, but extracted {n_frames_extracted} frames from {video_file}."
         )
-        raise AssertionError("Splitting video into frames failed. See log for details.")
+        raise AssertionError("Splitting video into frames failed (frame count mismatch). See log for details.")
 
-    # convert continuous file numbers to actual frame indices
+    # Convert continuous file numbers to actual frame indices
     for file in sorted(frames_list_tmp):
         old_idx = int(os.path.basename(file)[:9])
         if keep_indices:
@@ -206,7 +216,7 @@ def equal_splits_by_frames(
         gop += 1
 
     # construct the string to run ffmpeg in command line
-    string = get_ffmpeg_input_string(video_file, number_of_frames, start_frame)
+    string = get_ffmpeg_input_string(video_file)
     string += (
         f"-codec:v h264 -g {gop} -f segment "
         f"-segment_frames {segment_frames} "
@@ -234,40 +244,6 @@ def equal_splits_by_frames(
         results_files.append(f"{output_base}s{start}_e{end}.{input_format}")
 
     return results_files
-
-
-def cut_length(
-    video_file: str,
-    output_base: str,
-    start_frame: int = None,
-    number_of_frames: int = None,
-) -> str:
-    """
-    Cuts a specified length from a video file and saves it as a new file.
-
-    Args:
-        video_file (str): The path to the input video file.
-        output_base (str): The base name for the output file. The file extension will
-            be added automatically.
-        start_frame (int, optional): The starting frame index for the cut.
-            Defaults to None.
-        number_of_frames (int, optional): The number of frames to include in the cut.
-            Defaults to None.
-
-    Returns:
-        str: The path to the output file.
-    """
-    format = video_file.split(".")[-1]
-    # start to construct the string to run ffmpeg in command line
-    string = get_ffmpeg_input_string(video_file, number_of_frames, start_frame, skip_frames=None)
-
-    # add desired output file and format
-    string += f"{output_base}.{format} -y"
-
-    # split the video
-    os.system(string)
-
-    return f"{output_base}.{format}"
 
 
 def read_segments_list_from_file(segments_list_file: str) -> list:
