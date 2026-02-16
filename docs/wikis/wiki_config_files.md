@@ -35,14 +35,14 @@ Placeholders can be put into strings and are filled automatically during run-tim
 Placeholders are indicated by enclosing characters `<` and `>` and may take the following values:
 1. All keys in `./machine_specific_paths.toml`,
 2. All keys from `io` as defined in `./configs/detectors_run_file.toml`,
-3. The keys `<cur_dataset_name>`, `<cur_component_name>`, `<cur_algorithm_name>`, `<cur_session_ID>`, `<cur_sequence_ID>`, `<camera_name>`, `<cur_video_start>`, and `<cur_video_length>` that define the current experiment run are filled during program execution based on the specifications in the run file `./configs/detectors_run_file.toml`,
+3. The keys `<cur_dataset_name>`, `<cur_component_name>`, `<cur_algorithm_name>`, `<cur_session_ID>`, `<cur_sequence_ID>`, `<cur_camera_name>`, `<cur_video_start>`, and `<cur_video_length>` that define the current experiment run are filled during program execution based on the specifications in the run file `./configs/detectors_run_file.toml`,
 4. The options `<git_hash>`, `<me>`, `<today>`, `<yyyymmdd>`, `<time>`, and `<pwd>`.
 
 
 Some examples:
 
 - The default output folder path defined in the [run file's io](#defining-input-and-output-files) is `"<output_folder_path>/experiments/<experiment_name>"`. During run time, the placeholder `<output_folder_path>` is filled from the [machine specifics](#machine-specifics) dictionary and the `<experiment_name>` is replaced by the value defined in the same dictionary as the output folder path, the [run file's io](#defining-input-and-output-files).
-- A typical example value for the data_input_folder in a [dataset's properties](#dataset-properties) is `"<datasets_folder_path>/test_dataset/<cur_session_ID>/<camera_name>"`. The `<datasets_folder_path>` is filled from the [machine specifics](#machine-specifics) dictionary and both `<cur_session_ID>` and `<camera_name>` are filled during run time individually for each experiment, as defined in the run file's [experiment selection](#defining-the-experiments).
+- A typical example value for the data_input_folder in a [dataset's properties](#dataset-properties) is `"<datasets_folder_path>/test_dataset/<cur_session_ID>/<cur_camera_name>"`. The `<datasets_folder_path>` is filled from the [machine specifics](#machine-specifics) dictionary and both `<cur_session_ID>` and `<cur_camera_name>` are filled during run time individually for each experiment, as defined in the run file's [experiment selection](#defining-the-experiments).
 
 
 

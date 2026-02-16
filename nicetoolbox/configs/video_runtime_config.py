@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, ConfigDict
 
 from .models.video_timestamp import VideoTimestamp
+from .placeholders import resolve_placeholders
 from .schemas.dataset_properties import DatasetConfig
 from .schemas.detectors_config import DetectorsConfig
 from .schemas.detectors_run_file import DetectorsRunIO, LoggingLevelEnum, RunConfigVideo
@@ -154,7 +155,6 @@ class VideoRuntimeConfig(BaseModel):
         if folder_type not in template_map:
             raise ValueError(f"Unknown folder_type '{folder_type}'. Valid: {list(template_map.keys())}")
 
-        path_str = str(template_map[folder_type])
-        resolved = path_str.replace("<cur_component_name>", component).replace("<cur_algorithm_name>", algorithm)
-
-        return Path(resolved)
+        path = template_map[folder_type]
+        resolved = resolve_placeholders(path, {"cur_component_name": component, "cur_algorithm_name": algorithm})
+        return resolved

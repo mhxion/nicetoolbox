@@ -10,7 +10,7 @@ error_level = "DETECTOR"      # Options: "DETECTOR", "VIDEO", "STRICT" (from lea
 log_level = "INFO"            # Options: "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
 
 # checks that all detectors have their input dependencies enabled
-check_missing_detectors_dependnencies = true 
+check_missing_detectors_dependencies = true 
 
 # each component can be assigned to / run with multiple different algorithms
 [component_algorithm_mapping]

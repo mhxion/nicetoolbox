@@ -82,7 +82,7 @@ class DetectorsRunFile(BaseModel):
     error_level: ErrorLevel
     log_level: LoggingLevelEnum
 
-    check_missing_detectors_dependnencies: bool
+    check_missing_detectors_dependencies: bool
 
     component_algorithm_mapping: dict[str, list[str]]
     run: dict[str, DetectorsRunConfig]
