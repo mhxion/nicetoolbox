@@ -148,8 +148,8 @@ The NICE Toolbox expects a `calibration.npz` file containing the calibration det
 
 Create a `single_view_calibration.toml` file that contains the following dictionary for each of your session_IDs and sequence_IDs:
 ```toml
-[<cur_session_ID>__<cur_sequence_ID>.<camera_name>]   # enter your session_ID, sequence_ID, and camera_name
-camera_name = "<camera_name>"                 # enter the camera_name
+[<cur_session_ID>__<cur_sequence_ID>.<cur_camera_name>]   # enter your session_ID, sequence_ID, and camera_name
+camera_name = "<cur_camera_name>"                 # enter the camera_name
 image_size = [ <width>, <height> ]            # provide the image resolution (width and height) in pixels
 mtx = [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0] ]
 dist = [ 0.0, 0.0, 0.0, 0.0, 0.0 ]

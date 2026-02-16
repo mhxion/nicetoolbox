@@ -142,6 +142,7 @@ def default_runtime_placeholders():
         "cur_cam_front",
         "cur_algorithm_name",
         "cur_component_name",
+        "cur_camera_name",
     }
 
 

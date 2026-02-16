@@ -83,7 +83,7 @@ def main(run_config_file, machine_specifics_file):
             # Algorithms based on user-selected components, topologically sorted
             selected_algorithms = video_context.all_selected_algorithms
             ordered_detectors = sort_detectors_order(
-                video_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependnencies
+                video_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependencies
             )
 
             # ======================

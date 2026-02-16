@@ -99,7 +99,7 @@ def sort_detectors_order(
             f"Missing dependencies in detector configuration: "
             f"{'; '.join(f'{dep} -> {node}' for node, dep in missing)}. "
             f"Ensure all required detectors are included in the run config, "
-            f"or set check_missing_detectors_dependnencies = false in run_config.toml."
+            f"or set check_missing_detectors_dependencies = false in run_config.toml."
         )
 
     # or we are in non-strict mode - just write a warning

@@ -39,7 +39,7 @@ Overall, the dataset's dictionary defined in the config file `./configs/dataset_
 
 - Map your dataset's cameras and their views of the scene best possible to the descriptions `cam_front`, `cam_top`, `cam_face1`, and `cam_face2`. As some algorithms assume a certain camera view of the scene, this is necessary to find the best cameras to use for each algorithm. Currently, these 4 camera view options are supported.
 - `cam_sees_subjects` should now have as many keys as the number of cameras and camera_names that you entered in `cam_front`, `cam_top`, `cam_face1`, and `cam_face2` (at most 4).
-- In case your dataset's folder structure includes any folders named like the cameras, e.g., ".../path/to/camera_1/...", use the placeholder `<camera_name>` in the value of your `data_input_folder`.
+- In case your dataset's folder structure includes any folders named like the cameras, e.g., ".../path/to/camera_1/...", use the placeholder `<cur_camera_name>` in the value of your `data_input_folder`.
 In case the camera's names are in the filenames, e.g., ".../camera_1.mp4", you do not need the placeholder for the `data_input_folder` as the camera names are not part of the folder path.
 - The toolbox expects all cameras to capture at a shared framerate, which is given under key `fps`.
 

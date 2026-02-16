@@ -56,7 +56,6 @@ class VideoData:
 
         # --- Path Definitions ---
         self.input_folder = io.get_nice_input_folder()  # nicetoolbox_input (frames)
-        self.source_folder = io.get_data_source_folder()  # original folder (vids)
 
         # --- Config Parameters ---
         self.dataset_name = video_context.dataset_name
@@ -136,14 +135,15 @@ class VideoData:
                 input folder.
         """
         possible_formats = [".mp4", ".avi", ".png", ".jpg", ".jpeg"]
+        cam_0 = self.all_camera_names[0]
+        example_input_folder = self.io.get_data_source_folder(cam_0)
 
-        example_input_folder = str(self.source_folder).replace("<camera_name>", self.all_camera_names[0])
         found_formats = [name in "_".join(sorted(os.listdir(example_input_folder))) for name in possible_formats]
         if sum(found_formats) != 1:
             exc.error_log_and_raise(
                 ValueError,
                 "Reading input data",
-                f"Multiple/no valid input format found in '{self.source_folder}'. "
+                f"Multiple/no valid input format found in '{example_input_folder}'. "
                 f"Found '{found_formats}', valid formats are ['mp4', 'avi'].",
             )
         return possible_formats[found_formats.index(True)]
@@ -156,14 +156,13 @@ class VideoData:
             Path: The path to an example video file.
         """
         cam_0 = self.all_camera_names[0]
-        src_pattern = str(self.source_folder).replace("<camera_name>", cam_0)
-        search_path = Path(src_pattern)
+        example_input_folder = self.io.get_data_source_folder(cam_0)
 
-        files = sorted(search_path.glob(f"*{self.input_format}"))
+        files = sorted(example_input_folder.glob(f"*{self.input_format}"))
 
         if not files:
             raise FileNotFoundError(
-                f"No video files ({self.input_format}) found in {search_path} " f"for camera {cam_0}."
+                f"No video files ({self.input_format}) found in {example_input_folder} " f"for camera {cam_0}."
             )
         return files[0]
 
@@ -233,38 +232,29 @@ class VideoData:
             self.filename_template = "{idx:09d}.png"
 
         elif self.input_format in [".png", ".jpg", ".jpeg"]:
-            if not self._check_frames_exist(is_source=True):
-                raise FileNotFoundError(f"Required source frames missing for dataset {self.dataset_name}.")
+            # TODO: implement source frame checking
+            # This requires knowing the original folder structure and
+            # filename template from config, including session_ID, sequence_ID, etc.
+            # cam_folder = root / self.session_ID / self.sequence_ID / cam /
+            raise NotImplementedError("Checking source frames is not implemented yet.")
         else:
             raise NotImplementedError(f"Input format '{self.input_format}' not supported for data creation.")
         logging.info("DATA CREATION completed.")
 
-    def _check_frames_exist(self, is_source: bool = False) -> bool:
+    def _check_frames_exist(self) -> bool:
         """
         Check if frames exist in the nicetoolbox input folder ("Source of truth").
-
-        Args:
-            is_source (bool): Whether to check in the source input folder or the
-                nicetoolbox input folder. Defaults to False.
 
         Returns:
             bool: True if frames exist for all cameras, False otherwise.
         """
-        root = self.source_folder if is_source else self.input_folder
         template = self.filename_template
 
         start_idx = self.video_start_frame_index
         end_idx = self.video_start_frame_index + self.video_length_frames - 1
 
         for cam in self.all_camera_names:
-            if is_source:
-                raise NotImplementedError("Checking source frames is not implemented yet.")
-                # TODO: implement source frame checking
-                # This requires knowing the original folder structure and
-                # filename template from config, including session_ID, sequence_ID, etc.
-                # cam_folder = root / self.session_ID / self.sequence_ID / cam / ?
-
-            cam_folder = root / cam / "frames"
+            cam_folder = self.input_folder / cam / "frames"
 
             start_name = template.format(idx=start_idx)
             end_name = template.format(idx=end_idx)
@@ -293,8 +283,8 @@ class VideoData:
         """
         # detect all video input files
         # Build glob pattern for all camera input folders and list video files
-        data_input_pattern = str(self.source_folder).replace("<camera_name>", "*")
-        pattern = Path(data_input_pattern) / "*"
+        data_input_pattern = self.io.get_data_source_folder("*")
+        pattern = data_input_pattern / "*"
         video_files = sorted(glob.glob(str(pattern)))
 
         for video_file in video_files:

@@ -261,8 +261,8 @@ class Configuration:
         return self.run_config.error_level
 
     @property
-    def check_missing_detectors_dependnencies(self) -> bool:
-        return self.run_config.check_missing_detectors_dependnencies
+    def check_missing_detectors_dependencies(self) -> bool:
+        return self.run_config.check_missing_detectors_dependencies
 
     @property
     def log_level(self) -> LoggingLevelEnum:
