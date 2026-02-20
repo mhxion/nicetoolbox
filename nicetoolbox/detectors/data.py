@@ -293,6 +293,15 @@ class VideoData:
                 continue
             camera_name = list(self.all_camera_names)[camera_name_indices.index(True)]
 
+            # skip cameras for which frames exist
+            cam_folder = self.input_folder / camera_name / "frames"
+            start_name = self.filename_template.format(idx=self.video_start_frame_index)
+            end_name = self.filename_template.format(idx=self.video_start_frame_index + self.video_length_frames - 1)
+
+            if (cam_folder / start_name).exists() and (cam_folder / end_name).exists():
+                logging.info(f"Frames already exist for camera '{camera_name}', skipping extraction.")
+                continue
+
             logging.info("Extracting Video Specifications...")
             raw_video_info = vid.probe_video(video_file)
             video_info_path = os.path.join(self.input_folder, camera_name + "_meta.json")
