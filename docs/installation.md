@@ -12,7 +12,6 @@ We conducted tests of the installation on Windows 11 and Ubuntu versions 20 and 
     - [FFmpeg](#ffmpeg)
     - [Git](#git)
     - [On Windows: Microsoft Visual C++](#on-windows-microsoft-visual-c)
-    - [On Windows: Turn developer mode on](#on-windows-turn-developer-mode-on)
     - [On Windows: make](#on-windows-make)
   - [Clone the repository](#clone-the-repository)
   - [Makefile installation](#makefile-installation)
@@ -98,13 +97,6 @@ Ensure that Git is installed on your system. You can find installation instructi
 ### On Windows: Microsoft Visual C++
 
 Microsoft Visual C++ 14.0 or greater is required for compiling some of the dependencies. Get it with [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
-
-### On Windows: Turn developer mode on
-
-Nice Toolbox creates symlinks. To enable these, please activate Developer Mode on Windows.
-This can be done by going to `Settings` > `Updates & Security` > `For Developers` and turning Developer Mode on.
-
-TODO -- check if it creates any security risk (windows gives a warning about) and whether there is a better way to do it.
 
 ### On Windows: Make
 
