@@ -291,13 +291,18 @@ def main(config):
         for i, s in enumerate(config["subjects_descr"])
         if any(i in config["cam_sees_subjects"].get(cam, []) for cam in config["camera_names"])
     ]
+
+    # Extract the absolute path to the assets directory directly from the config root
+    required_assets = config["required_assets"]
+
+    # Create inferencer object from MMPose API
     # Create inferencer object from MMPose API
     inferencer = MMPoseInferencer(
         pose2d=config["pose_config"],
-        pose2d_weights=config["pose_checkpoint"],
-        det_model=config["detection_config"],
-        det_weights=config["detection_checkpoint"],
-        det_cat_ids=[0],  # the category id of 'human' class
+        pose2d_weights=required_assets["pose_checkpoint"],
+        det_model=required_assets["detection_config"],
+        det_weights=required_assets["detection_checkpoint"],
+        det_cat_ids=[0],
         device=config["device"],
     )
 

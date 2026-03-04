@@ -52,9 +52,14 @@ def eth_xgaze_inference(config, debug=False):
 
     # (3) Initialize gaze estimator and face detector
     logging.info("Load gaze estimator and start detection.")
-    gaze_estimator = GazeEstimator(config["face_model_filename"], config["pretrained_model_filename"])
 
-    face_detector = lm.get_face_detector(config["shape_predictor_filename"], config["face_detector_filename"])
+    # Extract the absolute path to the assets directory directly from the config root
+    req_assets = config["required_assets"]
+
+    # Initialize the models directly from the dictionary
+    gaze_estimator = GazeEstimator(req_assets["face_model_filename"], req_assets["pretrained_model_filename"])
+
+    face_detector = lm.get_face_detector(req_assets["shape_predictor_filename"], req_assets["face_detector_filename"])
 
     # (4) Prepare to store results
     results_per_camera = np.full((n_subjects, n_cams, n_frames, 3), np.nan)  # raw

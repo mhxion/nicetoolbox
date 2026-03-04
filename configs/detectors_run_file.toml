@@ -45,6 +45,7 @@ nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_
 # Code, assets and config file paths
 code_folder = "<pwd>"
 assets = "<code_folder>/nicetoolbox/detectors/assets"
+asset_manifest = "<code_folder>/configs/asset_manifest.toml"
 dataset_properties = "<code_folder>/configs/dataset_properties.toml"
 detectors_config = "<code_folder>/configs/detectors_config.toml"
 predictions_mapping = "<code_folder>/configs/predictions_mapping.toml"

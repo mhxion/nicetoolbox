@@ -1,0 +1,27 @@
+# nicetoolbox/configs/asset_manifest.toml
+
+# --- Multiview Eth XGaze ---
+["multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"]
+url = "https://keeper.mpdl.mpg.de/f/60d2fb21483740968f16/?dl=1"
+
+["multiview_eth_xgaze/face_model.txt"]
+url = "https://keeper.mpdl.mpg.de/f/ad656b211a0f4e92a33f/?dl=1"
+
+["multiview_eth_xgaze/epoch_24_ckpt.pth.tar"]
+url = "https://keeper.mpdl.mpg.de/f/62fc1a891359469c9d11/?dl=1"
+
+["multiview_eth_xgaze/mmod_human_face_detector.dat"]
+url = "https://keeper.mpdl.mpg.de/f/5c18f0ad6d674482b72a/?dl=1"
+
+# --- MMPose Framework (HRNet & ViTPose) ---
+["mmpose/configs/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth"]
+url = "https://keeper.mpdl.mpg.de/f/6a48c370f93440618957/?dl=1"
+
+["mmpose/configs/faster_rcnn_r50_fpn_coco.py"]
+url = "https://keeper.mpdl.mpg.de/f/b6dc3cb5d0c849a59fe7/?dl=1"
+
+["mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"]
+url = "https://keeper.mpdl.mpg.de/f/db4a9e2d4d1848148268/?dl=1"
+
+["mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-256x192-53609f55_20230314.pth"]
+url = "https://keeper.mpdl.mpg.de/f/a439a909943f48739095/?dl=1"
