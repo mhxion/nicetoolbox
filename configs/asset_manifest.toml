@@ -25,3 +25,16 @@ url = "https://keeper.mpdl.mpg.de/f/db4a9e2d4d1848148268/?dl=1"
 
 ["mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-256x192-53609f55_20230314.pth"]
 url = "https://keeper.mpdl.mpg.de/f/a439a909943f48739095/?dl=1"
+
+# --- SPIGA ---
+["spiga/spiga_wflw.pt"]
+url = "https://keeper.mpdl.mpg.de/f/8843a556fd0a4947b05a/?dl=1"
+
+["spiga/spiga_300wpublic.pt"]
+url = "https://keeper.mpdl.mpg.de/f/9ca0dd9c61794292805b/?dl=1"
+
+["spiga/spiga_300wprivate.pt"]
+url = "https://keeper.mpdl.mpg.de/f/233f8871d9c4462ab1ef/?dl=1"
+
+["spiga/spiga_merlrav.pt"]
+url = "https://keeper.mpdl.mpg.de/f/c3cbf5ea07e341bbba4e/?dl=1"
