@@ -121,8 +121,8 @@ class SpigaConfig(BaseModel):
     log_frame_idx_interval: int
     batch_size: int
     visualize: bool
-    # model_config is reserved variable in pydantic model
-    model_configuration: str = Field(alias="model_config")
+    dataset_name: str
+
     required_assets: Dict[str, str] = Field(default_factory=dict)
 
     class RuntimeConfig(MethodDetectorRuntime):
