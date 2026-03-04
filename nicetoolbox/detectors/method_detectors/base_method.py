@@ -143,12 +143,7 @@ class BaseMethod(BaseDetector):
             cmd_result = subprocess.run(command, capture_output=True, text=True, shell=True, check=False)
         else:
             cmd_result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                shell=True,
-                executable="/bin/bash",
-                check=False,
+                command, capture_output=True, text=True, shell=True, executable="/bin/bash", check=False
             )
 
         if cmd_result.returncode == 0:
@@ -161,26 +156,31 @@ class BaseMethod(BaseDetector):
 
     def _create_command(self) -> str:
         """Create the shell command to run inference."""
+        script = f'"{self.script_path}"'
+        config = f'"{self.config_path}"'
+
         if self.venv == "conda":
             if self.os_type == "windows":
+                # fmt: off
                 command = (
                     f"deactivate && "
-                    f'cmd "/c conda activate {self.env_name} && '
-                    f'python {self.script_path} {self.config_path}"'
+                    f'cmd /s /c "conda activate {self.env_name} && '
+                    f'python {script} {config}"'
                 )
+                # fmt: on
             else:
                 conda_path = os.path.join(self.conda_path, "bin/activate")
                 python_path = os.path.join(self.conda_path, "envs", self.env_name, "bin/python")
                 command = (
                     f"conda init bash && source ~/.bashrc && "
-                    f"{conda_path} {self.env_name} && "
-                    f"{python_path} {self.script_path} {self.config_path}"
+                    f"'{conda_path}' {self.env_name} && "
+                    f"'{python_path}' {script} {config}"
                 )
         elif self.venv == "venv":
             if self.os_type == "windows":
-                command = f'cmd "/c {self.venv_path} && ' f'python {self.script_path} {self.config_path}"'
+                command = f'cmd /s /c ""{self.venv_path}" && python {script} {config}"'
             else:
-                command = f"source {self.venv_path} && " f"python {self.script_path} {self.config_path}"
+                command = f"source '{self.venv_path}' && " f"python {script} {config}"
         else:
             raise ValueError(f"Unknown venv type '{self.venv}'. Expected 'conda' or 'venv'.")
         return command

@@ -18,8 +18,6 @@ import cv2
 import numpy as np
 import pandas as pd
 
-from . import system as oslab_sys
-
 
 def get_number_of_frames(video_file: str) -> int:
     """
@@ -46,18 +44,18 @@ def get_fps(video_file) -> int:
     """
     fps = int(cv2.VideoCapture(video_file).get(cv2.CAP_PROP_FPS))
     if (fps == 0) or (fps is None):
+        # fmt: off
         cmd = [
             "ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
+            "-v", "error",
+            "-select_streams", "v:0",
             "-show_entries",
             "stream=avg_frame_rate",
-            "-of",
-            "json",
+            "-of", "json",
             video_file,
         ]
+        # fmt: on
+
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             info = json.loads(result.stdout)
@@ -74,17 +72,25 @@ def get_fps(video_file) -> int:
         return fps
 
 
-def get_ffmpeg_input_string(video_file: str) -> str:
+def get_ffmpeg_base_args(video_file: str) -> list:
     """
-    Constructs the input string for running ffmpeg in the command line.
+    Constructs the base argument list for running ffmpeg.
 
     Args:
         video_file (str): The path to the video file.
 
     Returns:
-        str: The constructed ffmpeg input string.
+        list: The ffmpeg base arguments as a list of strings.
     """
-    return f"ffmpeg -i {video_file} -loglevel error -vsync passthrough -bsf:v setts=pts=N:dts=N "
+    # fmt: off
+    return [
+        "ffmpeg",
+        "-i", video_file,
+        "-loglevel", "error",
+        "-vsync", "passthrough",
+        "-bsf:v", "setts=pts=N:dts=N"
+    ]
+    # fmt: on
 
 
 def sequential2frame_number(number: int, start_frame: int) -> int:
@@ -132,12 +138,11 @@ def split_into_frames(
     output_pattern = os.path.join(output_base, "%09d_tmp.png")
 
     # Construct the command with the modern flag
-    cmd_base = get_ffmpeg_input_string(video_file)
-    full_command = f"{cmd_base} {output_pattern}"
+    cmd = get_ffmpeg_base_args(video_file) + [output_pattern]
 
     # Split the video
     try:
-        subprocess.check_call(full_command, shell=True)
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError:
         logging.error(f"FFmpeg failed to process {video_file}.")
         logging.error("Please update FFmpeg to version >= 5.1.")
@@ -159,10 +164,7 @@ def split_into_frames(
         if keep_indices:
             new_idx = sequential2frame_number(old_idx, start_frame)
             new_filename = os.path.join(output_base, f"{new_idx:09d}.png")
-            if oslab_sys.detect_os_type() == "windows":
-                shutil.move(file, new_filename)
-            else:
-                os.system(f"mv {file} {new_filename}")
+            shutil.move(file, new_filename)
 
 
 def equal_splits_by_frames(
@@ -215,18 +217,22 @@ def equal_splits_by_frames(
     while frames_per_split % gop != 0:
         gop += 1
 
-    # construct the string to run ffmpeg in command line
-    string = get_ffmpeg_input_string(video_file)
-    string += (
-        f"-codec:v h264 -g {gop} -f segment "
-        f"-segment_frames {segment_frames} "
-        f"-segment_list {segments_list_file} "
-        f"-segment_list_entry_prefix '{output_folder}/' "
-        f"-reset_timestamps 1 {output_base}%09d.{input_format}"
-    )
+    # construct the command to run ffmpeg
+    # fmt: off
+    cmd = get_ffmpeg_base_args(video_file) + [
+        "-codec:v", "h264",
+        "-g", str(gop),
+        "-f", "segment",
+        "-segment_frames", segment_frames,
+        "-segment_list", segments_list_file,
+        "-segment_list_entry_prefix", f"{output_folder}/",
+        "-reset_timestamps", "1",
+        f"{output_base}%09d.{input_format}",
+    ]
+    # fmt: on
 
     # split the video
-    os.system(string)
+    subprocess.run(cmd, check=True)
 
     # remove the very last segment if it is shorter than the others
     if not keep_last_split and total_frames % frames_per_split != 0:
@@ -240,7 +246,7 @@ def equal_splits_by_frames(
         fps = get_fps(video_file)
         start = start_frame + int(start_time * fps)
         end = start_frame + int(end_time * fps)
-        os.system(f"mv {video_file} {output_base}s{start}_e{end}.{input_format}")
+        shutil.move(video_file, f"{output_base}s{start}_e{end}.{input_format}")
         results_files.append(f"{output_base}s{start}_e{end}.{input_format}")
 
     return results_files
@@ -306,17 +312,21 @@ def frames_to_video(input_folder: str, out_filename: str, fps: float = 30.0, sta
         input_folder = os.path.join(input_folder, f"%0{len(num)}d.{file_format}")
 
     out_format = os.path.basename(out_filename).rsplit(".")[-1]
+    # fmt: off
     if out_format != "gif":
-        command = (
-            f"ffmpeg -framerate {fps} -start_number {start_frame} "
-            f"-loglevel error -i {input_folder} -codec:v h264 "
-            f"-pix_fmt yuv420p {out_filename} -y"
-        )
+        cmd = [
+            "ffmpeg", "-framerate", str(fps), "-start_number", str(start_frame),
+            "-loglevel", "error", "-i", input_folder, "-codec:v", "h264",
+            "-pix_fmt", "yuv420p", out_filename, "-y",
+        ]
     else:
-        command = f"ffmpeg -framerate {fps} -start_number {start_frame} "
-        f"-loglevel error -i {input_folder} {out_filename} -y"
+        cmd = [
+            "ffmpeg", "-framerate", str(fps), "-start_number", str(start_frame),
+            "-loglevel", "error", "-i", input_folder, out_filename, "-y",
+        ]
+    # fmt: on
 
-    output = subprocess.run(command, shell=True, check=False)
+    output = subprocess.run(cmd, check=False)
     return output.returncode
 
 
@@ -331,16 +341,17 @@ def probe_video(video_path: str) -> dict:
     Returns:
         dict: Return the dictionary holds the video information.
     """
+    # fmt: off
     cmd = [
         "ffprobe",
-        "-v",
-        "error",
-        "-print_format",
-        "json",
+        "-v", "error",
+        "-print_format", "json",
         "-show_format",
         "-show_streams",
         video_path,
     ]
+    # fmt: on
+
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True)
     except Exception as e:
