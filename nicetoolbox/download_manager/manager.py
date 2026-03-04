@@ -1,0 +1,152 @@
+import logging
+import time
+from pathlib import Path
+from typing import List
+
+import requests
+from tqdm import tqdm
+
+from ..configs.schemas.asset_manifest import AssetManifest
+from ..utils import logging_utils as log_ut
+
+
+class AssetManager:
+    def __init__(self, config):
+        """
+        Initializes the manager by extracting paths directly from the active configuration.
+        """
+        self.assets_root = Path(config.run_config.io.assets)
+
+        manifest_path = config.run_config.io.asset_manifest
+        manifest_model = config.cfg_loader.load_config(str(manifest_path), AssetManifest)
+
+        self.manifest = {k: v.model_dump() for k, v in manifest_model.root.items()}
+
+    def download_file(self, url: str, dest_path: Path, desc: str):
+        """
+        Streams a file from a URL to a local destination with a progress bar.
+        Incorporates resume (.tmp) and robust retry logic for network drops.
+        """
+
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = dest_path.parent / (dest_path.name + ".tmp")
+
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            resume_header = {}
+            mode = "wb"
+            downloaded_bytes = 0
+
+            # Calculate temp file size inside the loop so retries pick up exactly where they left off
+            if temp_path.exists():
+                downloaded_bytes = temp_path.stat().st_size
+                if downloaded_bytes > 0:
+                    resume_header = {"Range": f"bytes={downloaded_bytes}-"}
+                    mode = "ab"
+
+            try:
+                # Added strict read timeouts (10s to connect, 30s max wait for next packet)
+                response = requests.get(url, stream=True, headers=resume_header, timeout=(10, 30))
+
+                if response.status_code == 416:
+                    resume_header = {}
+                    mode = "wb"
+                    downloaded_bytes = 0
+                    response = requests.get(url, stream=True, timeout=(10, 30))
+
+                if response.status_code == 200:
+                    downloaded_bytes = 0
+                    mode = "wb"
+
+                response.raise_for_status()
+
+                total_size = int(response.headers.get("content-length", 0))
+                if response.status_code == 206:
+                    total_size += downloaded_bytes
+                else:
+                    # Ensure total_size is accurate if server ignores Range and sends 200
+                    total_size = int(response.headers.get("content-length", 0))
+
+                with open(temp_path, mode) as file, tqdm(
+                    desc=desc if attempt == 0 else f"{desc} (Resume attempt {attempt})",
+                    total=total_size,
+                    initial=downloaded_bytes,
+                    unit="iB",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                ) as bar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            size = file.write(chunk)
+                            bar.update(size)
+
+                # If the loop finishes without an exception, the file is fully downloaded!
+                temp_path.rename(dest_path)
+                return  # Exit the function completely
+
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                if attempt < max_retries - 1:
+                    logging.warning(f"Network drop detected while downloading '{desc}'.")
+                    logging.warning(f"Retrying in 5 seconds... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(5)
+                else:
+                    logging.error(f"Connection failed while downloading '{desc}'. Details: {e}")
+                    logging.error(f"Please check internet or manually place file at: {dest_path}")
+                    raise
+
+    def verify_and_download(self, asset_keys: List[str]):
+        """
+        Checks if required assets exist, downloads them if missing.
+        """
+        log_ut.log_banner("Download Manager Assets Check")
+
+        for key in set(asset_keys):
+            if key not in self.manifest:
+                logging.warning(f"Asset key '{key}' not found in asset_manifest.toml.")
+                continue
+
+            asset_info = self.manifest[key]
+            dest_path = self.assets_root / key
+
+            if not dest_path.exists():
+                logging.info(f"Missing asset: {key}. Downloading...")
+                self.download_file(asset_info["url"], dest_path, desc=key)
+            else:
+                logging.info(f"Asset '{key}' verified.")
+
+    def ensure_assets_for_config(self, config):
+        """
+        Determines which assets are needed for the active run and downloads them.
+        """
+        required_assets = []
+
+        # find all active components across all dataset runs
+        active_components = set()
+        for _ds_name, run_cfg in config.run_config.run.items():
+            active_components.update(run_cfg.components)
+
+        # map components to algorithms
+        mapping = config.run_config.component_algorithm_mapping
+        active_algos = set()
+        for comp in active_components:
+            if comp in mapping:
+                active_algos.update(mapping[comp])
+
+        # required_assets for those specific algorithms
+        algos_dict = config.detectors_config.algorithms
+        for algo in active_algos:
+            algo_model = algos_dict.get(algo)
+            if algo_model and hasattr(algo_model, "required_assets"):
+                for val in algo_model.required_assets.values():
+                    try:
+                        # 'val' is the fully resolved absolute path.
+                        # This extracts just the relative part to match the manifest keys
+                        clean_key = str(Path(val).relative_to(self.assets_root))
+                        clean_key = clean_key.replace("\\", "/")  # Safe fallback for Windows
+                        required_assets.append(clean_key)
+                    except ValueError:
+                        logging.warning(f"Path '{val}' is not inside the assets root!")
+
+        logging.info(f"AssetManager check: Found {len(required_assets)} required assets for this run.")
+        self.verify_and_download(required_assets)

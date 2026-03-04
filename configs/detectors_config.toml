@@ -6,15 +6,17 @@
 input_data_format = "frames"
 camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
 env_name = "venv:multiview_eth_xgaze"
-shape_predictor_filename = "<assets>/multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"
-face_model_filename = "<assets>/multiview_eth_xgaze/face_model.txt"
-pretrained_model_filename = "<assets>/multiview_eth_xgaze/epoch_24_ckpt.pth.tar"
-face_detector_filename = "<assets>/multiview_eth_xgaze/mmod_human_face_detector.dat"
 log_frame_idx_interval = 200
 filtered = true
 window_length = 11
 polyorder = 2
 visualize = true
+
+[algorithms.multiview_eth_xgaze.required_assets]
+shape_predictor_filename = "<assets>/multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"
+face_model_filename = "<assets>/multiview_eth_xgaze/face_model.txt"
+pretrained_model_filename = "<assets>/multiview_eth_xgaze/epoch_24_ckpt.pth.tar"
+face_detector_filename = "<assets>/multiview_eth_xgaze/mmod_human_face_detector.dat"
 
 # body_joints, hand_joints, face_landmarks
 [frameworks.mmpose]
@@ -33,20 +35,24 @@ visualize = true
 [algorithms.hrnetw48]
 framework = "mmpose"
 pose_config = "td-hm_hrnet-w48_8xb32-210e_coco-wholebody-384x288"
+keypoint_mapping = "coco_wholebody"
+min_detection_confidence = 0.5
+
+[algorithms.hrnetw48.required_assets]
 pose_checkpoint = "<assets>/mmpose/configs/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
 
 [algorithms.vitpose]
 framework = "mmpose"
 pose_config = "td-hm_ViTPose-large_8xb64-210e_coco-256x192"
+keypoint_mapping = "coco_wholebody"
+min_detection_confidence = 0.5
+
+[algorithms.vitpose.required_assets]
 pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-256x192-53609f55_20230314.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
 
 # kinematics
 [algorithms.velocity_body]

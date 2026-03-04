@@ -37,6 +37,7 @@ class DetectorsRunIO(BaseModel):
     detectors_config: Path
     predictions_mapping: Path
     assets: Path
+    asset_manifest: Path
 
     detector_out_folder: Path
     detector_visualization_folder: Path

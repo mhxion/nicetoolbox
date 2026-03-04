@@ -37,14 +37,13 @@ DATASETS_DIR = ../datasets
 ASSETS_DIR = nicetoolbox/detectors
 
 EXAMPLE_DATASET_URL = https://keeper.mpdl.mpg.de/f/9b2b44339a5d48a2a61f/?dl=1
-ASSETS_URL = https://keeper.mpdl.mpg.de/f/6f6d3a030e514ae4b973/?dl=1
 
 
 # -----------------------------------
 # Full setup: installation + download
 # -----------------------------------
 .PHONY: all
-all: create_machine_specifics download_assets download_dataset install
+all: create_machine_specifics install download_assets download_dataset
 
 # ------------------------
 # Clean up an installation
@@ -109,20 +108,31 @@ endif
 # ----------------------
 # Download keeper assets
 # ----------------------
-download_assets: $(ASSETS_DIR)/$(ASSETS)
-
-$(ASSETS_DIR)/$(ASSETS):
+# Smart download based on the run file (Default)
+.PHONY: download_assets
+download_assets:
 	@make create_separator
-	@echo "Downloading keeper assets..."
-	@mkdir -p $(ASSETS_DIR)
-ifeq ($(OS), Windows_NT)
-	@curl -L -o $(ASSETS).zip $(ASSETS_URL)
-else
-	@wget --progress=bar:force $(ASSETS_URL) -O $(ASSETS).zip
-endif
-	@unzip $(ASSETS).zip -d $(ASSETS_DIR)
-	@rm $(ASSETS).zip
-	@echo "Checkpoint files downloaded to $(ASSETS_DIR)/$(ASSETS)"
+	@echo "Running AssetManager to verify and download required models..."
+	@$(VENV_EXE_DIR)/download_assets --run-file configs/detectors_run_file.toml
+
+# Download specific components
+# Usage: make download_components COMPS="gaze_individual body_joints"
+.PHONY: download_components
+download_components:
+	@make create_separator
+	@if [ -z "$(COMPS)" ]; then \
+		echo "Error: Must provide COMPS variable. Example: make download_components COMPS=\"gaze_individual body_joints\""; \
+		exit 1; \
+	fi
+	@echo "Running AssetManager for specific components: $(COMPS)..."
+	@$(VENV_EXE_DIR)/download_assets --components $(COMPS)
+
+# Download everything
+.PHONY: download_all_assets
+download_all_assets:
+	@make create_separator
+	@echo "Running AssetManager to download ALL available models..."
+	@$(VENV_EXE_DIR)/download_assets --all
 	
 # -----------------------
 # Download keeper example
@@ -263,4 +273,3 @@ else
 	@chmod +x $(MMPOSE) && $(MMPOSE)
 endif
 	@echo "'MMPose' environment setup completed successfully."
-

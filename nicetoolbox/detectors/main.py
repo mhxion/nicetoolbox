@@ -10,6 +10,7 @@ import time
 from nicetoolbox_core.errors import ErrorLevel
 
 from ..configs.schemas.detectors_run_file import LoggingLevelEnum
+from ..download_manager.manager import AssetManager
 from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
 from ..utils.dependency_sort import sort_detectors_order
@@ -64,6 +65,11 @@ def main(run_config_file, machine_specifics_file):
     log_file = main_output_folder / "nicetoolbox.log"
     log_ut.setup_logging(log_file, log_level.name)
     log_ut.log_main_banner(f"NICE TOOLBOX STARTED. Saving results to '{main_output_folder}'.")
+
+    # asset download manager
+    manager = AssetManager(config)
+    manager.ensure_assets_for_config(config)
+
     config.save_experiment_config(main_output_folder)
 
     all_algorithms = config.get_all_detector_names()

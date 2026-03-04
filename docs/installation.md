@@ -143,13 +143,14 @@ The NICE Toolbox includes a Makefile that handles the installation of all requir
 
 - `make` or `make all`  - Run all the commands below.
 - `make create_machine_specifics` - Generate the configuration file.
+- `make install` - Install all dependencies.
 - `make download_assets` - Check and download assets.
 - `make download_dataset` - Check and download the example dataset.
-- `make install` - Install all dependencies.
 
 ```{note}
 Conda is required for installing the OpenMMLab environment (human pose estimation framework).
 If you need to use different versions of Python or CUDA, you can adjust the relevant lines in the `Makefile` accordingly.
+The order of specific make commands listed above is essential due to iterated dependencies.
 ```
 
 In case of errors during installation, you can run `make clean_all` to remove all virtual environments. After that, you can restart the installation.

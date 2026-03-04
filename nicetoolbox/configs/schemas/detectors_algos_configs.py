@@ -99,11 +99,9 @@ class FrameworksMMPoseConfig(BaseModel):
 class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
     framework: str
     pose_config: str
-    pose_checkpoint: str
-    detection_config: str
-    detection_checkpoint: str
     keypoint_mapping: str
     min_detection_confidence: float
+    required_assets: Dict[str, str] = Field(default_factory=dict)
 
     # Nested runtime config class - extends base with MMPose-specific fields
     class RuntimeConfig(MethodDetectorRuntime):
@@ -125,6 +123,7 @@ class SpigaConfig(BaseModel):
     visualize: bool
     # model_config is reserved variable in pydantic model
     model_configuration: str = Field(alias="model_config")
+    required_assets: Dict[str, str] = Field(default_factory=dict)
 
     class RuntimeConfig(MethodDetectorRuntime):
         """SPIGA-specific runtime fields."""
@@ -140,6 +139,7 @@ class PyFeatConfig(BaseModel):
     log_frame_idx_interval: int
     batch_size: int
     visualize: bool
+    required_assets: Dict[str, str] = Field(default_factory=dict)
 
 
 @detector_config("multiview_eth_xgaze")
@@ -147,15 +147,12 @@ class MultiViewETHXGazeConfig(BaseModel):
     input_data_format: str
     camera_names: List[str]
     env_name: str
-    shape_predictor_filename: str
-    face_model_filename: str
-    pretrained_model_filename: str
-    face_detector_filename: str
     log_frame_idx_interval: int
     filtered: bool
     window_length: int
     polyorder: int
     visualize: bool
+    required_assets: Dict[str, str] = Field(default_factory=dict)
 
 
 # === Add Method detectors HERE ===
