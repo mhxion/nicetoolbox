@@ -142,6 +142,37 @@ lower_body = ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", 
 #"left_heel" = 0.040
 #"right_heel" = 0.040
 
+
+[human_pose.mpii]
+[human_pose.mpii.keypoints_index]
+[human_pose.mpii.keypoints_index.body]
+"right_ankle" = 0
+"right_knee" = 1
+"right_hip" = 2
+"left_hip" = 3
+"left_knee" = 4
+"left_ankle" = 5
+"pelvis" = 6
+"thorax" = 7
+"upper_neck" = 8
+"head_top" = 9
+"right_wrist" = 10
+"right_elbow" = 11
+"right_shoulder" = 12
+"left_shoulder" = 13
+"left_elbow" = 14
+"left_wrist" = 15
+
+[human_pose.mpii.connections]
+'body_joints' = [
+    ["head_top", "upper_neck", "thorax", "pelvis"],
+    ["thorax", "right_shoulder", "right_elbow", "right_wrist"],
+    ["thorax", "left_shoulder", "left_elbow", "left_wrist"],
+    ["pelvis", "right_hip", "right_knee", "right_ankle"],
+    ["pelvis", "left_hip", "left_knee", "left_ankle"]
+]
+
+
 [head_orientation]
 [head_orientation.spiga]
 [head_orientation.spiga.keypoints_index.face]

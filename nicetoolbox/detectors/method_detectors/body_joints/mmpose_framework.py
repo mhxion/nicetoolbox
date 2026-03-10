@@ -43,6 +43,7 @@ class MMPose(BaseMethod):
         self.calibration = self.data.calibration
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects
+        self.min_detection_confidence = self.detector_config.min_detection_confidence
 
         self.camera_names = self.detector_config.camera_names
         self.filtered = self.detector_config.filtered
@@ -316,7 +317,7 @@ class MMPose(BaseMethod):
                 results_2d_interpolated = results_2d_filtered.copy()
             else:
                 results_2d_interpolated = results_2d.copy()
-            keypoint_conf_threshold = 0.60
+            keypoint_conf_threshold = self.min_detection_confidence
             # Creating the mask where the confidence score is below the threshold
             low_confidence_mask = results_2d_interpolated[:, :, :, :, 2] < keypoint_conf_threshold
             # Applying the mask to set the first and second values of num_estimates
@@ -616,4 +617,87 @@ class VitPose(MMPose):
 
         description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
 
+        return indices, description
+
+
+class VitPoseHuge(MMPose):
+    """
+    VitPoseHuge is a subclass for the Huge variant of ViT.
+    """
+
+    algorithm = "vitpose_huge"
+    components = ["body_joints"]
+
+    def get_per_component_keypoint_mapping(self, keypoints_indices):
+        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
+        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
+        return indices, description
+
+
+class RTMPoseLAIC(MMPose):
+    """
+    RTMPoseLAIC is a subclass of MMPose for the RTMPose-L model.
+    (Pre-trained on AIC, fine-tuned on COCO: Outputs 17 Body Keypoints).
+    """
+
+    algorithm = "rtmpose_l_aic"
+    components = ["body_joints"]
+
+    def get_per_component_keypoint_mapping(self, keypoints_indices):
+        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
+        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
+        return indices, description
+
+
+class RTMPoseWHolebody(MMPose):
+    r"""
+    Handler for RTMPose models trained on COCO-Wholebody \(133 keypoints).
+    Outputs in one pass: Body, Feer, Face, and Hands.
+    """
+
+    algorithm = "rtmpose_l_wholebody"
+    components = ["body_joints", "hand_joints", "face_landmarks"]
+
+    def get_per_component_keypoint_mapping(self, keypoints_indices):
+        def extract_keys(d):
+            if all(isinstance(v, int) for v in d.values()):
+                return list(d.keys())
+            res = []
+            for k, v in d.items():
+                if isinstance(v, list):
+                    res.extend([f"{k}_{i}" for i in range(len(v))])
+                elif isinstance(v, int):
+                    res.append(v)
+            return res
+
+        # Separate indices using dot notation to access the nested dictionaries
+        indices = dict(
+            body_joints=confh.flatten_list(
+                list(keypoints_indices.body.values()) + list(keypoints_indices.foot.values())
+            ),
+            hand_joints=confh.flatten_list(list(keypoints_indices.hand.values())),
+            face_landmarks=confh.flatten_list(list(keypoints_indices.face.values())),
+        )
+
+        # Descriptions using dot notation
+        description = dict(
+            body_joints=confh.flatten_list(extract_keys(keypoints_indices.body) + extract_keys(keypoints_indices.foot)),
+            hand_joints=confh.flatten_list(extract_keys(keypoints_indices.hand)),
+            face_landmarks=confh.flatten_list(extract_keys(keypoints_indices.face)),
+        )
+
+        return indices, description
+
+
+class RTMPoseMPII(MMPose):
+    """
+    Handler for RTMPose models trained on MPII (16 Keypoints).
+    """
+
+    algorithm = "rtmpose_m_mpii"
+    components = ["body_joints"]
+
+    def get_per_component_keypoint_mapping(self, keypoints_indices):
+        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
+        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
         return indices, description

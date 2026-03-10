@@ -54,6 +54,55 @@ pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-2
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
+[algorithms.rtmpose_l_aic]
+framework = "mmpose"
+pose_config = "rtmpose-l_8xb256-420e_aic-coco-384x288"
+keypoint_mapping = "coco_wholebody"
+min_detection_confidence = 0.5
+
+[algorithms.rtmpose_l_aic.required_assets]
+pose_config_file = "<assets>/mmpose/configs/rtmpose-l_8xb256-420e_aic-coco-384x288.py"
+pose_checkpoint = "<assets>/mmpose/configs/rtmpose-l_simcc-aic-coco_pt-aic-coco_420e-384x288-97d6cb0f_20230228.pth"
+detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
+detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+
+[algorithms.rtmpose_l_wholebody]
+framework = "mmpose"
+pose_config = "rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288"
+keypoint_mapping = "coco_wholebody"
+min_detection_confidence = 0.5
+
+[algorithms.rtmpose_l_wholebody.required_assets]
+pose_config_file = "<assets>/mmpose/configs/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py"
+pose_checkpoint = "<assets>/mmpose/configs/rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-384x288-eaeb96c8_20230125.pth"
+detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
+detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+
+[algorithms.vitpose_huge]
+framework = "mmpose"
+pose_config = "td-hm_ViTPose-huge_8xb64-210e_coco-256x192"
+keypoint_mapping = "coco_wholebody"
+min_detection_confidence = 0.5
+
+[algorithms.vitpose_huge.required_assets]
+pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-huge_8xb64-210e_coco-256x192-e32adcd4_20230314.pth"
+detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
+detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+
+
+[algorithms.rtmpose_m_mpii]
+framework = "mmpose"
+pose_config = "rtmpose-m_8xb64-210e_mpii-256x256"
+keypoint_mapping = "mpii"
+min_detection_confidence = 0.5
+
+[algorithms.rtmpose_m_mpii.required_assets]
+pose_config_file = "<assets>/mmpose/configs/rtmpose-m_8xb64-210e_mpii-256x256.py"
+pose_checkpoint = "<assets>/mmpose/configs/rtmpose-m_simcc-mpii_pt-aic-coco_210e-256x256-ec4dbec8_20230206.pth"
+detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
+detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
+
+
 # kinematics
 [algorithms.velocity_body]
 input_detector_names = [["body_joints", "hrnetw48"]]
