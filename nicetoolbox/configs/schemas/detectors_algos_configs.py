@@ -96,6 +96,10 @@ class FrameworksMMPoseConfig(BaseModel):
 
 @detector_config("hrnetw48")
 @detector_config("vitpose")
+@detector_config("vitpose_huge")
+@detector_config("rtmpose_l_aic")
+@detector_config("rtmpose_l_wholebody")
+@detector_config("rtmpose_m_mpii")
 class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
     framework: str
     pose_config: str

@@ -2,29 +2,50 @@
 
 # --- Multiview Eth XGaze ---
 ["multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"]
-url = "https://keeper.mpdl.mpg.de/f/60d2fb21483740968f16/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/cd7dfd31a27e47ab986e/?dl=1"
 
 ["multiview_eth_xgaze/face_model.txt"]
-url = "https://keeper.mpdl.mpg.de/f/ad656b211a0f4e92a33f/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/21b9bf8bb4064564b215/?dl=1"
 
 ["multiview_eth_xgaze/epoch_24_ckpt.pth.tar"]
-url = "https://keeper.mpdl.mpg.de/f/62fc1a891359469c9d11/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/cf93d03b37ba4b50a002/?dl=1"
 
 ["multiview_eth_xgaze/mmod_human_face_detector.dat"]
-url = "https://keeper.mpdl.mpg.de/f/5c18f0ad6d674482b72a/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/aae1a60f13394f099048/?dl=1"
 
-# --- MMPose Framework (HRNet & ViTPose) ---
+# --- MMPose Framework (HRNet, ViTPose, RTMPose) ---
 ["mmpose/configs/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth"]
-url = "https://keeper.mpdl.mpg.de/f/6a48c370f93440618957/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/b1ad36417abf45598c5c/?dl=1"
 
 ["mmpose/configs/faster_rcnn_r50_fpn_coco.py"]
-url = "https://keeper.mpdl.mpg.de/f/b6dc3cb5d0c849a59fe7/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/6f367697e29046cd82b7/?dl=1"
 
 ["mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"]
-url = "https://keeper.mpdl.mpg.de/f/db4a9e2d4d1848148268/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/fee14e24f8ea4367b145/?dl=1"
 
 ["mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-256x192-53609f55_20230314.pth"]
-url = "https://keeper.mpdl.mpg.de/f/a439a909943f48739095/?dl=1"
+url = "https://keeper.mpdl.mpg.de/f/7b8fbc37f96b40379547/?dl=1"
+
+["mmpose/configs/rtmpose-l_8xb256-420e_aic-coco-384x288.py"]
+url = "https://keeper.mpdl.mpg.de/f/a4acf55761ea4599b2c6/?dl=1"
+
+["mmpose/configs/rtmpose-l_simcc-aic-coco_pt-aic-coco_420e-384x288-97d6cb0f_20230228.pth"]
+url = "https://keeper.mpdl.mpg.de/f/f437a0e448c840ada76f/?dl=1"
+
+["mmpose/configs/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py"]
+url = "https://keeper.mpdl.mpg.de/f/0d7ac775dbc54e6f8593/?dl=1"
+
+["mmpose/configs/rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-384x288-eaeb96c8_20230125.pth"]
+url = "https://keeper.mpdl.mpg.de/f/6dd06484de214632aace/?dl=1"
+
+["mmpose/configs/rtmpose-m_8xb64-210e_mpii-256x256.py"]
+url = "https://keeper.mpdl.mpg.de/f/971b389926ee4fd5a60d/?dl=1"
+
+["mmpose/configs/rtmpose-m_simcc-mpii_pt-aic-coco_210e-256x256-ec4dbec8_20230206.pth"]
+url = "https://keeper.mpdl.mpg.de/f/034a2e90816846678da4/?dl=1"
+
+["mmpose/configs/td-hm_ViTPose-huge_8xb64-210e_coco-256x192-e32adcd4_20230314.pth"]
+url = "https://keeper.mpdl.mpg.de/f/3d8bbd4e6c3c4c049298/?dl=1"
 
 # --- SPIGA ---
 ["spiga/spiga_wflw.pt"]

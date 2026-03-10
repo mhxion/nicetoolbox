@@ -295,10 +295,13 @@ def main(config):
     # Extract the absolute path to the assets directory directly from the config root
     required_assets = config["required_assets"]
 
+    # use pose_config_file file for rtmpose and pose_config for others
+    pose2d_path = required_assets.get("pose_config_file", config.get("pose_config"))
+
     # Create inferencer object from MMPose API
     # Create inferencer object from MMPose API
     inferencer = MMPoseInferencer(
-        pose2d=config["pose_config"],
+        pose2d=pose2d_path,
         pose2d_weights=required_assets["pose_checkpoint"],
         det_model=required_assets["detection_config"],
         det_weights=required_assets["detection_checkpoint"],

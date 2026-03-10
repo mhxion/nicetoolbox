@@ -22,7 +22,14 @@ from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import VideoIO
-from .method_detectors.body_joints.mmpose_framework import HRNetw48, VitPose
+from .method_detectors.body_joints.mmpose_framework import (
+    HRNetw48,
+    RTMPoseLAIC,
+    RTMPoseMPII,
+    RTMPoseWHolebody,
+    VitPose,
+    VitPoseHuge,
+)
 from .method_detectors.emotion_individual.py_feat import PyFeat
 from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
 from .method_detectors.head_orientation.spiga_detector import Spiga
@@ -32,6 +39,10 @@ ALL_DETECTORS = dict(
     multiview_eth_xgaze=MultiviewEthXgaze,
     hrnetw48=HRNetw48,
     vitpose=VitPose,
+    vitpose_huge=VitPoseHuge,
+    rtmpose_l_aic=RTMPoseLAIC,
+    rtmpose_l_wholebody=RTMPoseWHolebody,
+    rtmpose_m_mpii=RTMPoseMPII,
     py_feat=PyFeat,
     spiga=Spiga,
     # feature detectors

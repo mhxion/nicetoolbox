@@ -39,9 +39,23 @@ class Human36m(BaseModel):
     keypoints_index: Dict[str, int]
 
 
+class MpiiKeypointsIndex(BaseModel):
+    body: Dict[str, int]
+
+
+class MpiiConnections(BaseModel):
+    body_joints: List[List[str]]
+
+
+class Mpii(BaseModel):
+    keypoints_index: MpiiKeypointsIndex
+    connections: MpiiConnections
+
+
 class HumanPose(BaseModel):
     coco_wholebody: CocoWholebody
     human36m: Human36m
+    mpii: Mpii
     bodypart_names: Dict[str, List[str]]
     bone_dict: Dict[str, List[str]]
     joint_diameter_size: Dict[str, float]

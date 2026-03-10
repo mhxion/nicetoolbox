@@ -8,9 +8,21 @@
 <br>
 
 
-## HrNet & VitPose
+## HRNet, ViTPose, & RTMPose (2D Pose Estimation)
 
-COMING SOON...
+The NICE toolbox integrates the **MMPose framework** to provide a suite of robust **top-down 2D human pose estimation** models. These algorithms operate by first using an object detector (e.g., Faster R-CNN) to extract bounding boxes around subjects, followed by dedicated keypoint localization on those cropped regions. The toolbox supports a range of architectures, from high-precision transformers to real-time optimized CNNs.
+
+### High-Resolution Networks
+- **HRNet (w48)**: A convolutional neural network designed to maintain high-resolution representations throughout the entire inference process. Instead of encoding images into low-resolution feature maps and decoding them later, HRNet connects high-to-low resolution subnetworks in parallel with repeated multi-scale fusion. This preserves fine spatial details and excels at localizing complex or occluded joints.   
+  [Sun et al., 2019](https://arxiv.org/abs/1902.09212)
+
+### Vision Transformers
+- **ViTPose / ViTPose-Huge**: A state-of-the-art baseline that employs plain, non-hierarchical Vision Transformers (ViTs) as the feature extraction backbone. By leveraging global self-attention mechanisms, ViTPose efficiently models the long-range relationships between different anatomical joints, offering superior robustness against severe occlusions and challenging body variations.   
+  [Xu et al., 2022](https://arxiv.org/abs/2204.12484)
+
+### Real-Time Pose Estimation
+- **RTMPose (m/l/wholebody)**: A framework explicitly optimized for real-time multi-person pose estimation. RTMPose utilizes a highly efficient CSPNeXt backbone and replaces traditional heatmap generation with a SimCC-based prediction head (treating keypoint localization as a classification task). This architectural shift delivers an exceptional balance between low latency and high accuracy.   
+  [Jiang et al., 2023](https://arxiv.org/abs/2303.07399)
 
 
 

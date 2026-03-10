@@ -65,7 +65,7 @@ radii = {}
 
 # Component: body joints
 [media.body_joints]
-algorithms = ['vitpose', 'hrnetw48']
+algorithms = ['vitpose_huge', 'hrnetw48']
 
 [media.body_joints.canvas]
 3d = ["3D_Canvas"] ## value options: 3D_Canvas, [] -- Note: set as [] if you don't have a multi-view setup.
