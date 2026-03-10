@@ -90,7 +90,6 @@ class FrameworksMMPoseConfig(BaseModel):
     window_length: int
     polyorder: int
     # python identifier cannot start with a number (using alias)
-    results_3d: bool = Field(alias="3d_results")
     visualize: bool
 
 

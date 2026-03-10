@@ -191,7 +191,7 @@ def check_correct_and_sort_person_detections(
     return updated_frame_predictions_list
 
 
-def convert_output_to_numpy(data, camera_subjects, number_subjects):
+def convert_output_to_numpy(data, camera_subjects, number_subjects, fallback_num_keypoints):
     """
     Convert the output data from a pose estimation model to numpy arrays.
 
@@ -215,10 +215,8 @@ def convert_output_to_numpy(data, camera_subjects, number_subjects):
 
     num_frames = len(data)
     num_persons = len(camera_subjects)
-    num_keypoints = len(
-        data[0]["predictions"][0][0]["keypoints"]
-    )  # results[0] first frame: ["predictions"][0][0] first person
-    num_estimations = len(data[0]["predictions"][0][0]["keypoints"][0]) + 1  # x, y, [z], and confidence_score
+    num_keypoints = fallback_num_keypoints
+    num_estimations = 3  # x, y, [z], and confidence_score
     logging.info(f"frames: {num_frames}, keypoints: {num_keypoints}, " f"estimations: {num_estimations}")
     sorted_frame_predictions = check_correct_and_sort_person_detections(data, num_persons)
 
@@ -229,6 +227,7 @@ def convert_output_to_numpy(data, camera_subjects, number_subjects):
     for frame_index, frame in enumerate(sorted_frame_predictions):
         for detection_index, person in enumerate(frame):
             person_index = camera_subjects[detection_index]
+            # keypoints and scores
             # keypoints and scores
             for kp_index, (kp, score) in enumerate(zip(person["keypoints"], person["keypoint_scores"])):
                 keypoints_array[person_index, frame_index, kp_index] = [
@@ -317,6 +316,11 @@ def main(config):
     for camera_name in config["camera_names"]:
         number_subjects = max(number_subjects, len(config["cam_sees_subjects"][camera_name]))
 
+    fallback_num_keypoints = 0
+    for _component, indices in config.get("keypoints_indices", {}).items():
+        if len(indices) > 0:
+            fallback_num_keypoints = max(fallback_num_keypoints, max(indices) + 1)
+
     # Inference per camera
     for camera_name, image_paths in dataloader:
         logging.info(f"Camera - {camera_name}")
@@ -338,7 +342,7 @@ def main(config):
         # convert results to numpy array
         camera_subjects = config["cam_sees_subjects"][camera_name]
         keypoints_array, bbox_array, estimations_data_descr = convert_output_to_numpy(
-            results, camera_subjects, number_subjects
+            results, camera_subjects, number_subjects, fallback_num_keypoints
         )
         camera_keypoints_output.append(keypoints_array)
         camera_bbox_output.append(bbox_array)

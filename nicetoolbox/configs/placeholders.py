@@ -244,9 +244,7 @@ def resolve_placeholders(
     # Note 1: BaseModel.__iter__() yields (field_name, field_value) tuples for all fields.
     # This preserves nested BaseModel types in dicts (e.g., Dict[str, SpigaConfig]
     # stays as Dict[str, SpigaConfig], not Dict[str, dict]).
-    # Note 2: We must handle field aliases. When a field has an alias (e.g.,
-    # `results_3d: bool = Field(alias="3d_results")`), iteration yields the
-    # Python name ("results_3d"), but model_validate expects the alias ("3d_results").
+    # Note 2: We must handle field aliases.
     # We use model_fields to look up the alias for each field.
     if isinstance(input, BaseModel):
         # RootModel wraps a single 'root' field (We have this in DatasetProperties, it wraps a single dict)
