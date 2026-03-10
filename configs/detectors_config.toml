@@ -29,7 +29,6 @@ device = "cuda:0"
 filtered = true
 window_length = 11
 polyorder = 2
-3d_results = true
 visualize = true
 
 [algorithms.hrnetw48]

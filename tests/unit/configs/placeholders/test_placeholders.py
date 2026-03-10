@@ -373,14 +373,14 @@ def test_resolve_placeholders_pydantic_simple_alias():
     """Test resolution with a simple field alias."""
 
     class ConfigWithAlias(BaseModel):
-        results_3d: bool = Field(alias="3d_results")
+        custom_field: bool = Field(alias="custom-field")
         name: str
 
-    config = ConfigWithAlias(**{"3d_results": True, "name": "<app_name>"})
+    config = ConfigWithAlias(**{"custom-field": True, "name": "<app_name>"})
     result = resolve_placeholders(config, {"app_name": "MyApp"})
 
     assert isinstance(result, ConfigWithAlias)
-    assert result.results_3d is True
+    assert result.custom_field is True
     assert result.name == "MyApp"
 
 
