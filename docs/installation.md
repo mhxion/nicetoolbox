@@ -13,6 +13,7 @@ We conducted tests of the installation on Windows 11 and Ubuntu versions 20 and 
     - [Git](#git)
     - [On Windows: Microsoft Visual C++](#on-windows-microsoft-visual-c)
     - [On Windows: make](#on-windows-make)
+    - [On Windows: Enable long path support](#on-windows-enable-long-path-support)
   - [Clone the repository](#clone-the-repository)
   - [Makefile installation](#makefile-installation)
   - [Additional notes](#additional-notes)
@@ -38,6 +39,12 @@ It should start an interactive bash session inside a Docker container.  Follow [
 Please find the download links under the [official python](https://www.python.org/downloads/) pages. The latest installer of a stable release of Python 3.10.10 can be downloaded [from here](https://www.python.org/downloads/release/python-31011/).
 
 If you are a Windows user, please add python to your `PATH` variable as explained on [educative.io](https://www.educative.io/answers/how-to-add-python-to-path-variable-in-windows).
+
+For Windows users, we also recommend clicking **"Disable path length limit"** on the final screen of the Python installer. This removes the default 260-character path limit that can cause failures with long dataset or session names. 
+
+![python_windows_path_limit.png](graphics/python_windows_path_limit.png)
+
+Youj an always disable or enable line limit manually. See [Enable long path support](#on-windows-enable-long-path-support) for more details.
 
 ### Conda
 
@@ -119,6 +126,19 @@ Nice Toolbox uses Makefiles for simple installation process. Follow these steps 
 **Note:**  
 After copying the files, you must **restart Git Bash** for the changes to take effect.
 
+
+### On Windows: Enable long path support
+
+We always recommend to enable long path support. If you did not click **"Disable path length limit"** during Python installation, you can enable long path support manually via **PowerShell** command line:
+
+1. Search for **PowerShell** in the Start menu, right-click it and select **Run as administrator**.
+2. Run the following command:
+
+```powershell
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1
+```
+
+See [Microsoft documentation](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation) for details.
 
 ## Clone the repository
 
