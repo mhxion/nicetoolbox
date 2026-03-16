@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..evaluation.auto_summaries import create_auto_summaries
 from ..evaluation.results_wrapper.core import EvaluationResults
+from ..utils.system import check_long_path_support
 from ..utils.to_csv import results_to_csv
 from .config_handler import ConfigHandler
 from .engine import EvaluationEngine
@@ -25,6 +26,7 @@ def main_evaluation_run(eval_config: str, machine_specifics: str) -> None:
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
+    check_long_path_support()
 
     # Initialize Configuration
     try:

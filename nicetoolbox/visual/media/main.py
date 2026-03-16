@@ -8,6 +8,7 @@ import os
 import cv2
 
 from ...utils import visual_utils as vis_utils
+from ...utils.system import check_long_path_support
 from .. import config_handler as vis_cfg
 from ..in_out import IO
 from .components import (
@@ -31,6 +32,9 @@ def main(visualizer_config_file, machine_specifics_file):
     This function sets up the configuration, initializes the input/output handlers,
     loads calibration data, and initializes the viewer for visualizing the components.
     """
+
+    # SYSTEM CHECK
+    check_long_path_support()
 
     # CONFIGURATION - IO
     config_handler = vis_cfg.Configuration(visualizer_config_file, machine_specifics_file)

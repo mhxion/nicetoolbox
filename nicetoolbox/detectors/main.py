@@ -15,6 +15,7 @@ from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
 from ..utils.dependency_sort import sort_detectors_order
 from ..utils.error_handling import manage_error_scope
+from ..utils.system import check_long_path_support
 from . import config_handler as confh
 from .data import VideoData
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
@@ -75,6 +76,7 @@ def main(run_config_file, machine_specifics_file):
 
     log_file = main_output_folder / "nicetoolbox.log"
     log_ut.setup_logging(log_file, log_level.name)
+    check_long_path_support()
     log_ut.log_main_banner(f"NICE TOOLBOX STARTED. Saving results to '{main_output_folder}'.")
 
     # asset download manager

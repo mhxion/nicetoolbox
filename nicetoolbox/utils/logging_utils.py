@@ -149,15 +149,15 @@ def assert_and_log(condition, message):
         sys.exit(1)
 
 
-def log_main_banner(msg: str, banner_sym: str = "#") -> None:
+def log_main_banner(msg: str, banner_sym: str = "#", level=logging.INFO) -> None:
     banner = banner_sym * 80
-    logging.info(f"\n{banner}\n\n{msg}\n\n{banner}\n\n", stacklevel=3)
+    logging.log(level, f"\n{banner}\n\n{msg}\n\n{banner}\n\n", stacklevel=3)
 
 
-def log_banner(msg: str, banner_sym: str = "=") -> None:
+def log_banner(msg: str, banner_sym: str = "=", level=logging.INFO) -> None:
     banner = banner_sym * 80
-    logging.info(f"\n{banner}\n{msg}\n{banner}\n\n", stacklevel=3)
+    logging.log(level, f"\n{banner}\n{msg}\n{banner}\n\n", stacklevel=3)
 
 
-def log_with_underscore(msg: str, underline_sym: str = "-") -> None:
-    logging.info(f"{msg}\n{underline_sym * 80}", stacklevel=3)
+def log_with_underscore(msg: str, underline_sym: str = "-", level=logging.INFO) -> None:
+    logging.log(level, f"{msg}\n{underline_sym * 80}", stacklevel=3)
