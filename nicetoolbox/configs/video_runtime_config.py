@@ -17,11 +17,11 @@ from .schemas.machine_specific_paths import MachineSpecificConfig
 from .schemas.predictions_mapping import PredictionsMappingConfig
 
 
-class VideoRuntimeConfig(BaseModel):
+class SequenceRuntimeConfig(BaseModel):
     """
     Immutable configuration context for processing a single video.
 
-    Created by Configuration.iter_video_contexts(), holds all resolved
+    Created by Configuration.iter_sequence_contexts(), holds all resolved
     configuration needed for one video. Discarded after processing.
 
     All placeholders (except <cur_component_name> and <cur_algorithm_name>

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from nicetoolbox.configs.models.video_timestamp import VideoTimestamp, timestamp_to_frame_index
+from nicetoolbox.configs.models.video_timestamp import VideoTimestamp, timestamp_to_frame_index, timestamp_to_ms
 
 
 class _TimestampModel(BaseModel):
@@ -194,3 +194,69 @@ def test_frame_index_passthrough_negative():
     Then:  It returns -1 unchanged (special value preserved).
     """
     assert timestamp_to_frame_index(-1, fps=30) == -1
+
+
+# --- timestamp_to_milliseconds tests ---
+
+
+def test_milliseconds_from_timestamp_string():
+    """
+    Given: A timestamp string "00-00-03" and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 3000 (3 seconds).
+    """
+    assert timestamp_to_ms("00-00-03", fps=30) == 3000
+
+
+def test_milliseconds_from_timestamp_with_milliseconds():
+    """
+    Given: A timestamp string "00-00-01.500" and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 1500 (1.5 seconds).
+    """
+    assert timestamp_to_ms("00-00-01.500", fps=30) == 1500
+
+
+def test_milliseconds_from_timestamp_hours_minutes():
+    """
+    Given: A timestamp string "01-30-00" and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 5400000 (1h30m in ms).
+    """
+    assert timestamp_to_ms("01-30-00", fps=30) == 5_400_000
+
+
+def test_milliseconds_from_zero_timestamp():
+    """
+    Given: A zero timestamp string "00-00-00" and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 0.
+    """
+    assert timestamp_to_ms("00-00-00", fps=30) == 0
+
+
+def test_milliseconds_from_frame_index():
+    """
+    Given: A frame index 90 and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 3000 (90 / 30 * 1000).
+    """
+    assert timestamp_to_ms(90, fps=30) == 3000
+
+
+def test_milliseconds_from_frame_index_with_remainder():
+    """
+    Given: A frame index 45 and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 1500 (45 / 30 * 1000).
+    """
+    assert timestamp_to_ms(45, fps=30) == 1500
+
+
+def test_milliseconds_from_zero_frame_index():
+    """
+    Given: A frame index 0 and fps=30.
+    When:  timestamp_to_milliseconds is called.
+    Then:  It returns 0.
+    """
+    assert timestamp_to_ms(0, fps=30) == 0

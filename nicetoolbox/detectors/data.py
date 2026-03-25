@@ -2,367 +2,139 @@
 Data module handling the data loading and processing of the give datasets.
 """
 
-import glob
-import json
 import logging
-import os
-from pathlib import Path
+from typing import Any, Dict, Optional
 
-import numpy as np
+from nicetoolbox_core.input_recipes import AudioInputRecipe, InputRecipes, VideoInputRecipe
 
-from ..configs.models.video_timestamp import VideoTimestamp, timestamp_to_frame_index
-from ..configs.video_runtime_config import VideoRuntimeConfig
-from ..utils import check_and_exception as exc
-from ..utils import video as vid
-from .in_out import VideoIO
+from ..configs.models.video_timestamp import timestamp_to_ms
+from ..configs.video_runtime_config import SequenceRuntimeConfig
+from .data_handlers.audio_handler import AudioDataHandler
+from .data_handlers.video_handler import VideoDataHandler
+from .in_out import SequenceIO
 
 
-class VideoData:
+class SequenceData:
     """
-    A data class for NICE toolbox input data validation and creation.
+    Facade for NICE Toolbox input data preparation.
 
-    Handles:
-    - Video-frames input recepies
-    - Frames extraction
-    - FPS and video length
+    Determines which modalities to prepare based on 'input_data_type' fields
+    in the selected detector/algorithm configs from detectors_config.toml.
 
-    Attributes:
-        video_start_frame_index (int): Frame index for video segment start.
-        video_length_frames (int): Non-negative number of video segment frames.
+    Supported input_data_type values:
+    - "video"  : video files / frame sequences (always prepared by default)
+    - "audio"  : audio tracks extracted from video or standalone files
+    - "frames" : (future) non-temporal image datasets
+
+    Algorithms may declare a single string or a list for cross-modal use:
+        input_data_type = "video"
+        input_data_type = ["video", "audio"]
+
+    Feature detectors (those with input_detector_names instead of
+    input_data_type) do not trigger raw data preparation directly.
     """
 
+    # Frame-based attributes (set after video handler prepares)
     video_start_frame_index: int
     video_length_frames: int
+    fps: int
 
-    def __init__(
-        self,
-        video_context: VideoRuntimeConfig,
-        io: VideoIO,
-    ) -> None:
+    def __init__(self, sequence_context: SequenceRuntimeConfig, io: SequenceIO) -> None:
         """
-        Initialize the Data class.
-
-        Args:
-            video_context (VideoRuntimeConfig): The runtime config containing all relevant fields.
-            io (IO): The IO object for file and folder operations.
-            all_camera_names (list): The list of all camera names.
-
-        Returns:
-            None
+        Initialize data facade and orchestrate data handling.
         """
         logging.info("Start DATA PREPARATION.")
 
-        self.io: VideoIO = io
+        self.io: SequenceIO = io
+        self.sequence_context = sequence_context
 
-        # --- Path Definitions ---
-        self.input_folder = io.get_nice_input_folder()  # nicetoolbox_input (frames)
+        # --- START: Config Parameters / Meta data used by detectors ---
+        self.dataset_name = sequence_context.dataset_name
+        self.subjects_descr = sequence_context.subjects_descr
+        self.all_camera_names = sequence_context.all_camera_names
 
-        # --- Config Parameters ---
-        self.dataset_name = video_context.dataset_name
-        dataset_properties = video_context.dataset_properties
-        video_config = video_context.video_config
-
+        video_config = sequence_context.video_config
         self.session_ID = video_config.session_ID
         self.sequence_ID = video_config.sequence_ID
-        self.start_frame_index: int = dataset_properties.start_frame_index
 
         self.video_skip_frames = None  # Hardcoded - No access via config yet
         self.annotation_interval = 2.0  # Keep? Hardcoded - No access via config yet
-        self.subjects_descr = video_context.subjects_descr
+
+        dataset_properties = sequence_context.dataset_properties
+        self.start_frame_index: int = dataset_properties.start_frame_index
+        self.cam_sees_subjects = dataset_properties.cam_sees_subjects
         self.camera_mapping = {
             "cam_front": dataset_properties.cam_front,
             "cam_face1": dataset_properties.cam_face1,
             "cam_face2": dataset_properties.cam_face2,
             "cam_top": dataset_properties.cam_top,
         }
-        self.cam_sees_subjects = dataset_properties.cam_sees_subjects
-        self.all_camera_names = video_context.all_camera_names
+        # --- END: Config Parameters / Meta data used by detectors ---
+        # (1) Always prepare video data (main source)
+        self._video_handler = VideoDataHandler(io, sequence_context)
+        self._video_handler.prepare()
 
-        self.filename_template = getattr(dataset_properties, "filename_template", "{idx:09d}.png")
+        # Expose resolved values for detectors and audio handler
+        # TODO: use video handler or video recipe directly?
+        self.fps = self._video_handler.fps
+        self.video_start_frame_index = self._video_handler.start_frame
+        self.video_length_frames = self._video_handler.length_frames
+        self.video_start_ms = timestamp_to_ms(sequence_context.video_start, self.fps)
+        self.video_length_ms = timestamp_to_ms(sequence_context.video_length, self.fps)
 
-        # --- Data Preparation Steps ---
-
-        # 1. Detect input format and search for an example video file
-        self.input_format: str = self._get_input_format()
-        self.video_sample_path: Path = self._get_example_video_path()
-
-        # 2. Validate fps and video length given an example video file
-        self.fps: int = self._get_fps_validated(video_context.fps)
-        # now we can get frame indexes for start and end
-        self.video_start_frame_index = timestamp_to_frame_index(video_config.video_start, self.fps)
-        self.video_length_frames = self._resolve_video_length(video_config.video_length)
-
-        # 3. Check and create input data if necessary
-        self._input_data_creation()
-
-        # 4. Load camera calibration if available
-        self.calibration: dict | None = self._load_calibration()
-
-        logging.info("DATA PREPARATION finished.\n\n")
-
-    def get_input_recipe(self) -> dict:
-        """
-        Generates the Recipe config to be injected into the subprocess TOML.
-        """
-        if self.input_format in [".avi", ".mp4"]:
-            root = self.input_folder  # Extracted data lives in nicetoolbox_input
-            template = "{camera}/frames/" + self.filename_template  # Structure: {cam}/frames/{idx:09d}.png
-        else:
-            raise NotImplementedError(f"Input recipe generation for '{self.input_format}' not implemented.")
-
-        # TODO: Pydantic model for recipe?
-        return {
-            "input_recipe": {
-                "type": "video_sequence",  # For future extensions like frame datasets?
-                "root_path": str(root),
-                "camera_names": sorted(list(self.all_camera_names)),
-                "filename_template": template,
-                "range_start": self.video_start_frame_index,
-                "range_end": self.video_start_frame_index + self.video_length_frames,
-                "step": 1 if self.video_skip_frames is None else self.video_skip_frames,
-            }
-        }
-
-    def _get_input_format(self) -> str:
-        """
-        Get the input format for the given camera names.
-
-        Returns:
-            str: The input format for the given camera names.
-
-        Raises:
-            ValueError: If multiple or no valid input format is found in the data
-                input folder.
-        """
-        possible_formats = [".mp4", ".avi", ".png", ".jpg", ".jpeg"]
-        cam_0 = self.all_camera_names[0]
-        example_input_folder = self.io.get_data_source_folder(cam_0)
-
-        found_formats = [name in "_".join(sorted(os.listdir(example_input_folder))) for name in possible_formats]
-        if sum(found_formats) != 1:
-            exc.error_log_and_raise(
-                ValueError,
-                "Reading input data",
-                f"Multiple/no valid input format found in '{example_input_folder}'. "
-                f"Found '{found_formats}', valid formats are ['mp4', 'avi'].",
+        # (2) Prepare audio if available
+        self._audio_handler: AudioDataHandler | None = None
+        tracks_cfg = dataset_properties.audio.tracks
+        if tracks_cfg:
+            self._audio_handler = AudioDataHandler(
+                io, sequence_context, self.video_start_ms, self.video_length_ms, tracks_cfg
             )
-        return possible_formats[found_formats.index(True)]
+            self._audio_handler.prepare()
+            if not self._audio_handler.is_available:
+                logging.warning("Audio preparation produced no usable tracks.")
 
-    def _get_example_video_path(self) -> Path:
+        logging.info("DATA PREPARATION complete.\n")
+
+    # -------------------------------------------------------------------------
+    # Properties (used by detectors)
+    # -------------------------------------------------------------------------
+
+    @property
+    def calibration(self) -> Optional[Dict[str, Any]]:
+        """Camera calibration data (video-specific)."""
+        if self._video_handler:
+            return self._video_handler.calibration
+        return None
+
+    # -------------------------------------------------------------------------
+    # Recipe access
+    # -------------------------------------------------------------------------
+
+    def get_video_input_recipe(self) -> VideoInputRecipe:
+        """Get video/frame input recipe for video data loaders."""
+        return self._video_handler.get_recipe()
+
+    def get_audio_input_recipe(self) -> Optional[AudioInputRecipe]:
+        """Get audio input recipe for audio data loaders."""
+        if self._audio_handler and self._audio_handler.is_available:
+            return self._audio_handler.get_recipe()
+        return None
+
+    def get_input_recipes(self) -> InputRecipes:
         """
-        Finds a video file for metadata extraction Reused by FPS check and Length resolution.
+        Get composed InputRecipes containing all available modality recipes.
+
+        This is the primary method used by BaseMethod to build the runtime
+        config for subprocesses. Each recipe is validated via Pydantic.
 
         Returns:
-            Path: The path to an example video file.
+            InputRecipes with video and/or audio recipes set.
         """
-        cam_0 = self.all_camera_names[0]
-        example_input_folder = self.io.get_data_source_folder(cam_0)
+        return InputRecipes(
+            video_input_recipe=self.get_video_input_recipe(),
+            audio_input_recipe=self.get_audio_input_recipe(),
+        )
 
-        files = sorted(example_input_folder.glob(f"*{self.input_format}"))
-
-        if not files:
-            raise FileNotFoundError(
-                f"No video files ({self.input_format}) found in {example_input_folder} " f"for camera {cam_0}."
-            )
-        return files[0]
-
-    def _get_fps_validated(self, target_fps: int) -> int:
-        """
-        Validates the frames per second (fps) of the input video files against the
-        target fps specified in the configuration.
-
-        Args:
-            target_fps (int): The desired fps specified in the configuration.
-
-        Returns:
-            int: The fps of the input video files. If the input formats are not 'mp4'
-                or 'avi', the target_fps value specified in the config is returned.
-        """
-        if self.input_format in [".mp4", ".avi"]:
-            fps = vid.get_fps(str(self.video_sample_path))
-            if fps != target_fps:
-                logging.warning(f"Detected fps = {fps} does not match fps given in the " f"config = {target_fps}!")
-            return fps
-
-        raise NotImplementedError(f"FPS validation for input format '{self.input_format}' is not implemented.")
-
-    def _resolve_video_length(self, config_video_length: int | VideoTimestamp) -> int:
-        """
-        Resolves the video length in frames. If the video_length is specified in the
-        configuration, it is returned directly. If it is (-1), the length is determined
-        from the example video file.
-
-        Returns:
-            int: The resolved video length in frames.
-        """
-        video_length = timestamp_to_frame_index(config_video_length, self.fps)
-        if video_length > 0:
-            return video_length
-
-        # If length is -1, we need to figure out the length from the video file
-
-        if self.input_format in [".mp4", ".avi"]:
-            total_frames = vid.get_number_of_frames(str(self.video_sample_path))
-            available_length = total_frames - self.video_start_frame_index
-
-            if available_length <= 0:
-                raise ValueError(
-                    f"video_start ({self.video_start_frame_index}) is beyond the end of the video "
-                    f"({total_frames} frames) in {self.video_sample_path.name}"
-                )
-
-            logging.info(
-                f"Auto-detected length: {available_length} frames "
-                f"(Total: {total_frames}, Start: {self.video_start_frame_index})"
-            )
-            return available_length
-
-        raise NotImplementedError(f"Video length resolution for '{self.input_format}' not implemented.")
-
-    def _input_data_creation(self) -> None:
-        """
-        Initializes the data required for running NICE toolbox.
-        """
-        if self.input_format in [".avi", ".mp4"]:
-            if self._check_frames_exist():
-                logging.info("Frames FOUND in nicetoolbox input folder")
-            else:
-                logging.info("EXTRACTING frames from video...")
-                self._extract_frames_from_video()
-            self.filename_template = "{idx:09d}.png"
-
-        elif self.input_format in [".png", ".jpg", ".jpeg"]:
-            # TODO: implement source frame checking
-            # This requires knowing the original folder structure and
-            # filename template from config, including session_ID, sequence_ID, etc.
-            # cam_folder = root / self.session_ID / self.sequence_ID / cam /
-            raise NotImplementedError("Checking source frames is not implemented yet.")
-        else:
-            raise NotImplementedError(f"Input format '{self.input_format}' not supported for data creation.")
-        logging.info("DATA CREATION completed.")
-
-    def _check_frames_exist(self) -> bool:
-        """
-        Check if frames exist in the nicetoolbox input folder ("Source of truth").
-
-        Returns:
-            bool: True if frames exist for all cameras, False otherwise.
-        """
-        template = self.filename_template
-
-        start_idx = self.video_start_frame_index
-        end_idx = self.video_start_frame_index + self.video_length_frames - 1
-
-        for cam in self.all_camera_names:
-            cam_folder = self.input_folder / cam / "frames"
-
-            start_name = template.format(idx=start_idx)
-            end_name = template.format(idx=end_idx)
-
-            start_path = cam_folder / start_name
-            end_path = cam_folder / end_name
-
-            # Check existence
-            if not (start_path.exists() and end_path.exists()):
-                logging.info(f"No input frames found for camera '{cam}': " f"Files will be created in '{cam_folder}'.")
-                return False
-
-        return True
-
-    def _extract_frames_from_video(self):
-        """
-        Create input frames from video files inside the nicetoolbox_input folder.
-
-        This method detects video input files, splits them into frames, and organizes
-        the frames into different data formats which are frames, segments, and snippets.
-
-        Raises:
-            AssertionError: If the length of the frame indices list does not match
-                the specified video length.
-            AssertionError: If the frame indices of different cameras do not match.
-        """
-        # detect all video input files
-        # Build glob pattern for all camera input folders and list video files
-        data_input_pattern = self.io.get_data_source_folder("*")
-        pattern = data_input_pattern / "*"
-        video_files = sorted(glob.glob(str(pattern)))
-
-        for video_file in video_files:
-            camera_name_indices = [name.lower() in video_file.lower() for name in list(self.all_camera_names)]
-            if not any(camera_name_indices):
-                continue
-            camera_name = list(self.all_camera_names)[camera_name_indices.index(True)]
-
-            # skip cameras for which frames exist
-            cam_folder = self.input_folder / camera_name / "frames"
-            start_name = self.filename_template.format(idx=self.video_start_frame_index)
-            end_name = self.filename_template.format(idx=self.video_start_frame_index + self.video_length_frames - 1)
-
-            if (cam_folder / start_name).exists() and (cam_folder / end_name).exists():
-                logging.info(f"Frames already exist for camera '{camera_name}', skipping extraction.")
-                continue
-
-            logging.info("Extracting Video Specifications...")
-            raw_video_info = vid.probe_video(video_file)
-            video_info_path = os.path.join(self.input_folder, camera_name + "_meta.json")
-            with open(video_info_path, "w") as f:
-                json.dump(raw_video_info, f, indent=4)
-
-            logging.info("Parsing Video Specifications...")
-            video_info = vid.json_to_video_info(raw_video_info)
-
-            # split video into frames
-            input_folder = os.path.join(self.input_folder, camera_name)
-            os.makedirs(input_folder, exist_ok=True)
-
-            os.makedirs(os.path.join(input_folder, "frames"), exist_ok=True)
-            vid.split_into_frames(
-                video_file,
-                os.path.join(input_folder, "frames/"),
-                video_info.frames,
-                start_frame=self.start_frame_index,
-                keep_indices=True,
-            )
-
-    def _load_calibration(self) -> dict | None:
-        """
-        Load camera calibration from a file for a specific dataset.
-
-        Currently implemented for the datasets 'dyadic_communication' and
-        'mpi_inf_3dhp'.
-
-        Args:
-            calibration_file (str): The path to the calibration file.
-            dataset_name (str): The name of the dataset.
-
-        Returns:
-            dict: A dictionary containing the loaded camera calibration.
-
-        Raises:
-            NotImplementedError: If loading camera calibration for the specified
-            dataset is not implemented.
-        """
-        # 1. Get calibration file path
-        calib_path = self.io.get_calibration_file()
-        if not calib_path or not os.path.isfile(calib_path):
-            logging.warning("Calibration file not found, skipping calibration.")
-            return None
-
-        # 2. Load calibration file
-        calib_details = "__".join([word for word in [self.session_ID, self.sequence_ID] if word])
-        try:
-            loaded_calib = np.load(calib_path, allow_pickle=True)[calib_details].item()
-        except KeyError as err:
-            logging.exception(
-                f"Calibration for session '{self.session_ID}' and sequence "
-                f"'{self.sequence_ID}' not found for calibration file at "
-                f"'{calib_path}'."
-            )
-            raise err
-        try:
-            calib = dict((key, value) for key, value in loaded_calib.items() if key in self.all_camera_names)
-        except Exception as err:
-            logging.exception(f"An error occurred while creating calibration dictionary: {err}")
-            raise err
-
-        return calib
+    def has_audio(self) -> bool:
+        """Check if audio data is available."""
+        return self._audio_handler is not None and self._audio_handler.is_available

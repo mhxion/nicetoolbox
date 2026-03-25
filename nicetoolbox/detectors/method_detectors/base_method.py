@@ -14,13 +14,13 @@ from typing import final
 from nicetoolbox_core.entrypoint import SubprocessError
 
 from ...configs.schemas.detectors_algos_configs import MethodDetectorRuntime
-from ...configs.video_runtime_config import VideoRuntimeConfig
+from ...configs.video_runtime_config import SequenceRuntimeConfig
 from ...utils.base_detectors import flatten_inference_config
 from ...utils.config import save_config
 from ...utils.system import detect_os_type
 from ..base_detector import BaseDetector
-from ..data import VideoData
-from ..in_out import VideoIO
+from ..data import SequenceData
+from ..in_out import SequenceIO
 
 
 class BaseMethod(BaseDetector):
@@ -48,12 +48,12 @@ class BaseMethod(BaseDetector):
     config_path: Path
 
     @final
-    def __init__(self, io: VideoIO, data: VideoData, video_context: VideoRuntimeConfig) -> None:
+    def __init__(self, io: SequenceIO, data: SequenceData, sequence_context: SequenceRuntimeConfig) -> None:
         """
         Initialize base method detector with references.
         """
         # (1) Call BaseDetector __init__()
-        super().__init__(io, data, video_context)
+        super().__init__(io, data, sequence_context)
 
         logging.info(
             f"Initializing method detector {self.__class__.__name__} with algorithm '{self.algorithm}' "
@@ -100,11 +100,11 @@ class BaseMethod(BaseDetector):
             algorithm=self.algorithm,
             visualize=self.visualize,
             subjects_descr=self.data.subjects_descr,
-            log_file=str(self.video_context.log_file),
-            log_level=self.video_context.log_level,
+            log_file=str(self.sequence_context.log_file),
+            log_level=self.sequence_context.log_level,
             calibration=self.data.calibration,
             cam_sees_subjects=self.data.cam_sees_subjects,
-            input_recipe=self.data.get_input_recipe()["input_recipe"],
+            input_recipes=self.data.get_input_recipes(),
         )
 
     def _setup_subprocess_settings(self) -> None:

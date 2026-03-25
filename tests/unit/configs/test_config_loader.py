@@ -44,8 +44,8 @@ def test_load_detectors_config():
     assert get_placeholders(dataset) <= runtime_mock
 
     # simullate runtime resolution
-    for session_ID in ["sesion_1", "sesion_2"]:
-        ctx = {"cur_session_ID": session_ID}
+    for sequence_ID in ["sequence_1", "sequence_2"]:
+        ctx = {"cur_sequence_ID": sequence_ID}
         res_dataset = cfg_loader.resolve(dataset, ctx)
         example_field = res_dataset["communication_multiview"].data_input_folder
-        assert session_ID in str(example_field)
+        assert sequence_ID in str(example_field)

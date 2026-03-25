@@ -13,8 +13,8 @@ import onnxruntime
 import torch
 from insightface.app import FaceAnalysis
 
-from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 from nicetoolbox_core.entrypoint import run_inference_entrypoint
+from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
 # --- Add submodule path ---
 top_level_dir = Path(__file__).resolve().parents[4]

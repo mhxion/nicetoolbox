@@ -12,7 +12,7 @@ from ..configs.schemas.experiment_config import CodeConfig, DetectorsExperimentC
 from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..configs.schemas.predictions_mapping import PredictionsMappingConfig
 from ..configs.utils import default_auto_placeholders, default_runtime_placeholders, model_to_dict
-from ..configs.video_runtime_config import VideoRuntimeConfig
+from ..configs.video_runtime_config import SequenceRuntimeConfig
 from ..utils.config import save_config
 
 
@@ -84,24 +84,21 @@ class Configuration:
     # Factory Method for Video Runtime Configurations
     # -------------------------------------------------------------------------
 
-    def iter_video_contexts(self) -> Generator[VideoRuntimeConfig, None, None]:
+    def iter_sequence_contexts(self) -> Generator[SequenceRuntimeConfig, None, None]:
         """
         Iterate over all videos and yield frozen runtime configurations.
 
-        Each yielded VideoRuntimeConfig is fully resolved and immutable.
+        Each yielded SequenceRuntimeConfig is fully resolved and immutable.
         It should be discarded after the video is processed.
 
         Yields:
-            VideoRuntimeConfig for each video defined in the run configuration
+            SequenceRuntimeConfig for each video defined in the run configuration
         """
         for dataset_name, videos_run_config in self.run_config.run.items():
             # Build component -> algorithms mapping (Filtered via selection in run_config file)
             component_mapping = {
                 comp: self.run_config.component_algorithm_mapping[comp] for comp in videos_run_config.components
             }
-
-            # Get all selected algorithms for this dataset
-            selected_algorithms: list[str] = list(set(flatten_list(list(component_mapping.values()))))
 
             # Get dataset properties
             dataset_props = self.dataset_properties[dataset_name]
@@ -113,7 +110,6 @@ class Configuration:
                     dataset_props=dataset_props,
                     components=videos_run_config.components,
                     component_mapping=component_mapping,
-                    selected_algorithms=selected_algorithms,
                 )
 
     def _create_video_runtime_config(
@@ -123,21 +119,25 @@ class Configuration:
         dataset_props,
         components: List[str],
         component_mapping: Dict[str, List[str]],
-        selected_algorithms: List[str],
-    ) -> VideoRuntimeConfig:
+    ) -> SequenceRuntimeConfig:
         """
-        Create a fully resolved, frozen VideoRuntimeConfig.
+        Create a fully resolved, frozen SequenceRuntimeConfig.
 
         All placeholders are resolved before constructing the frozen model.
         """
-        # 1. Expand dependencies to include upstream method detectors (run features without method detectors)
-        expanded_algorithms = self._expand_dependencies(selected_algorithms)
+        # Collect all camera names defined in dataset properties
+        # We process all cameras all the time, no matter if any detector actually use them
+        # This important for data consistency for visualizer and audio detectors
+        cameras = {
+            "cur_cam_face1": dataset_props.cam_face1,
+            "cur_cam_face2": dataset_props.cam_face2,
+            "cur_cam_top": dataset_props.cam_top,
+            "cur_cam_front": dataset_props.cam_front,
+        }
+        all_camera_names = list(cameras.values())
 
-        # 2. Compute camera names from all resolved detector configs required for this run
-        all_camera_names = self._compute_camera_names(expanded_algorithms)
-
-        # 3. Construct frozen model with all resolved values
-        runtime_config = VideoRuntimeConfig(
+        # Construct frozen model with all resolved values
+        runtime_config = SequenceRuntimeConfig(
             log_level=self.log_level,
             log_file=self.log_file,
             dataset_name=dataset_name,
@@ -151,79 +151,25 @@ class Configuration:
             component_mapping=component_mapping,
             all_camera_names=all_camera_names,
         )
-        # 4. Build runtime context for this video
+        # Build runtime context for this video
         runtime_ctx = {
             "cur_dataset_name": dataset_name,
             "cur_session_ID": video.session_ID,
             "cur_sequence_ID": video.sequence_ID,
             "cur_video_start": video.video_start,
             "cur_video_length": video.video_length,
-            "cur_cam_face1": dataset_props.cam_face1,
-            "cur_cam_face2": dataset_props.cam_face2,
-            "cur_cam_top": dataset_props.cam_top,
-            "cur_cam_front": dataset_props.cam_front,
+            **cameras,
         }
-        # 5. RESOLVE
+        # Resolve placeholders
         resolved_runtime = self.cfg_loader.resolve(runtime_config, runtime_ctx, ignore_auto_and_global=True)
 
         # TODO: nasty quickfix, remove empty camera names if they aren't available for this dataset
-        # please add a better solution for camera handling
-        resolved_runtime.__dict__["all_camera_names"] = list(set(resolved_runtime.all_camera_names) - {""})
+        # please add a better solution for camera handling without patching configs
         for algo in resolved_runtime.detectors_config.algorithms.values():
             if hasattr(algo, "camera_names"):
                 algo.camera_names = list(set(algo.camera_names) - {""})
 
         return resolved_runtime
-
-    def _expand_dependencies(self, algorithm_names: List[str]) -> List[str]:
-        """
-        Recursively expand algorithm list to include upstream method detectors.
-
-        Feature detectors depend on method detectors (e.g., velocity_body needs hrnetw48).
-        This ensures we include cameras from all required algorithms.
-
-        Args:
-            algorithm_names: Initially selected algorithms
-
-        Returns:
-            Expanded list including all dependencies
-        """
-        expanded = set(algorithm_names)
-
-        for algo_name in algorithm_names:
-            config = self.detectors_config.algorithms.get(algo_name)
-            if config is None:
-                continue
-
-            # Check if this is a feature detector with dependencies
-            input_detector_names = getattr(config, "input_detector_names", None)
-            if input_detector_names:
-                # Format: [['component', 'algorithm'], ...]
-                dependencies = [pair[1] for pair in input_detector_names]
-                # Recursively expand
-                expanded.update(self._expand_dependencies(dependencies))
-
-        return list(expanded)
-
-    def _compute_camera_names(self, algorithm_names: List[str]) -> List[str]:
-        """
-        Extract all unique camera names from resolved detector configs.
-
-        Args:
-            detectors_configs: Pre-resolved detector configurations (includes dependencies)
-
-        Returns:
-            Sorted list of unique camera names
-        """
-        cameras = set()
-        for algorithm in algorithm_names:
-            config = self.detectors_config.algorithms[algorithm]
-            camera_names = getattr(config, "camera_names", None)
-            if camera_names:
-                # Filter out empty strings that might result from placeholder resolution
-                cameras.update(c for c in camera_names if c)
-
-        return sorted(list(cameras))
 
     # -------------------------------------------------------------------------
     # Static Queries (don't depend on runtime context)

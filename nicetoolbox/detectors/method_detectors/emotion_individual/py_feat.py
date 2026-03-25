@@ -8,7 +8,7 @@ import os
 import cv2
 import numpy as np
 
-from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
+from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
 from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
 from ....utils import video as vd
@@ -37,7 +37,7 @@ class PyFeat(BaseMethod):
 
         # (2) Initialise data loader
         self.dataloader = ImagePathsByFrameIndexLoader(
-            config=self.data.get_input_recipe(), expected_cameras=self.camera_names
+            config=self.data.get_input_recipes(), expected_cameras=self.camera_names
         )
 
         return super()._initialize_detector()  # No extras needed -> just call parents function to get common runtime

@@ -8,8 +8,8 @@ import os
 import numpy as np
 from mmpose.apis import MMPoseInferencer
 
-from nicetoolbox_core.dataloader import ImagePathsByCameraLoader
 from nicetoolbox_core.entrypoint import run_inference_entrypoint
+from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
 
 def calculate_iou(box1, box2):

@@ -26,8 +26,8 @@ class BaseFeature(BaseDetector):
     requires_out_folder: bool = False
 
     @final
-    def __init__(self, io, data, video_context):
-        super().__init__(io, data, video_context)
+    def __init__(self, io, data, sequence_context):
+        super().__init__(io, data, sequence_context)
         logging.info(
             f"Initializing feature detector {self.__class__.__name__} for '{self.algorithm}' "
             f"and components {self.components}."

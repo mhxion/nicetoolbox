@@ -5,7 +5,9 @@ Data loaders that generate input file paths based on a recipe pattern.
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple, Union
+
+from .input_recipes import InputRecipes, VideoInputRecipe
 
 # Type definitions for the different return formats
 
@@ -19,7 +21,27 @@ IMAGE_PATHS_BATCHED_BY_FRAMES_INDICES = Tuple[List[int], Dict[str, List[str]]]
 IMAGE_PATHS_BY_CAMERAS = Tuple[str, List[str]]
 
 
-class InputDataLoader(ABC):
+def _resolve_video_recipe(config: Union[InputRecipes, dict]) -> VideoInputRecipe:
+    """
+    Extract VideoInputRecipe from either an InputRecipes object or a raw dict.
+
+    Accepts:
+    - InputRecipes model (in-process usage)
+    - dict with 'input_recipes' key (subprocess config format)
+    - dict with 'video_input_recipe' key (flat format)
+
+    Raises:
+        KeyError: If no video recipe can be found.
+    """
+    if isinstance(config, InputRecipes):
+        return config.video_input_recipe
+
+    # dict path — use InputRecipes.from_dict which handles both formats
+    recipes = InputRecipes.from_dict(config)
+    return recipes.video_input_recipe
+
+
+class VideoDataLoader(ABC):
     """
     Abstract Base Class for loading input data based on a recipe.
 
@@ -39,20 +61,20 @@ class InputDataLoader(ABC):
             ValueError: If expected cameras do not match available cameras in recipe.
         """
         # (1) Extract recipe from config
-        recipe = config["input_recipe"]
+        recipe = _resolve_video_recipe(config)
 
         # (2) Root path and filename pattern for parsing files
-        self.root_path = Path(recipe["root_path"])
-        self.pattern = recipe["filename_template"]
+        self.root_path = Path(recipe.root_path)
+        self.pattern = recipe.filename_template
 
         # (3) Range logic
-        self.start = recipe["range_start"]
-        self.end = recipe["range_end"]
-        self.step = recipe.get("step", 1)
+        self.start = recipe.range_start
+        self.end = recipe.range_end
+        self.step = recipe.step
 
         # (4) Camera Validation
         # The recipe tells us what exists on disk
-        available_cameras = recipe.get("camera_names", [])
+        available_cameras = recipe.camera_names
 
         # Filter to only use the cameras the detector actually wants
         self.cameras = [cam for cam in expected_cameras if cam in available_cameras]
@@ -92,7 +114,7 @@ class InputDataLoader(ABC):
         pass
 
 
-class ImagePathsByFrameIndexLoader(InputDataLoader):
+class ImagePathsByFrameIndexLoader(VideoDataLoader):
     """
     Iterates over the sequence frame by frame.
 
@@ -116,7 +138,7 @@ class ImagePathsByFrameIndexLoader(InputDataLoader):
             yield (idx, frame_files)
 
 
-class ImagePathsBatchByFrameIndexLoader(InputDataLoader):
+class ImagePathsBatchByFrameIndexLoader(VideoDataLoader):
     """
     Iterates over the sequence in batches of frames.
 
@@ -164,7 +186,7 @@ class ImagePathsBatchByFrameIndexLoader(InputDataLoader):
             yield (current_indices, batch_files)
 
 
-class ImagePathsByCameraLoader(InputDataLoader):
+class ImagePathsByCameraLoader(VideoDataLoader):
     """
     Iterates camera by camera, yielding the full sequence for one camera at a time.
 
@@ -188,7 +210,7 @@ class ImagePathsByCameraLoader(InputDataLoader):
             yield (cam, video_files)
 
 
-class MP4VideoPathsByCameraLoader(InputDataLoader):
+class MP4VideoPathsByCameraLoader(VideoDataLoader):
     """
     Iterates camera by camera, yielding the full video file for one camera at a time.
 

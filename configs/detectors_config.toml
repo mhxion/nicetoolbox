@@ -3,7 +3,6 @@
 
 # gaze_individual
 [algorithms.multiview_eth_xgaze]
-input_data_format = "frames"
 camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
 env_name = "venv:multiview_eth_xgaze"
 log_frame_idx_interval = 200
@@ -20,7 +19,6 @@ face_detector_filename = "<assets>/multiview_eth_xgaze/mmod_human_face_detector.
 
 # body_joints, hand_joints, face_landmarks
 [frameworks.mmpose]
-input_data_format = "frames"
 camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
 env_name = "conda:openmmlab"
 save_detector_images = true
@@ -134,7 +132,6 @@ visualize = true
 
 # emotion_individual
 [algorithms.py_feat]
-input_data_format = "frames"
 camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
 env_name = "venv:py_feat"
 log_frame_idx_interval = 200
@@ -145,7 +142,6 @@ visualize = true
 
 # head_orientation
 [algorithms.spiga]
-input_data_format = "frames"
 camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
 env_name = "venv:spiga"
 log_frame_idx_interval = 200
@@ -155,3 +151,8 @@ dataset_name = "wflw" # model name, can be wflw, 300wpublic, 300wprivate or merl
 
 [algorithms.spiga.required_assets]
 model_weights_path = "<assets>/spiga/spiga_<dataset_name>.pt" # path to weights folder
+
+[algorithms.whisper]
+track_names = ["room"]
+env_name = "venv:nicetoolbox"
+visualize = true

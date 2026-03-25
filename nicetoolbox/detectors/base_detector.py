@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from ..configs.video_runtime_config import VideoRuntimeConfig
-from .data import VideoData
-from .in_out import VideoIO
+from ..configs.video_runtime_config import SequenceRuntimeConfig
+from .data import SequenceData
+from .in_out import SequenceIO
 
 
 class BaseDetector(ABC):
@@ -22,9 +22,9 @@ class BaseDetector(ABC):
     """
 
     # Instance attributes set during initialization
-    data: VideoData
-    io: VideoIO
-    video_context: VideoRuntimeConfig
+    data: SequenceData
+    io: SequenceIO
+    sequence_context: SequenceRuntimeConfig
     detector_config: BaseModel
 
     # Class attributes to be defined by subclasses
@@ -35,7 +35,7 @@ class BaseDetector(ABC):
     # Additional attributes
     visualize: bool
 
-    def __init__(self, io: VideoIO, data: VideoData, video_context: VideoRuntimeConfig) -> None:
+    def __init__(self, io: SequenceIO, data: SequenceData, sequence_context: SequenceRuntimeConfig) -> None:
         """
         Initialize base detector with references.
 
@@ -43,8 +43,8 @@ class BaseDetector(ABC):
         """
         self.io = io
         self.data = data
-        self.video_context = video_context
-        self.detector_config = video_context.get_detector_config(self.algorithm)
+        self.sequence_context = sequence_context
+        self.detector_config = sequence_context.get_detector_config(self.algorithm)
         self.visualize = getattr(self.detector_config, "visualize", False)
 
     @abstractmethod
@@ -89,7 +89,7 @@ class BaseDetector(ABC):
     @property
     def predictions_mapping(self):
         """Access predictions mapping from runtime config."""
-        return self.video_context.predictions_mapping
+        return self.sequence_context.predictions_mapping
 
     def compute_result_folders(self) -> Dict[str, str]:
         """Compute result folders for all components."""

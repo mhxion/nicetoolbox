@@ -6,7 +6,7 @@
 visualize = true              # whether to save image/video visualizations of detectors
 save_csv = true               # whether to save all results to csv-files
 
-error_level = "DETECTOR"      # Options: "DETECTOR", "VIDEO", "STRICT" (from least to most strict)
+error_level = "DETECTOR"      # Options: "DETECTOR", "SEQUENCE", "STRICT" (from least to most strict)
 log_level = "INFO"            # Options: "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
 
 # checks that all detectors have their input dependencies enabled
@@ -24,13 +24,14 @@ kinematics = ['velocity_body']
 proximity = ['body_distance']
 emotion_individual = ['py_feat']
 head_orientation = ['spiga']
+audio_transcription = ['whisper']
 
 # define which data to run on
 [run]
 [run.communication_multiview]
-components = ["body_joints", "gaze_individual", "gaze_multiview", "gaze_interaction", "kinematics", "proximity", "emotion_individual", "head_orientation"]
+components = ["audio_transcription", "body_joints", "gaze_individual", "gaze_multiview", "gaze_interaction", "kinematics", "proximity", "emotion_individual", "head_orientation"]
 videos = [
-   {session_ID = "session_xyz", sequence_ID="", video_start = 0, video_length = -1}  # Note: -1 for full video length
+   {session_ID = "", sequence_ID="sequence_xyz", video_start = 0, video_length = -1}  # Note: -1 for full video length
 ]
 
 [io]
