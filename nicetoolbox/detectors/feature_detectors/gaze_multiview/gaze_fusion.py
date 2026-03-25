@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 
-from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
+from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
 from ....utils import video as vd
 from ....utils import visual_utils as vis_ut
@@ -61,7 +61,7 @@ class GazeFusion(BaseFeature):
         # 5. Init DataLoader config for visualization if needed
         self.dataloader_config = None
         if self.detector_config.visualize and self.camera_names:
-            self.dataloader_config = self.data.get_input_recipe().copy()
+            self.dataloader_config = self.data.get_input_recipes().copy()
 
     def _load_inputs(self) -> None:
         """

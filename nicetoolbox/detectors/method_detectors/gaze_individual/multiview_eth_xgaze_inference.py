@@ -12,8 +12,8 @@ from multiview_eth_xgaze.eth_xgaze.utils import vector_to_pitchyaw
 from multiview_eth_xgaze.gaze_estimator import GazeEstimator
 from multiview_eth_xgaze.xgaze_utils import draw_gaze, get_cam_para_studio
 
-from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
 from nicetoolbox_core.entrypoint import run_inference_entrypoint
+from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
 
 @run_inference_entrypoint

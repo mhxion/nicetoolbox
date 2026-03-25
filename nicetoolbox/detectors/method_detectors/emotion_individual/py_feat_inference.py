@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from feat import Detector
 
-from nicetoolbox_core.dataloader import ImagePathsByCameraLoader
 from nicetoolbox_core.entrypoint import run_inference_entrypoint
+from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
 # Constants for output structure
 NUM_EMOTIONS = 7

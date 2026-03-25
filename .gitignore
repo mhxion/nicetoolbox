@@ -1,5 +1,6 @@
 .github/
 .vscode/
+.zed/
 .idea/
 .ruff_cache/
 **/__pycache__

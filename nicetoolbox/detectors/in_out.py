@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import List, Optional
 
 from ..configs.placeholders import resolve_placeholders
-from ..configs.video_runtime_config import VideoRuntimeConfig
+from ..configs.video_runtime_config import SequenceRuntimeConfig
 from ..utils import check_and_exception as exc
 from ..utils import system as oslab_sys
 
 
-class VideoIO:
+class SequenceIO:
     """
     IO for per-video operations.
 
@@ -34,25 +34,25 @@ class VideoIO:
     _data_source_folder: Path
     calibration_file: Optional[Path]
     conda_path: Path
-    _video_context: VideoRuntimeConfig
+    _sequence_context: SequenceRuntimeConfig
 
     def __init__(
         self,
-        video_context: VideoRuntimeConfig,
+        sequence_context: SequenceRuntimeConfig,
         algorithm_names: List[str],
     ):
         """
         Initialize for video processing.
 
         Args:
-            video_context: Frozen video runtime configuration
+            sequence_context: Frozen video runtime configuration
             algorithm_names: List of all algorithm names for folder creation
         """
         self.algorithm_names = algorithm_names
-        self._video_context = video_context
+        self._sequence_context = sequence_context
 
         # All paths from resolved IO config
-        io = video_context.io
+        io = sequence_context.io
         self.out_folder = io.out_folder
         self.out_sub_folder = io.out_sub_folder
         self.csv_folder = io.csv_out_folder
@@ -60,11 +60,11 @@ class VideoIO:
         self.nice_input_folder = io.nicetoolbox_input_folder
 
         # Dataset properties
-        self._data_source_folder = video_context.data_source_folder
-        self.calibration_file = video_context.calibration_path
+        self._data_source_folder = sequence_context.data_source_folder
+        self.calibration_file = sequence_context.calibration_path
 
         # Machine config
-        self.conda_path = video_context.machine.conda_path
+        self.conda_path = sequence_context.machine.conda_path
 
         # Create folders
         self._create_folders()
@@ -201,6 +201,6 @@ class VideoIO:
             algorithm: Algorithm name (e.g., 'hrnetw48')
             token: Folder type - 'output', 'visualization', 'additional', 'run_config', 'result'
         """
-        path = self._video_context.get_detector_folder(component, algorithm, token)
+        path = self._sequence_context.get_detector_folder(component, algorithm, token)
         os.makedirs(path, exist_ok=True)
         return path

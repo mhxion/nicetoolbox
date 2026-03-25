@@ -31,8 +31,9 @@ def _validate_video_timestamp(value: object) -> str:
     return value.replace(":", "-")
 
 
-def timestamp_to_frame_index(value: int | str, fps: int) -> int:
-    """Convert a video timestamp string or frame index int to a frame index."""
+def timestamp_to_ms(value: int | str, fps: int) -> float:
+    """Convert a video timestamp string or frame index int to milliseconds."""
+    # it's timestamp
     if isinstance(value, str):
         match = _TIMESTAMP_PATTERN.match(value)
         if match is None:
@@ -43,8 +44,19 @@ def timestamp_to_frame_index(value: int | str, fps: int) -> int:
         seconds = int(match["seconds"])
         milliseconds = int(match["milliseconds"]) if match["milliseconds"] else 0
 
-        total_seconds = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
-        return int(total_seconds * fps)
+        return float((hours * 3600 + minutes * 60 + seconds) * 1000 + milliseconds)
+
+    # it's frame index
+    return value / fps * 1000
+
+
+def timestamp_to_frame_index(value: int | str, fps: int) -> int:
+    """Convert a video timestamp string or frame index int to a frame index."""
+    # it's timestamp
+    if isinstance(value, str):
+        return int(timestamp_to_ms(value, fps) / 1000 * fps)
+
+    # it's frame index
     return value
 
 

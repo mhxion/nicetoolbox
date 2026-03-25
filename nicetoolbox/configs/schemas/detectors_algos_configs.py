@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from nicetoolbox_core.input_recipes import InputRecipes
+
 from ..models.models_registry import ModelsRegistry
 
 # registries for detectors and frameworks
@@ -24,7 +26,7 @@ class BaseDetectorRuntime(BaseModel):
     Common runtime fields for ALL detectors (method and feature).
 
     These fields are computed during detector initialization from IO, Data,
-    and VideoRuntimeConfig - NOT from static config files.
+    and SequenceRuntimeConfig - NOT from static config files.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -58,8 +60,8 @@ class MethodDetectorRuntime(BaseDetectorRuntime):
     calibration: Optional[Dict[str, Any]] = None
     cam_sees_subjects: Dict[str, List[int]]
 
-    # Input recipe for dataloader in subprocess
-    input_recipe: dict[str, Any]
+    # Input recipes for dataloaders in subprocess
+    input_recipes: InputRecipes
 
 
 class FeatureDetectorRuntime(BaseDetectorRuntime):
@@ -80,7 +82,6 @@ class FeatureDetectorRuntime(BaseDetectorRuntime):
 
 @framework_config("mmpose")
 class FrameworksMMPoseConfig(BaseModel):
-    input_data_format: str
     camera_names: List[str]
     env_name: str
     save_detector_images: bool
@@ -118,7 +119,6 @@ class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
 
 @detector_config("spiga")
 class SpigaConfig(BaseModel):
-    input_data_format: str
     camera_names: List[str]
     env_name: str
     log_frame_idx_interval: int
@@ -136,7 +136,6 @@ class SpigaConfig(BaseModel):
 
 @detector_config("py_feat")
 class PyFeatConfig(BaseModel):
-    input_data_format: str
     camera_names: List[str]
     env_name: str
     log_frame_idx_interval: int
@@ -147,7 +146,6 @@ class PyFeatConfig(BaseModel):
 
 @detector_config("multiview_eth_xgaze")
 class MultiViewETHXGazeConfig(BaseModel):
-    input_data_format: str
     camera_names: List[str]
     env_name: str
     log_frame_idx_interval: int
@@ -156,6 +154,12 @@ class MultiViewETHXGazeConfig(BaseModel):
     polyorder: int
     visualize: bool
     required_assets: Dict[str, str] = Field(default_factory=dict)
+
+
+@detector_config("whisper")
+class WhisperConfig(BaseModel):
+    env_name: str
+    visualize: bool
 
 
 # === Add Method detectors HERE ===

@@ -8,7 +8,7 @@ import os
 import cv2
 import numpy as np
 
-from nicetoolbox_core.dataloader import ImagePathsByFrameIndexLoader
+from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
 from ....configs.schemas.detectors_algos_configs import SpigaConfig
 from ....utils import video as vd
@@ -93,7 +93,7 @@ class Spiga(BaseMethod):
 
         # Initialise data loader
         self.dataloader = ImagePathsByFrameIndexLoader(
-            config=self.data.get_input_recipe(), expected_cameras=self.camera_names
+            config=self.data.get_input_recipes(), expected_cameras=self.camera_names
         )
         # === (2) EXTRA FIELDS for Spiga ===
         self._face_landmarks_description = confh.flatten_list(extract_key_per_value(self.keypoints_indices.face))

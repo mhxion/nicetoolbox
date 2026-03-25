@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple
 import cv2
 import numpy as np
 
-from nicetoolbox_core.dataloader import ImagePathsByCameraLoader
+from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
 from ....configs.schemas.detectors_algos_configs import MMPoseAlgorithmConfig
 from ....utils import check_and_exception as check
@@ -162,7 +162,7 @@ class MMPose(BaseMethod):
         logging.info(f"VISUALIZING the method detector output of {self.components} " f"and {self.algorithm}.")
 
         # Create input data loader from nicetoolbox-core shared code
-        dataloader = ImagePathsByCameraLoader(config=self.data.get_input_recipe(), expected_cameras=self.camera_names)
+        dataloader = ImagePathsByCameraLoader(config=self.data.get_input_recipes(), expected_cameras=self.camera_names)
 
         for _component, result_folder in self.result_folders.items():
             viz_dir = os.path.join(result_folder, self.algorithm, "visualization")

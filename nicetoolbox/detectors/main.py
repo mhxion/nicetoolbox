@@ -17,12 +17,13 @@ from ..utils.dependency_sort import sort_detectors_order
 from ..utils.error_handling import manage_error_scope
 from ..utils.system import check_long_path_support
 from . import config_handler as confh
-from .data import VideoData
+from .data import SequenceData
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
 from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
-from .in_out import VideoIO
+from .in_out import SequenceIO
+from .method_detectors.audio_transcription.whisper_detector import Whisper
 from .method_detectors.body_joints.mmpose_framework import (
     HRNetw48,
     RTMPoseLAIC,
@@ -46,6 +47,7 @@ ALL_DETECTORS = dict(
     rtmpose_m_mpii=RTMPoseMPII,
     py_feat=PyFeat,
     spiga=Spiga,
+    whisper=Whisper,
     # feature detectors
     velocity_body=VelocityBody,
     body_distance=BodyDistance,
@@ -87,22 +89,22 @@ def main(run_config_file, machine_specifics_file):
 
     all_algorithms = config.get_all_detector_names()
 
-    # ========================
-    # PHASE 2: Process Videos
-    # ========================
-    for video_context in config.iter_video_contexts():  # for each video
-        # get video meta information for logging
-        video_str = str(video_context.video_config)
-        log_ut.log_banner(f"RUNNING {video_str}")
-        with manage_error_scope(error_level, ErrorLevel.VIDEO, video_str):
-            # Create IO and Data from runtime config for the current video
-            io = VideoIO(video_context, all_algorithms)
-            data = VideoData(video_context, io)
+    # ==========================
+    # PHASE 2: Process Sequences
+    # ==========================
+    for sequence_context in config.iter_sequence_contexts():  # for each sequence
+        # get sequence meta information for logging
+        sequence_str = str(sequence_context.video_config)
+        log_ut.log_banner(f"RUNNING {sequence_str}")
+        with manage_error_scope(error_level, ErrorLevel.SEQUENCE, sequence_str):
+            # Create IO and Data from runtime config for the current sequence
+            io = SequenceIO(sequence_context, all_algorithms)
+            data = SequenceData(sequence_context, io)
 
             # Algorithms based on user-selected components, topologically sorted
-            selected_algorithms = video_context.all_selected_algorithms
+            selected_algorithms = sequence_context.all_selected_algorithms
             ordered_detectors = sort_detectors_order(
-                video_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependencies
+                sequence_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependencies
             )
 
             # ======================
@@ -114,7 +116,7 @@ def main(run_config_file, machine_specifics_file):
                     start_time = time.time()
 
                     detector_class = ALL_DETECTORS[detector_name]
-                    detector = detector_class(io, data, video_context)
+                    detector = detector_class(io, data, sequence_context)
 
                     result_data = detector.run()
 
@@ -126,7 +128,7 @@ def main(run_config_file, machine_specifics_file):
             # Convert results to .csv
             if config.save_csv:
                 csv.results_to_csv(io.out_sub_folder, io.csv_folder)
-                logging.info("Converting current video results to CSV successful.")
+                logging.info("Converting current sequence results to CSV successful.")
 
     log_ut.log_with_underscore("Detectors finished.")
 
