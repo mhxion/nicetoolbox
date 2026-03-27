@@ -1,40 +1,62 @@
 import glob
 import os
+from pathlib import Path
 
-from ..configs.config_loader import ConfigLoader
+from ..configs.project_config_handler import ProjectConfigHandler
 from ..configs.schemas.experiment_config import DetectorsExperimentConfig
 from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..configs.schemas.visualizer_config import VisualizerConfig
-from ..configs.utils import default_auto_placeholders, default_runtime_placeholders, model_to_dict
+from ..configs.utils import model_to_dict
 from ..utils import visual_utils as vis_ut
 
 
-class Configuration:
-    cfg_loader: ConfigLoader
-    auto_placeholders: dict[str, str]
-    runtime_placeholders: set[str]
+class Configuration(ProjectConfigHandler):
+    """
+    Handles loading and resolving all configurations required for visualizer pipeline.
+    """
+
+    # Input paths
+    machine_specific_path: Path
+    visualizer_config_file_path: Path
+
+    # Loaded configs
+    machine_specific_config: MachineSpecificConfig
 
     def __init__(
         self,
-        visualizer_config_file: str,
-        machine_specifics_file: str,
+        project_folder: Path,
+        machine_specifics_file: Path,
+        visualizer_config_file: Path,
         stats_only: bool = False,
     ):
-        # init config loader
-        self.auto_placeholders = default_auto_placeholders()
-        self.runtime_placeholders = default_runtime_placeholders()
-        self.cfg_loader = ConfigLoader(self.auto_placeholders, self.runtime_placeholders)
-        # machine specific
-        machine_specific_config = self.cfg_loader.load_config(machine_specifics_file, MachineSpecificConfig)
-        self.cfg_loader.extend_global_ctx(machine_specific_config)
+        """
+        Load all static configuration files.
+
+        Args:
+            project_folder (Path): Path to the project folder containing nice_project.toml.
+            machine_specifics_file (Path): Path to machine_specific_paths.toml, may contain placeholders.
+            visualizer_config_file (Path): Path to visualizer_config.toml, may contain placeholders.
+            stats_only (bool): If True, only initialize statistics (skip media).
+        """
+        # initialize config loader, default placeholders and project config
+        super().__init__(project_folder)
+
+        # this paths we need to resolve manually, because they are external arguments
+        self.machine_specific_path = self.cfg_loader.resolve(machine_specifics_file)
+        self.visualizer_config_file_path = self.cfg_loader.resolve(visualizer_config_file)
+
+        # machine specific config
+        self.machine_specific_config = self.cfg_loader.load_config(self.machine_specific_path, MachineSpecificConfig)
+        self.cfg_loader.extend_global_ctx(self.machine_specific_config)
+
         # visualizer config
-        visualizer_config = self.cfg_loader.load_config(visualizer_config_file, VisualizerConfig)
+        visualizer_config = self.cfg_loader.load_config(self.visualizer_config_file_path, VisualizerConfig)
         self.cfg_loader.extend_global_ctx(visualizer_config.io)
 
         # TODO: rest of the codebase except the configs as dict
         # so we convert them from models to configs
         # will be refactored soon
-        self.machine_specific_config = model_to_dict(machine_specific_config)
+        self.machine_specific_config = model_to_dict(self.machine_specific_config)
         self.visualizer_config = model_to_dict(visualizer_config)
 
         if stats_only:
@@ -71,7 +93,7 @@ class Configuration:
         # it should be already fully resolved except runtime placeholders
         # so we ignore global context and auto
         loaded_experiment_config = self.cfg_loader.load_config(
-            experiment_config_file,
+            Path(experiment_config_file),
             DetectorsExperimentConfig,
             ignore_auto_and_global=True,
         )
@@ -79,9 +101,19 @@ class Configuration:
         # so we convert them from models to configs
         loaded_experiment_config = model_to_dict(loaded_experiment_config)
 
+        # verify that the visualizer project matches the experiment project
+        exp_configs_folder = Path(loaded_experiment_config["project_config"]["configs_folder_path"])
+        vis_configs_folder = self.project_config.configs_folder_path.resolve()
+        if exp_configs_folder != vis_configs_folder:
+            raise ValueError(
+                f"Project mismatch: visualizer project configs_folder_path '{vis_configs_folder}' "
+                f"differs from experiment project '{exp_configs_folder}'"
+            )
+
         self.experiment_run_config = loaded_experiment_config["run_config"]
         self.experiment_detector_config = loaded_experiment_config["detector_config"]
         self.dataset_properties = loaded_experiment_config["dataset_config"]
+        self.visualizer_config["predictions_mapping"] = loaded_experiment_config["predictions_mapping"]
 
         # get experiment properties
         self.dataset_name = self.visualizer_config["io"]["dataset_name"]

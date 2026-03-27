@@ -7,27 +7,23 @@ import logging
 from pathlib import Path
 from typing import Iterator, List, Tuple
 
-from ..configs.config_loader import ConfigLoader
+from ..configs.project_config_handler import ProjectConfigHandler
 from ..configs.schemas.dataset_properties import DatasetConfig, DatasetConfigEvaluation, DatasetProperties
 from ..configs.schemas.detectors_run_file import DetectorsRunConfig, DetectorsRunIO
 from ..configs.schemas.evaluation_config import AggregationConfig, EvaluationConfig, EvaluationIO, EvaluationMetricType
 from ..configs.schemas.experiment_config import DetectorsExperimentConfig
 from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
-from ..configs.utils import (
-    default_auto_placeholders,
-    default_runtime_placeholders,
-    get_latest_experiment_config_path,
-    model_to_dict,
-)
+from ..configs.utils import get_latest_experiment_config_path, model_to_dict
 from ..utils.logging_utils import log_configs
 from .config_schema import FinalEvaluationConfig
 
 
-class ConfigHandler:
-    cfg_loader: ConfigLoader
-    auto_placeholders: dict[str, str]
-    runtime_placeholders: set[str]
+class ConfigHandler(ProjectConfigHandler):
+    # Input paths
+    machine_specific_path: Path
+    eval_config_file_path: Path
 
+    # Loaded configs
     machine_specific_config: MachineSpecificConfig
     global_settings: EvaluationConfig
     io_config: EvaluationIO
@@ -40,24 +36,28 @@ class ConfigHandler:
     all_run_configs: dict[str, DetectorsRunConfig]
     all_dataset_properties: DatasetProperties
 
-    def __init__(self, eval_config_file: str, machine_specifics_file: str) -> None:
+    def __init__(self, project_folder: Path, machine_specifics_file: Path, eval_config_file: Path) -> None:
         """
         Handles loading and parsing of configuration files for evaluation.
 
         Args:
-            eval_config_file (str): Path to the evaluation configuration TOML file.
-            machine_specifics_file (str): Path to the machine-specifics TOML file.
+            project_folder (Path): Path to the project folder containing nice_project.toml.
+            machine_specifics_file (Path): Path to machine_specific_paths.toml, may contain placeholders.
+            eval_config_file (Path): Path to evaluation_config.toml, may contain placeholders.
         """
-        # Init config loader
-        self.auto_placeholders = default_auto_placeholders()
-        self.runtime_placeholders = default_runtime_placeholders()
-        self.cfg_loader = ConfigLoader(self.auto_placeholders, self.runtime_placeholders)
-        # Machine specific
-        self.machine_specific_config = self.cfg_loader.load_config(machine_specifics_file, MachineSpecificConfig)
+        # initialize config loader, default placeholders and project config
+        super().__init__(project_folder)
+
+        # this paths we need to resolve manually, because they are external arguments
+        self.machine_specific_path = self.cfg_loader.resolve(machine_specifics_file)
+        self.eval_config_file_path = self.cfg_loader.resolve(eval_config_file)
+
+        # machine specific config
+        self.machine_specific_config = self.cfg_loader.load_config(self.machine_specific_path, MachineSpecificConfig)
         self.cfg_loader.extend_global_ctx(self.machine_specific_config)
 
         # Evaluation config
-        self.global_settings = self.cfg_loader.load_config(eval_config_file, EvaluationConfig)
+        self.global_settings = self.cfg_loader.load_config(self.eval_config_file_path, EvaluationConfig)
         # Shortcuts for evaluation config fields
         self.io_config = self.global_settings.io
         self.metric_type_configs = self.global_settings.metrics
@@ -69,10 +69,19 @@ class ConfigHandler:
         experiment_cfg_path = get_latest_experiment_config_path(experiment_folder)
         logging.info(f"Loading latest experiment run configuration from: {experiment_cfg_path}")
         self.experiment_config = self.cfg_loader.load_config(
-            str(experiment_cfg_path),
+            experiment_cfg_path,
             DetectorsExperimentConfig,
             ignore_auto_and_global=True,
         )
+
+        # verify that the evaluation project matches the experiment project
+        exp_configs_folder = self.experiment_config.project_config.configs_folder_path
+        eval_configs_folder = self.project_config.configs_folder_path.resolve()
+        if exp_configs_folder != eval_configs_folder:
+            raise ValueError(
+                f"Project mismatch: evaluation project configs_folder_path '{eval_configs_folder}' "
+                f"differs from experiment project '{exp_configs_folder}'"
+            )
 
         # Shortucts for experiment config
         run_config = self.experiment_config.run_config

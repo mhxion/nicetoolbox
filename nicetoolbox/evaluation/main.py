@@ -16,7 +16,7 @@ from .engine import EvaluationEngine
 from .in_out import IO
 
 
-def main_evaluation_run(eval_config: str, machine_specifics: str) -> None:
+def main_evaluation_run(project_folder_path: Path, machine_specifics: Path, eval_config: Path) -> None:
     """Main function to set up and run the evaluation."""
     # Configure root logger and a common formatter
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -30,7 +30,7 @@ def main_evaluation_run(eval_config: str, machine_specifics: str) -> None:
 
     # Initialize Configuration
     try:
-        config_handler = ConfigHandler(eval_config, machine_specifics)
+        config_handler = ConfigHandler(project_folder_path, machine_specifics, eval_config)
     except FileNotFoundError as e:
         logging.error(f"Configuration file not found: {e}. Exiting.")
         raise
@@ -53,8 +53,9 @@ def main_evaluation_run(eval_config: str, machine_specifics: str) -> None:
 
     if not config_handler.global_settings.skip_evaluation:
         logging.info(f"\n{'#' * 80}\n\nNICE TOOLBOX EVALUATION\n\n{'#' * 80}\n\n")
-        logging.info(f"Using evaluation config: {eval_config}")
-        logging.info(f"Using machine specifics: {machine_specifics}")
+        logging.info(f"Using project folder: {project_folder_path.resolve()}")
+        logging.info(f"Using machine specifics: {config_handler.machine_specific_path}")
+        logging.info(f"Using evaluation config: {config_handler.eval_config_file_path}")
         logging.info(f"Output will be saved to base folder: {io_manager.output_folder}")
         logging.info(f"Running on device: {config_handler.global_settings.device}")
 
@@ -88,14 +89,25 @@ def entry_point():
     """Entry point for the NICE Toolbox evaluation script."""
     parser = argparse.ArgumentParser(description="Run NICE Toolbox Evaluation")
     parser.add_argument(
-        "--eval_config",
-        default="configs/evaluation_config.toml",
-        help="Path to evaluation config",
+        "--project_folder_path",
+        default=Path("."),
+        type=Path,
+        required=False,
+        help="Path to the NICE Toolbox project folder containing nice_project.toml config",
     )
     parser.add_argument(
         "--machine_specifics",
-        default="machine_specific_paths.toml",
-        help="Path to machine specifics config",
+        default=Path("machine_specific_paths.toml"),
+        type=Path,
+        required=False,
+        help="Path to machine_specific_paths.toml config",
+    )
+    parser.add_argument(
+        "--eval_config",
+        default=Path("<configs_folder_path>/evaluation_config.toml"),
+        type=Path,
+        required=False,
+        help="Path to evaluation_config.toml, supports placeholders",
     )
     parser.add_argument("--profile", action="store_true", help="Enable memory profiling")
     args = parser.parse_args()
@@ -103,11 +115,11 @@ def entry_point():
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()
-        main_evaluation_run(args.eval_config, args.machine_specifics)
+        main_evaluation_run(args.project_folder_path, args.machine_specifics, args.eval_config)
         profiler.disable()
         profiler.dump_stats("evaluation.prof")
     else:
-        main_evaluation_run(args.eval_config, args.machine_specifics)
+        main_evaluation_run(args.project_folder_path, args.machine_specifics, args.eval_config)
 
 
 if __name__ == "__main__":

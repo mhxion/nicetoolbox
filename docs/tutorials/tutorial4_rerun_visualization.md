@@ -18,8 +18,10 @@ This tutorial explains how to use [rerun](rerun.io) for an interactive visualiza
 
 Open a command line or terminal and navigate to the top level directory of the nicetoolbox repository. Simply start the visualizer by running
 ```bash
-source ./env/bin/activate
-python visual/media/main.py
+source ./envs/nicetoolbox/bin/activate  # Linux
+envs\nicetoolbox\Scripts\activate       # Windows
+
+run_visualization
 ```
 
 It will open a window like this one:

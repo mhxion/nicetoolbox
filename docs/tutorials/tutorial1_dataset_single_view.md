@@ -7,7 +7,7 @@ If you are running the NICE Toolbox for the first time, please note that there i
 <br>
 
 
-1. [Create your machine-specific config](#1-create-your-machine-specific-config)
+1. [Create your config files](#1-create-your-config-files)
 2. [Prepare the dataset](#2-prepare-the-dataset)
     - [Folder structure](#folder-structure)
     - [Dataset properties](#dataset-properties)
@@ -21,13 +21,17 @@ If you are running the NICE Toolbox for the first time, please note that there i
 <br>
 
 
-## 1. Create your machine-specific config
+## 1. Create your config files
 
-Create a file `./machine_specific_paths.toml`, you can also copy and rename the file `./machine_specific_paths_template.toml`.
-For more information, see [machine-specific config](../getting_started.md#1-create-your-machine-specific-config).
+Two config files need to be created before running the toolbox:
+
+- `./machine_specific_paths.toml` — machine-level paths (conda). Generate with `make create_machine_specifics`.
+- `./nice_project.toml` — project-level paths (datasets, outputs, configs). Generate with `make create_project`.
+
+For more information, see [machine-specific config](../getting_started.md#1-machine-specific-config).
 
 **Placeholders instead of absolute paths:** Note that it is best practice not to use absolute paths in any other files in the NICE Toolbox. Though absolute paths do not cause errors, they hinder collaboration and greatly decrease the readability of code.
-Instead, `datasets_folder_path` and `conda_path` are available in the other config files in `./configs/` as placeholders - use as `<datasets_folder_path>` and `<conda_path>` directly in strings.
+Instead, `datasets_folder_path`, `output_folder_path`, and `conda_path` are available in the other config files in `./configs/` as placeholders — use as `<datasets_folder_path>`, `<output_folder_path>`, and `<conda_path>` directly in strings.
 
 
 
@@ -238,7 +242,7 @@ To run the code, open a terminal or the API of your choice and do:
 cd /path/to/nicetoolbox/
 source ./env/bin/activate
 
-python nicetoolbox/detectors/main.py --run_config configs/detectors_run_file.toml --detectors_config configs/detectors_config.toml --machine_specifics machine_specific_paths.toml
+run_detectors
 ```
 
 The outputs will be saved in the folder defined in `./configs/detectors_run_file.toml` under `io.out_folder` (with filled-in placeholders).

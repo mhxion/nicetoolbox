@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import BaseModel
@@ -29,7 +30,7 @@ class ConfigLoader:
         self.runtime_placeholders = runtime
         self.global_placeholders = {}
 
-    def load_config(self, path: str, schema: type[ModelT], ignore_auto_and_global=False) -> ModelT:
+    def load_config(self, path: Path, schema: type[ModelT], ignore_auto_and_global=False) -> ModelT:
         """
         Loads a TOML configuration file, resolves all placeholders using available
         contexts (auto, global and runtime) and validates the result against a Pydantic

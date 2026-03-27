@@ -18,7 +18,7 @@ class AssetManager:
         self.assets_root = Path(config.run_config.io.assets)
 
         manifest_path = config.run_config.io.asset_manifest
-        manifest_model = config.cfg_loader.load_config(str(manifest_path), AssetManifest)
+        manifest_model = config.cfg_loader.load_config(manifest_path, AssetManifest)
 
         self.manifest = {k: v.model_dump() for k, v in manifest_model.root.items()}
 

@@ -18,26 +18,29 @@ RUN_DETECTORS = True
 
 INPUT_CONFIGS_FOLDER_PATH = Path("configs")
 INPUT_MACHINE_SPECIFIC_PATH = Path("machine_specific_paths.toml")
+INPUT_PROJECT_CONFIG_PATH = Path("nice_project.toml")
 INPUT_DETECTORS_RUN_FILE_PATH = INPUT_CONFIGS_FOLDER_PATH / "detectors_run_file.toml"
 INPUT_VISUALIZER_CONFIG_PATH = INPUT_CONFIGS_FOLDER_PATH / "visualizer_config.toml"
 INPUT_EVALUATION_CONFIG_PATH = INPUT_CONFIGS_FOLDER_PATH / "evaluation_config.toml"
 
 TMP_PATH = Path("../functional_tests/temp")
 TMP_OUTPUT_PATH = TMP_PATH / "outputs"
-TMP_MACHINE_SPECIFIC_PATH = TMP_PATH / INPUT_MACHINE_SPECIFIC_PATH.name
+TMP_PROJECT_CONFIG_PATH = TMP_PATH / INPUT_PROJECT_CONFIG_PATH.name
 TMP_DETECTORS_RUN_FILE_PATH = TMP_PATH / INPUT_DETECTORS_RUN_FILE_PATH.name
 TMP_VISUALIZER_CONFIG_PATH = TMP_PATH / INPUT_VISUALIZER_CONFIG_PATH.name
 TMP_EVALUATION_CONFIG_PATH = TMP_PATH / INPUT_EVALUATION_CONFIG_PATH.name
 
 
-def create_temp_machine_specific():
-    # we load existing machine specific
-    machine_specific = toml.load(INPUT_MACHINE_SPECIFIC_PATH)
+def create_temp_project_config():
+    # we load existing project config
+    project_config = toml.load(INPUT_PROJECT_CONFIG_PATH)
     # patch output directory to temporary folder
-    machine_specific["output_folder_path"] = str(TMP_OUTPUT_PATH)
-    # and save this temp machine specific to temp folder
-    with open(TMP_MACHINE_SPECIFIC_PATH, "w") as f:
-        toml.dump(machine_specific, f)
+    project_config["output_folder_path"] = str(TMP_OUTPUT_PATH)
+    # patch configs folder to the real configs folder (temp folder has no configs)
+    project_config["configs_folder_path"] = str(INPUT_CONFIGS_FOLDER_PATH.resolve())
+    # and save this temp project config to temp folder
+    with open(TMP_PROJECT_CONFIG_PATH, "w") as f:
+        toml.dump(project_config, f)
 
 
 def create_temp_detectors_run_file():
@@ -60,14 +63,14 @@ def detectors_output():
             shutil.rmtree(TMP_PATH)
         TMP_PATH.mkdir()
 
-        # we create a temporary machine specific and run file
+        # we create temporary machine specific, project config and run file
         # just to make sure that we start from scratch and
         # don't interfere with any existing users output
-        create_temp_machine_specific()
+        create_temp_project_config()
         create_temp_detectors_run_file()
 
         # run detectors
-        run_detectors(str(TMP_DETECTORS_RUN_FILE_PATH), str(TMP_MACHINE_SPECIFIC_PATH))
+        run_detectors(TMP_PATH, INPUT_MACHINE_SPECIFIC_PATH, TMP_DETECTORS_RUN_FILE_PATH)
 
     # get experiments output folder
     tmp_experiment_dir = TMP_OUTPUT_PATH / "experiments"
@@ -105,7 +108,7 @@ def test_visualizer_smoke(detectors_output: Path):
     # first we need to patch visualizer config with detectors output
     create_temp_visualizer_config(detectors_output)
     # run visualizer
-    run_visualizer(str(TMP_VISUALIZER_CONFIG_PATH), str(TMP_MACHINE_SPECIFIC_PATH))
+    run_visualizer(TMP_PATH, INPUT_MACHINE_SPECIFIC_PATH, TMP_VISUALIZER_CONFIG_PATH)
 
 
 def create_temp_evaluation_config(detectors_output: Path):
@@ -123,4 +126,4 @@ def test_evaluation_smoke(detectors_output: Path):
     # first we need to patch evaluation config with detectors output
     create_temp_evaluation_config(detectors_output)
     # run evaluation
-    run_evaluation(str(TMP_EVALUATION_CONFIG_PATH), str(TMP_MACHINE_SPECIFIC_PATH))
+    run_evaluation(TMP_PATH, INPUT_MACHINE_SPECIFIC_PATH, TMP_EVALUATION_CONFIG_PATH)

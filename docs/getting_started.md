@@ -3,7 +3,7 @@
 <br>
 
 - [Getting started](#getting-started)
-  - [1. Machine-specific config](#1-machine-specific-config)
+  - [1. Machine-specific and project configs](#1-machine-specific-and-project-configs)
   - [2. Example dataset](#2-example-dataset)
   - [3. Check the dataset's properties](#3-check-the-datasets-properties)
   - [4. Add an experiment to run](#4-add-an-experiment-to-run)
@@ -13,20 +13,31 @@
 
 <br>
 
-## 1. Machine-specific config
+## 1. Machine-specific and project configs
 
-You can find an automatically generated `machine_specific_paths.toml` file in the repository. This configuration file should contain the following entries (optionally, you can adjust these paths as needed):
+Configuration is split across two files: one machine-specific and one project-specific.
+
+**`machine_specific_paths.toml`** — lives in the toolbox root, contains machine-level paths. Generate it with `make create_machine_specifics`:
 
 ```toml
-# Absolute path to the directory in which all datasets are stored (str)
-datasets_folder_path = '../datasets'
-
-# Directory for saving toolbox output as an absolute path (str)
-output_folder_path = '../outputs'
-
 # Where to find your conda (miniconda or anaconda) installation as absolute path (str)
 conda_path = 'path/to/your/conda'
 ```
+
+**`nice_project.toml`** — lives in your project folder, contains project-level paths. It is generated with `make create_project`:
+
+```toml
+# Path to the directory in which all configuration files are stored
+configs_folder_path = '<project_folder_path>/configs'
+
+# Path to the directory in which all datasets are stored
+datasets_folder_path = '../datasets'
+
+# Directory for saving toolbox output
+output_folder_path = '../outputs'
+```
+
+Adjust `datasets_folder_path` and `output_folder_path` as needed for your setup.
 
 ## 2. Example dataset
 

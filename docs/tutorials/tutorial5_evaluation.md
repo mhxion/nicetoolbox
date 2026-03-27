@@ -48,13 +48,12 @@ The NICE Toolbox evaluation pipeline allows for comprehensive assessment of NICE
 
 ### Machine Specific Paths
 
-Ensure `./machine_specific_paths.toml` contains:
+Ensure both config files exist in your project folder:
 
-```toml
-datasets_folder_path = "/absolute/path/to/datasets"
-output_folder_path = "/absolute/path/to/outputs"
-```
-This is set up by default during the installation.
+- `./machine_specific_paths.toml` — contains `conda_path`. Generated with `make create_machine_specifics`.
+- `./nice_project.toml` — contains `datasets_folder_path` and `output_folder_path`. Generated with `make create_project`.
+
+These are set up by default during installation.
 
 ### Evaluation Config
 
@@ -107,7 +106,7 @@ gt_required = true
 metric_names = ["jump_detection", "bone_length"]
 gt_required = false
 gt_components = ["body_joints", "hand_joints", "face_landmarks"]
-keypoint_mapping_file = "configs/predictions_mapping.toml"
+keypoint_mapping_file = "<configs_folder_path>/predictions_mapping.toml"
 
 [metrics.categorical_metrics]
 metric_names = ["accuracy", "precision", "recall", "f1_score"]
@@ -151,8 +150,9 @@ Optionally, edit the [summary reports](#summary-generation) list as well.
 
 ```bash
 cd /path/to/nicetoolbox/
-envs\nicetoolbox\Scripts\activate # Windows
-source ./envs/nicetoolbox/bin/activate # Linux
+envs\nicetoolbox\Scripts\activate       # Windows
+source ./envs/nicetoolbox/bin/activate  # Linux
+
 run_evaluation
 ```
 

@@ -8,6 +8,7 @@ The configuration files are Python dictionaries saved in `.toml` - files that co
 - [Understanding the config files](#understanding-the-config-files)
   - [Placeholders](#placeholders)
   - [Machine specifics](#machine-specifics)
+  - [Project config](#project-config)
   - [Run file](#run-file)
     - [General properties](#general-properties)
     - [Choosing algorithms per component](#choosing-algorithms-per-component)
@@ -33,7 +34,7 @@ The configuration files are Python dictionaries saved in `.toml` - files that co
 
 Placeholders can be put into strings and are filled automatically during run-time. All configs support the use of placeholders, where reasonable.
 Placeholders are indicated by enclosing characters `<` and `>` and may take the following values:
-1. All keys in `./machine_specific_paths.toml`,
+1. All keys in `./machine_specific_paths.toml` and `./nice_project.toml`,
 2. All keys from `io` as defined in `./configs/detectors_run_file.toml`,
 3. The keys `<cur_dataset_name>`, `<cur_component_name>`, `<cur_algorithm_name>`, `<cur_session_ID>`, `<cur_sequence_ID>`, `<cur_camera_name>`, `<cur_video_start>`, and `<cur_video_length>` that define the current experiment run are filled during program execution based on the specifications in the run file `./configs/detectors_run_file.toml`,
 4. The options `<git_hash>`, `<me>`, `<today>`, `<yyyymmdd>`, `<time>`, and `<pwd>`.
@@ -41,8 +42,8 @@ Placeholders are indicated by enclosing characters `<` and `>` and may take the 
 
 Some examples:
 
-- The default output folder path defined in the [run file's io](#defining-input-and-output-files) is `"<output_folder_path>/experiments/<experiment_name>"`. During run time, the placeholder `<output_folder_path>` is filled from the [machine specifics](#machine-specifics) dictionary and the `<experiment_name>` is replaced by the value defined in the same dictionary as the output folder path, the [run file's io](#defining-input-and-output-files).
-- A typical example value for the data_input_folder in a [dataset's properties](#dataset-properties) is `"<datasets_folder_path>/test_dataset/<cur_session_ID>/<cur_camera_name>"`. The `<datasets_folder_path>` is filled from the [machine specifics](#machine-specifics) dictionary and both `<cur_session_ID>` and `<cur_camera_name>` are filled during run time individually for each experiment, as defined in the run file's [experiment selection](#defining-the-experiments).
+- The default output folder path defined in the [run file's io](#defining-input-and-output-files) is `"<output_folder_path>/experiments/<experiment_name>"`. During run time, the placeholder `<output_folder_path>` is filled from the [project config](#project-config) and the `<experiment_name>` is replaced by the value defined in the same dictionary as the output folder path, the [run file's io](#defining-input-and-output-files).
+- A typical example value for the data_input_folder in a [dataset's properties](#dataset-properties) is `"<datasets_folder_path>/test_dataset/<cur_session_ID>/<cur_camera_name>"`. The `<datasets_folder_path>` is filled from the [project config](#project-config) and both `<cur_session_ID>` and `<cur_camera_name>` are filled during run time individually for each experiment, as defined in the run file's [experiment selection](#defining-the-experiments).
 
 
 
@@ -52,16 +53,26 @@ Some examples:
 
 ## Machine specifics
 
-The dictionary stored in the `./machine_specific_paths.toml` file configures the paths that are specific to the machine used for running NICE Toolbox. This is the **only occurrence of absolute paths** in the codebase. Therefore, this file is part of the repository's `.gitignore` file and needs to be created new on each machine. A template is available as `./machine_specific_paths_template.toml`, which can be duplicated and renamed.
+The `./machine_specific_paths.toml` file configures paths specific to the machine running NICE Toolbox. It is part of `.gitignore` and must be created on each machine. Generate it with `make create_machine_specifics`.
 
 ```toml
-datasets_folder_path = ''
-output_folder_path = ''
 conda_path = ''
 ```
-- `datasets_folder_path` is the absolute path to the directory in which all datasets are stored (str).
-- `output_folder_path` defines the absolute path to the directory in which all toolbox output is saved (str).
 - `conda_path` contains the absolute path to the conda installation on the machine (str).
+
+
+## Project config
+
+The `./nice_project.toml` file configures paths specific to a project (datasets, outputs, configs). It is gitignored and generated with `make create_project`. The `<project_folder_path>` placeholder is automatically set to the absolute path of the folder passed via `--project_folder_path`.
+
+```toml
+configs_folder_path = '<project_folder_path>/configs'
+datasets_folder_path = '../datasets'
+output_folder_path = '../outputs'
+```
+- `configs_folder_path` is the path to the project's config folder (str). Used as the default location for all config files.
+- `datasets_folder_path` is the path to the directory in which all datasets are stored (str).
+- `output_folder_path` is the path to the directory in which all toolbox output is saved (str).
 
 
 
@@ -159,8 +170,8 @@ The last part of the run file specifies where inputs can be found and any output
 experiment_name = "<yyyymmdd>"
 out_folder = "<output_folder_path>/experiments/<experiment_name>"
 out_sub_folder = "<out_folder>/<cur_dataset_name>_<cur_session_ID>_s<cur_video_start>_l<cur_video_length>"
-dataset_properties = "configs/dataset_properties.toml"
-detectors_config = "configs/detectors_config.toml"
+dataset_properties = "<configs_folder_path>/dataset_properties.toml"
+detectors_config = "<configs_folder_path>/detectors_config.toml"
 assets = "<code_folder>/nicetoolbox/detectors/assets"
 
 nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
@@ -176,7 +187,7 @@ conda_path = "<conda_path>"
 - `experiment_name` define the name under which all experiments are run (str), defaults to today's date (in format YYYMMDD).
 - `out_folder` is the top level directory where the results of all experiments are saved (str).
 - `out_sub_folder` is the output directory for a single experiment run (str).
-- `dataset_properties` and `detectors_config` store where to find the config files [dataset properties](#dataset-properties) and [detectors config](#detectors-config) (str).
+- `dataset_properties` and `detectors_config` store where to find the config files [dataset properties](#dataset-properties) and [detectors config](#detectors-config) (str). Both default to the project's `<configs_folder_path>`.
 - `assets` stores the folder path of additional assets, like model checkpoints and weights (str). See [download assets](../installation.md#2-download-assets) in the installation instructions.
 - `nicetoolbox_input_folder` is the path to the directory in which pre-processed input data gets stored during run time (str). As different algorithms require different file formats and folder structures as input, the NICE Toolbox prepares the given data accordingly. This pre-processed data is stored/cashed for faster run times when repeating runs over the same data.
 - `detector_out_folder`, `detector_visualization_folder`, `detector_additional_output_folder`, `detector_run_config_path`, and `detector_final_result_folder` define where each detector stores (possible) intermediate outputs (str). Depending on the components and algorithms run per detector and the [visualization settings](#general-properties), different intermediate outputs are produced. The final results of all components and algorithms per detector are saved under `detector_final_result_folder`.

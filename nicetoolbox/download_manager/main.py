@@ -14,13 +14,25 @@ def entry_point():
     parser = argparse.ArgumentParser(description="NICE Toolbox On-Demand Asset Downloader")
 
     parser.add_argument(
-        "--run-file", type=Path, default=Path("configs/detectors_run_file.toml"), help="Path to detectors_run_file.toml"
+        "--project_folder_path",
+        default=Path("."),
+        type=Path,
+        required=False,
+        help="Path to the NICE Toolbox project folder containing nice_project.toml config",
     )
     parser.add_argument(
-        "--machine-specifics",
-        type=Path,
+        "--machine_specifics",
         default=Path("machine_specific_paths.toml"),
-        help="Path to machine_specific_paths.toml",
+        type=Path,
+        required=False,
+        help="Path to machine_specific_paths.toml config",
+    )
+    parser.add_argument(
+        "--run_config",
+        default="<configs_folder_path>/detectors_run_file.toml",
+        type=Path,
+        required=False,
+        help="Path to detectors_run_file.toml, supports placeholders",
     )
 
     group = parser.add_mutually_exclusive_group()
@@ -31,9 +43,7 @@ def entry_point():
 
     args = parser.parse_args()
 
-    run_file = str(args.run_file)
-    machine_specifics = str(args.machine_specifics)
-    config = confh.Configuration(run_file, machine_specifics)
+    config = confh.Configuration(args.project_folder_path, args.machine_specifics, args.run_config)
 
     log_level = config.run_config.log_level
 
@@ -43,7 +53,7 @@ def entry_point():
     log_file = main_output_folder / "nicetoolbox.log"
     log_ut.setup_logging(log_file, log_level.name)
 
-    logging.info(f"Initialising asset manager; machine_specifics: '{run_file}', run_file: '{machine_specifics}'")
+    logging.info(f"Initialising asset manager; project: '{args.project_folder_path}', run_config: '{args.run_config}'")
     manager = AssetManager(config)
 
     if args.all:
