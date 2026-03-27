@@ -4,6 +4,7 @@ Main module for initializing and running the visualizer.
 
 import argparse
 import os
+from pathlib import Path
 
 import cv2
 
@@ -25,19 +26,24 @@ from .components import (
 from .viewer import Viewer
 
 
-def main(visualizer_config_file, machine_specifics_file):
+def main(project_folder_path: Path, machine_specifics_file: Path, visualizer_config_file: Path):
     """
     Main function to run the visualizer.
 
     This function sets up the configuration, initializes the input/output handlers,
     loads calibration data, and initializes the viewer for visualizing the components.
+
+    Args:
+        project_folder_path (Path): Path to the project folder containing nice_project.toml.
+        machine_specifics_file (Path): Path to machine_specific_paths.toml.
+        visualizer_config_file (Path): Path to visualizer_config.toml, may contain placeholders.
     """
 
     # SYSTEM CHECK
     check_long_path_support()
 
     # CONFIGURATION - IO
-    config_handler = vis_cfg.Configuration(visualizer_config_file, machine_specifics_file)
+    config_handler = vis_cfg.Configuration(project_folder_path, machine_specifics_file, visualizer_config_file)
     visualizer_config = config_handler.get_updated_visualizer_config()
 
     # IO
@@ -213,20 +219,29 @@ def entry_point():
     """Entry point for running NICE toolbox rerun visualizations."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--visual_config",
-        default="configs/visualizer_config.toml",
-        type=str,
+        "--project_folder_path",
+        default=Path("."),
+        type=Path,
         required=False,
+        help="Path to the NICE Toolbox project folder containing nice_project.toml config",
     )
     parser.add_argument(
         "--machine_specifics",
-        default="machine_specific_paths.toml",
-        type=str,
+        default=Path("machine_specific_paths.toml"),
+        type=Path,
         required=False,
+        help="Path to machine_specific_paths.toml config",
+    )
+    parser.add_argument(
+        "--visual_config",
+        default=Path("<configs_folder_path>/visualizer_config.toml"),
+        type=Path,
+        required=False,
+        help="Path to visualizer_config.toml, supports placeholders",
     )
     args = parser.parse_args()
 
-    main(args.visual_config, args.machine_specifics)
+    main(args.project_folder_path, args.machine_specifics, args.visual_config)
 
 
 if __name__ == "__main__":

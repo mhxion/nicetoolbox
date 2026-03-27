@@ -5,9 +5,8 @@ from pydantic import BaseModel
 
 class MachineSpecificConfig(BaseModel):
     """
-    Schema for device specific paths configuration.
+    Schema for machine-specific paths configuration.
+    Contains only paths that are fixed per physical machine (conda installation, etc.).
     """
 
-    datasets_folder_path: Path
-    output_folder_path: Path
     conda_path: Path

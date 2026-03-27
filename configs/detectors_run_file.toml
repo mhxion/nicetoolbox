@@ -46,13 +46,14 @@ nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_
 # Code, assets and config file paths
 code_folder = "<pwd>"
 assets = "<code_folder>/nicetoolbox/detectors/assets"
-asset_manifest = "<code_folder>/configs/asset_manifest.toml"
-dataset_properties = "<code_folder>/configs/dataset_properties.toml"
-detectors_config = "<code_folder>/configs/detectors_config.toml"
-predictions_mapping = "<code_folder>/configs/predictions_mapping.toml"
+asset_manifest = "<code_folder>/configs/asset_manifest.toml" # this config is in the NICE installation, not project!
+dataset_properties = "<configs_folder_path>/dataset_properties.toml"
+detectors_config = "<configs_folder_path>/detectors_config.toml"
+predictions_mapping = "<configs_folder_path>/predictions_mapping.toml"
 # Below are output folders with placeholders for current component and algorithm names
-detector_out_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/detector_output"
-detector_visualization_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/visualization"
-detector_additional_output_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/additional_output"
-detector_run_config_path = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>"
+detector_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>"
+detector_out_folder = "<detector_folder>/detector_output"
+detector_visualization_folder = "<detector_folder>/visualization"
+detector_additional_output_folder = "<detector_folder>/additional_output"
+detector_run_config_path = "<detector_folder>"
 detector_final_result_folder = "<out_sub_folder>/<cur_component_name>"

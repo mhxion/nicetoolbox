@@ -7,6 +7,7 @@ VENV_ROOT_DIR = ./envs
 VENV_DIR = $(VENV_ROOT_DIR)/$(VENV)
 DEV = false
 MACHINE_SPECIFICS = machine_specific_paths.toml
+PROJECT_CONFIG = nice_project.toml
 
 # Define variables for third party venvs
 ifeq ($(OS), Windows_NT)
@@ -32,6 +33,7 @@ endif
 EXAMPLE_DATASET = communication_multiview
 ASSETS = assets
 
+CONFIGS_DIR = <project_folder_path>/configs
 OUTPUTS_DIR = ../outputs
 DATASETS_DIR = ../datasets
 ASSETS_DIR = nicetoolbox/detectors
@@ -43,7 +45,7 @@ EXAMPLE_DATASET_URL = https://keeper.mpdl.mpg.de/seafhttp/f/046b0b0143554b94ada9
 # Full setup: installation + download
 # -----------------------------------
 .PHONY: all
-all: create_machine_specifics install download_assets download_dataset
+all: create_machine_specifics create_project install download_assets download_dataset
 
 # ------------------------
 # Clean up an installation
@@ -80,14 +82,8 @@ create_machine_specifics: $(MACHINE_SPECIFICS)
 $(MACHINE_SPECIFICS):
 	@make create_separator
 	@touch $(MACHINE_SPECIFICS)
-	@echo "# Absolute path to the directory in which all datasets are stored (str)" > $(MACHINE_SPECIFICS)
-	@echo "datasets_folder_path = '$(DATASETS_DIR)'" >> $(MACHINE_SPECIFICS)
-	@echo "" >> $(MACHINE_SPECIFICS)
-	@echo "# Directory for saving toolbox output as an absolute path (str)" >> $(MACHINE_SPECIFICS)
-	@echo "output_folder_path = '$(OUTPUTS_DIR)'" >> $(MACHINE_SPECIFICS)
-	@echo "" >> $(MACHINE_SPECIFICS)
 ifeq ($(OS), Windows_NT)
-	@echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" >> $(MACHINE_SPECIFICS)
+	@echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" > $(MACHINE_SPECIFICS)
 	@echo "conda_path = '$(CONDA_DIR)'" >> $(MACHINE_SPECIFICS)
 	@echo "Created machine specifics paths file"
 else
@@ -99,11 +95,31 @@ else
 		echo "  conda config --add envs_dirs /path/to/visible/conda/installation/"; \
 		exit 1; \
 	fi; \
-	echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" >> $(MACHINE_SPECIFICS); \
+	echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" > $(MACHINE_SPECIFICS); \
 	echo "conda_path = '$$(realpath $$VALID_CONDA_PATH/..)'">> $(MACHINE_SPECIFICS); \
 	echo "Using conda installation at: $$VALID_CONDA_PATH"; \
 	echo "Created machine specifics paths file"
 endif
+
+# --------------------
+# Create project config
+# --------------------
+create_project: $(PROJECT_CONFIG)
+
+$(PROJECT_CONFIG):
+	@make create_separator
+	@echo "# Project-specific paths configuration." > $(PROJECT_CONFIG)
+	@echo "# Use <project_folder_path> to reference paths relative to this file's folder." >> $(PROJECT_CONFIG)
+	@echo "" >> $(PROJECT_CONFIG)
+	@echo "# Path to the directory in which all configuration files are stored" >> $(PROJECT_CONFIG)
+	@echo "configs_folder_path = '$(CONFIGS_DIR)'" >> $(PROJECT_CONFIG)
+	@echo "" >> $(PROJECT_CONFIG)
+	@echo "# Path to the directory in which all datasets are stored" >> $(PROJECT_CONFIG)
+	@echo "datasets_folder_path = '$(DATASETS_DIR)'" >> $(PROJECT_CONFIG)
+	@echo "" >> $(PROJECT_CONFIG)
+	@echo "# Directory for saving toolbox output" >> $(PROJECT_CONFIG)
+	@echo "output_folder_path = '$(OUTPUTS_DIR)'" >> $(PROJECT_CONFIG)
+	@echo "Created project config file"
 
 # ----------------------
 # Download keeper assets
@@ -113,7 +129,7 @@ endif
 download_assets:
 	@make create_separator
 	@echo "Running AssetManager to verify and download required models..."
-	@$(VENV_EXE_DIR)/download_assets --run-file configs/detectors_run_file.toml
+	@$(VENV_EXE_DIR)/download_assets
 
 # Download specific components
 # Usage: make download_components COMPS="gaze_individual body_joints"

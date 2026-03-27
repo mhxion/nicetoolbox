@@ -6,7 +6,7 @@ Probably, the main difference to the single camera case is that a multi-view cap
 
 <br>
 
-1. [Create your machine-specific config](#1-create-your-machine-specific-config)
+1. [Create your config files](#1-create-your-config-files)
 2. [Prepare the multi-view dataset](#2-prepare-the-multi-view-dataset)
     - [Update the dataset properties](#2-update-the-dataset-properties)
     - [Example](#example)
@@ -16,9 +16,9 @@ Probably, the main difference to the single camera case is that a multi-view cap
 <br>
 
 
-## 1. Create your machine-specific config
+## 1. Create your config files
 
-If you did not create a config file `./machine_specific_paths.toml` yet, follow [these instructions](./tutorial1_dataset_single_view.md#1-create-your-machine-specific-config) to create one.
+If you did not create `./machine_specific_paths.toml` and `./nice_project.toml` yet, follow [these instructions](./tutorial1_dataset_single_view.md#1-create-your-config-files) to create them.
 
 
 

@@ -159,10 +159,11 @@ git submodule update --init  # to combine the git submodule init and git submodu
 
 ## Makefile installation
 
-The NICE Toolbox includes a Makefile that handles the installation of all required libraries and dependencies. It also downloads assets and an example dataset, and generates a machine-specific configuration file. Available commands include:
+The NICE Toolbox includes a Makefile that handles the installation of all required libraries and dependencies. It also downloads assets and an example dataset, and generates configuration files. Available commands include:
 
 - `make` or `make all`  - Run all the commands below.
-- `make create_machine_specifics` - Generate the configuration file.
+- `make create_machine_specifics` - Generate the machine-specific configuration file.
+- `make create_project` - Generate the project configuration file.
 - `make install` - Install all dependencies.
 - `make download_assets` - Check and download assets.
 - `make download_dataset` - Check and download the example dataset.

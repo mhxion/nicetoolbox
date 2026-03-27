@@ -13,6 +13,7 @@ configs/dev/
 dev.py
 
 machine_specific_paths.toml
+nice_project.toml
 
 **/builds/
 **/build/

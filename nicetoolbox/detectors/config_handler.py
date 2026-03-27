@@ -1,17 +1,14 @@
-""" """
-
 from pathlib import Path
 from typing import Any, Dict, Generator, List
 
-from ..configs.config_loader import ConfigLoader
-from ..configs.placeholders import PLACEHOLDERS_TYPE
+from ..configs.project_config_handler import ProjectConfigHandler
 from ..configs.schemas.dataset_properties import DatasetProperties
 from ..configs.schemas.detectors_config import DetectorsConfig
 from ..configs.schemas.detectors_run_file import DetectorsRunFile, LoggingLevelEnum
 from ..configs.schemas.experiment_config import CodeConfig, DetectorsExperimentConfig
 from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..configs.schemas.predictions_mapping import PredictionsMappingConfig
-from ..configs.utils import default_auto_placeholders, default_runtime_placeholders, model_to_dict
+from ..configs.utils import model_to_dict
 from ..configs.video_runtime_config import SequenceRuntimeConfig
 from ..utils.config import save_config
 
@@ -29,10 +26,11 @@ def flatten_list(input_list) -> list[Any]:
     raise NotImplementedError
 
 
-class Configuration:
+class Configuration(ProjectConfigHandler):
     """
     Handles loading and resolving all configurations required for detectors pipeline. This includes:
     - machine specifics
+    - project config
     - run configuration file
     - detectors configuration
     - dataset properties
@@ -40,44 +38,48 @@ class Configuration:
     Further provides a config factory that produces frozen and resolved runtime configs per video context
     """
 
-    # (1) Config Loader with Placeholder Resolution
-    cfg_loader: ConfigLoader
-    auto_placeholders: dict[str, PLACEHOLDERS_TYPE]
-    runtime_placeholders: set[str]
+    # Input paths
+    machine_specific_path: Path
+    run_config_file_path: Path
 
-    # (2) Loaded Pydantic Configurations
+    # Loaded configs
     machine_specific_config: MachineSpecificConfig
     run_config: DetectorsRunFile
     detectors_config: DetectorsConfig
     dataset_properties: DatasetProperties
     predictions_mapping: PredictionsMappingConfig
 
-    def __init__(self, run_config_file, machine_specifics_file):
+    def __init__(self, project_folder: Path, machine_specifics_file: Path, run_config_file: Path):
         """
         Load all static configuration files.
 
         Args:
-            run_config_file (str): Path to detectors_run_file.toml
-            machine_specifics_file (str): Path to machine_specific_paths.toml
+            project_folder (Path): Path to the project folder containing nice_project.toml.
+            machine_specifics_file (Path): Path to machine_specific_paths.toml, may contain placeholders.
+            run_config_file (Path): Path to detectors_run_file.toml, may contain placeholders.
         """
-        # init config loader
-        self.auto_placeholders = default_auto_placeholders()
-        self.runtime_placeholders = default_runtime_placeholders()
-        self.cfg_loader = ConfigLoader(self.auto_placeholders, self.runtime_placeholders)
-        # machine specific
-        self.machine_specific_config = self.cfg_loader.load_config(machine_specifics_file, MachineSpecificConfig)
+        # initialize config handler for this project
+        super().__init__(project_folder)
+
+        # this paths we need to resolve manually, because they are external arguments
+        self.machine_specific_path = self.cfg_loader.resolve(machine_specifics_file)
+        self.run_config_file_path = self.cfg_loader.resolve(run_config_file)
+
+        # start loading configs - order is import for placeholders dependency resolution
+        # machine specific config
+        self.machine_specific_config = self.cfg_loader.load_config(self.machine_specific_path, MachineSpecificConfig)
         self.cfg_loader.extend_global_ctx(self.machine_specific_config)
         # run file
-        self.run_config = self.cfg_loader.load_config(run_config_file, DetectorsRunFile)
+        self.run_config = self.cfg_loader.load_config(self.run_config_file_path, DetectorsRunFile)
         self.cfg_loader.extend_global_ctx(self.run_config.io)
         # detectors config
-        detectors_config_file = str(self.run_config.io.detectors_config)
+        detectors_config_file = self.run_config.io.detectors_config
         self.detectors_config = self.cfg_loader.load_config(detectors_config_file, DetectorsConfig)
         # dataset config
-        dataset_properties_file = str(self.run_config.io.dataset_properties)
+        dataset_properties_file = self.run_config.io.dataset_properties
         self.dataset_properties = self.cfg_loader.load_config(dataset_properties_file, DatasetProperties)
         # predictions mapping
-        predictions_mapping_file = str(self.run_config.io.predictions_mapping)
+        predictions_mapping_file = self.run_config.io.predictions_mapping
         self.predictions_mapping = self.cfg_loader.load_config(predictions_mapping_file, PredictionsMappingConfig)
 
     # -------------------------------------------------------------------------
@@ -186,11 +188,17 @@ class Configuration:
         code_config = CodeConfig(**self.auto_placeholders)
         # save all experiment configurations
         config = DetectorsExperimentConfig(
+            project_folder=self.project_folder,
+            project_config_path=self.project_config_path,
+            machine_specific_path=self.machine_specific_path,
+            run_config_file_path=self.run_config_file_path,
+            code_config=code_config,
+            machine_specific_config=self.machine_specific_config,
+            project_config=self.project_config,
             run_config=self.run_config,
             dataset_config=self.dataset_properties,
             detector_config=self.detectors_config,
-            machine_specific_config=self.machine_specific_config,
-            code_config=code_config,
+            predictions_mapping=self.predictions_mapping,
         )
         save_config(model_to_dict(config), output_folder / f"config_{code_config.time}.toml")
 

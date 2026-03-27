@@ -6,6 +6,7 @@ classes to run method detectors and feature detectors on the provided datasets.
 import argparse
 import logging
 import time
+from pathlib import Path
 
 from nicetoolbox_core.errors import ErrorLevel
 
@@ -56,19 +57,19 @@ ALL_DETECTORS = dict(
 )
 
 
-def main(run_config_file, machine_specifics_file):
+def main(project_folder_path: Path, machine_specifics_file: Path, run_config_file: Path):
     """
     Main entry point for the NICE Toolbox detectors pipeline.
 
     Args:
-        run_config_file (str): The path to the run configuration file.
-        detector_config_file (str): The path to the detector configuration file.
-        machine_specifics_file (str): The path to the machine specifics file.
+        project_folder_path (Path): Path to the project folder containing nice_project.toml.
+        machine_specifics_file (Path): The path to the machine specifics file.
+        run_config_file (Path): The path to the run configuration file.
     """
     # ==================================
     # PHASE 1: Load Static Configuration
     # ==================================
-    config = confh.Configuration(run_config_file, machine_specifics_file)
+    config = confh.Configuration(project_folder_path, machine_specifics_file, run_config_file)
 
     error_level = ErrorLevel(config.error_level)
     log_level = LoggingLevelEnum(config.log_level)
@@ -137,20 +138,29 @@ def entry_point():
     """Entry point for running NICE toolbox detectors."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--run_config",
-        default="configs/detectors_run_file.toml",
-        type=str,
+        "--project_folder_path",
+        default=Path("."),
+        type=Path,
         required=False,
+        help="Path to the NICE Toolbox project folder containing nice_project.toml config",
     )
     parser.add_argument(
         "--machine_specifics",
-        default="machine_specific_paths.toml",
-        type=str,
+        default=Path("machine_specific_paths.toml"),
+        type=Path,
         required=False,
+        help="Path to machine_specific_paths.toml config",
+    )
+    parser.add_argument(
+        "--run_config",
+        default="<configs_folder_path>/detectors_run_file.toml",
+        type=Path,
+        required=False,
+        help="Path to detectors_run_file.toml, supports placeholders",
     )
     args = parser.parse_args()
 
-    main(args.run_config, args.machine_specifics)
+    main(args.project_folder_path, args.machine_specifics, args.run_config)
 
 
 if __name__ == "__main__":

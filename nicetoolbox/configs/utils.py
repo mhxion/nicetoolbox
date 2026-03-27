@@ -34,12 +34,12 @@ class ConfigValidationError(Exception):
         super().__init__(message)
 
 
-def load_raw_config(config_file: str) -> dict:
+def load_raw_config(config_file: Path) -> dict:
     """
     Load a configuration file in TOML format.
 
     Args:
-        config_file (str): The path to the configuration file.
+        config_file (Path): The path to the configuration file.
 
     Returns:
         dict: The configuration data loaded from the file.
@@ -55,7 +55,7 @@ def load_raw_config(config_file: str) -> dict:
         be converted to Windows format.
     """
 
-    if config_file.endswith(".toml"):
+    if config_file.suffix == ".toml":
         config = toml.load(config_file)
     else:
         raise NotImplementedError(

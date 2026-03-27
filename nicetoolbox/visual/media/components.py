@@ -17,12 +17,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 import rerun as rr
 
-from ...configs.schemas.predictions_mapping import PredictionsMappingConfig
-from ...configs.utils import load_validated_config_raw
-
-PREDICTIONS_MAPPING_FILE = "configs/predictions_mapping.toml"
-PREDICTIONS_MAPPING = load_validated_config_raw(PREDICTIONS_MAPPING_FILE, PredictionsMappingConfig)
-
 
 class Component(ABC):
     """
@@ -216,7 +210,7 @@ class BodyJointsComponent(Component):
             alg_idx (int): The algorithm index.
         """
         keypoints_dict = {label: i for i, label in enumerate(self._get_algorithms_labels()[alg_idx])}
-        connections = self._get_skeleton_connections(alg_idx, PREDICTIONS_MAPPING)
+        connections = self._get_skeleton_connections(alg_idx, self.visualizer_config["predictions_mapping"])
         start_points, end_points = [], []
         for connect in connections:
             for k in range(len(connect) - 1):
