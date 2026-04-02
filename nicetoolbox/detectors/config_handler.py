@@ -167,6 +167,7 @@ class Configuration(ProjectConfigHandler):
 
         # TODO: nasty quickfix, remove empty camera names if they aren't available for this dataset
         # please add a better solution for camera handling without patching configs
+        resolved_runtime.__dict__["all_camera_names"] = list(set(resolved_runtime.all_camera_names) - {""})
         for algo in resolved_runtime.detectors_config.algorithms.values():
             if hasattr(algo, "camera_names"):
                 algo.camera_names = list(set(algo.camera_names) - {""})

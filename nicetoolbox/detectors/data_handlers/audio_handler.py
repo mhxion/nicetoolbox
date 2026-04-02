@@ -50,7 +50,7 @@ class AudioDataHandler(BaseModalityHandler):
         self.audio_length_ms = audio_length_ms
         self.tracks_config = tracks_config
 
-        self.audio_output_folder = io.get_nice_input_folder() / "audio"
+        self.audio_output_folder = self.nice_input_folder / "audio"
         self._streams: Dict[str, AudioStreamRecipe] = {}
 
     @property
