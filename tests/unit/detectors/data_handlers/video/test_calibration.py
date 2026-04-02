@@ -1,0 +1,77 @@
+# ruff: noqa: ARG001
+import numpy as np
+import pytest
+
+from tests.unit.detectors.data_handlers.video.conftest import (
+    assert_handler_output,
+    make_frames_cache,
+    make_io,
+    make_sequence_context,
+    make_simple_handler,
+)
+
+
+def test_no_calibration_file(tmp_path, default_vid_patches):
+    cameras = ["cam_front"]
+    handler, ctx, io = make_simple_handler(tmp_path, cameras)
+    make_frames_cache(io, ctx)
+    handler.prepare()
+
+    assert_handler_output(handler, cameras, calibration_is_none=True)
+
+
+def test_valid_calibration_filters_to_active_cameras(tmp_path, default_vid_patches):
+    # calib file has cam_front, cam_top, cam_unknown — only active cameras are kept
+    cameras = ["cam_front", "cam_top"]
+    handler, ctx, io = make_simple_handler(tmp_path, cameras)
+    make_frames_cache(io, ctx)
+
+    calib_path = tmp_path / "calibration.npz"
+    calib_data = {
+        "cam_front": {"intrinsics": np.eye(3)},
+        "cam_top": {"intrinsics": np.eye(3)},
+        "cam_unknown": {"intrinsics": np.eye(3)},
+    }
+    np.savez(calib_path, **{"session_01__seq_01": calib_data})
+    io.get_calibration_file.return_value = str(calib_path)
+
+    handler.prepare()
+
+    assert_handler_output(handler, cameras, calibration_keys={"cam_front", "cam_top"})
+
+
+def test_missing_calibration_key_raises(tmp_path, default_vid_patches):
+    cameras = ["cam_front"]
+    handler, ctx, io = make_simple_handler(tmp_path, cameras)
+    make_frames_cache(io, ctx)
+
+    calib_path = tmp_path / "calibration.npz"
+    np.savez(calib_path, **{"wrong_key": {"data": 1}})
+    io.get_calibration_file.return_value = str(calib_path)
+
+    with pytest.raises(KeyError):
+        handler.prepare()
+
+
+def test_empty_session_id_calibration_key(tmp_path, default_vid_patches):
+    # session_id='' → key is just 'seq_01' (empty part filtered out)
+    cameras = ["cam_front"]
+    data_source_folder = tmp_path / "data_source"
+    (data_source_folder / "cam_front.mp4").parent.mkdir(parents=True, exist_ok=True)
+    (data_source_folder / "cam_front.mp4").touch()
+
+    ctx = make_sequence_context(cameras, session_id="", sequence_id="seq_01")
+    io = make_io(tmp_path, data_source_folder)
+    make_frames_cache(io, ctx)
+
+    calib_path = tmp_path / "calibration.npz"
+    calib_data = {"cam_front": {"intrinsics": np.eye(3)}}
+    np.savez(calib_path, **{"seq_01": calib_data})
+    io.get_calibration_file.return_value = str(calib_path)
+
+    from nicetoolbox.detectors.data_handlers.video_handler import VideoDataHandler
+
+    handler = VideoDataHandler(io=io, sequence_context=ctx)
+    handler.prepare()
+
+    assert_handler_output(handler, cameras, calibration_keys={"cam_front"})

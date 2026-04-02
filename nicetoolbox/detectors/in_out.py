@@ -92,15 +92,6 @@ class SequenceIO:
         resolved_path = resolve_placeholders(self._data_source_folder, {"cur_camera_name": camera_name})
         return resolved_path
 
-    def get_nice_input_folder(self) -> Path:
-        """
-        Returns the data folder associated with the current instance.
-
-        Returns:
-            str: The path to the data folder.
-        """
-        return self.nice_input_folder
-
     def get_calibration_file(self):
         """
         Returns the calibration file path.

@@ -5,7 +5,6 @@ Handles frame extraction from video files and preparation of image sequences.
 Also owns camera calibration loading since calibration is video-specific.
 """
 
-import glob
 import json
 import logging
 import os
@@ -17,12 +16,13 @@ import numpy as np
 from nicetoolbox_core.input_recipes import VideoInputRecipe
 
 from ...configs.models.video_timestamp import timestamp_to_frame_index
-from ...configs.schemas import dataset_properties
 from ...configs.video_runtime_config import SequenceRuntimeConfig
 from ...utils import video as vid
 from ...utils.logging_utils import log_with_underscore
 from ..in_out import SequenceIO
 from .handler import BaseModalityHandler
+
+FILENAME_TEMPLATE = "{idx:09d}.png"
 
 
 class VideoDataHandler(BaseModalityHandler):
@@ -30,31 +30,23 @@ class VideoDataHandler(BaseModalityHandler):
     Handles video/frame data preparation.
 
     Responsibilities:
-    - Detect input format (video files vs image sequences)
-    - Extract frames from video files (mp4, avi)
+    - Validate camera names and locate one video file per camera
+    - Validate that all cameras share the same FPS and frame count
+    - Extract frames from video files (mp4, mov)
     - Validate existing frame sequences
     - Generate input recipes for frame loaders
     - Load camera calibration data
     """
 
-    def __init__(
-        self,
-        # Shared fields (passed to base)
-        io: SequenceIO,
-        sequence_context: SequenceRuntimeConfig,
-    ):
-        super().__init__(io=io, sequence_context=sequence_context)
+    def __init__(self, io: SequenceIO, sequence_context: SequenceRuntimeConfig):
+        # Shared fields
+        super().__init__(io, sequence_context)
 
         # Video-specific state
         self.start_frame_index = self.dataset_properties.start_frame_index
-        self.calibration_path = getattr(dataset_properties, "path_to_calibrations", None)
-        self.filename_template = getattr(dataset_properties, "filename_template", "{idx:09d}.png")
-
-        self.input_folder = io.get_nice_input_folder()
 
         # Resolved during prepare()
-        self.input_format: Optional[str] = None
-        self.video_sample_path: Optional[Path] = None
+        self.camera_video_paths: Optional[Dict[str, Path]] = None
         self.calibration: Optional[Dict[str, Any]] = None
 
     @property
@@ -64,21 +56,25 @@ class VideoDataHandler(BaseModalityHandler):
     def prepare(self) -> None:
         log_with_underscore("Preparing Video Modality...")
 
-        # 1. Detect input format and search for an example video file
-        self.input_format: str = self._get_input_format()
-        self.video_sample_path: Path = self._get_example_video_path()
+        # Validate camera names not empty
+        if not self.all_camera_names:
+            raise ValueError("No camera names provided.")
+        for name in self.all_camera_names:
+            if not name or not name.strip():
+                raise ValueError(f"Invalid camera name {name!r}")
 
-        # 2. Validate fps, video start and video length given an example video file
-        self.fps: int = self._get_fps_validated(self.fps)
-        # TODO: do here actual validation for start frame
+        # Find exactly one video per camera (recursive, exact name match)
+        self.camera_video_paths = self._find_video_paths()
+
+        # Probe all videos, check cross-camera consistency, then validate against config
+        self.fps, self.length_frames = self._resolve_fps_and_length()
         self.start_frame = timestamp_to_frame_index(self.sequence_context.video_start, self.fps)
-        self.length_frames = self._resolve_video_length(self.sequence_context.video_length, self.fps)
 
-        # 3. Check and create input data if necessary
+        # Check and create input data if necessary
         self._input_data_creation()
 
-        # 4. Load camera calibration if available
-        self.calibration: dict | None = self._load_calibration()
+        # Load camera calibration if available
+        self.calibration = self._load_calibration()
 
         self._available = True
         logging.info("Video DATA CREATION completed.")
@@ -87,139 +83,124 @@ class VideoDataHandler(BaseModalityHandler):
         """
         Generates the Recipe config to be injected into the subprocess TOML.
         """
-        if self.input_format in [".avi", ".mp4"]:
-            root = self.input_folder  # Extracted data lives in nicetoolbox_input
-            template = "{camera}/frames/" + self.filename_template  # Structure: {cam}/frames/{idx:09d}.png
-        else:
-            raise NotImplementedError(f"Input recipe generation for '{self.input_format}' not implemented.")
-
         return VideoInputRecipe(
-            root_path=str(root),
+            root_path=str(self.nice_input_folder),
             camera_names=sorted(list(self.all_camera_names)),
-            filename_template=template,
+            filename_template="{camera}/frames/" + FILENAME_TEMPLATE,
             range_start=self.start_frame,
             range_end=self.start_frame + self.length_frames,
             step=1,
         )
 
     # -------------------------------------------------------------------------
-    # Helper methods for video processing
+    # Helper methods
     # -------------------------------------------------------------------------
 
-    def _get_input_format(self) -> str:
+    def _find_video_paths(self) -> Dict[str, Path]:
         """
-        Get the input format for the given camera names.
+        For each camera, recursively search its source folder for exactly one
+        video file whose stem or any ancestor directory name equals the camera
+        name exactly.
 
         Returns:
-            str: The input format for the given camera names.
+            dict mapping camera name -> Path of the matched video file.
 
         Raises:
-            ValueError: If multiple or no valid input format is found in the data
-                input folder.
+            ValueError: If a camera matches zero or more than one file.
         """
-        possible_formats = [".mp4", ".avi", ".png", ".jpg", ".jpeg"]
-        cam_0 = self.all_camera_names[0]
-        example_input_folder = self.io.get_data_source_folder(cam_0)
+        result: Dict[str, Path] = {}
 
-        found_formats = [name in "_".join(sorted(os.listdir(example_input_folder))) for name in possible_formats]
-        if sum(found_formats) != 1:
-            raise ValueError(
-                f"Multiple/no valid input format found in '{example_input_folder}'. "
-                f"Found '{found_formats}', valid formats are ['mp4', 'avi'].",
-            )
+        for cam in self.all_camera_names:
+            source_folder = self.io.get_data_source_folder(cam)
 
-        return possible_formats[found_formats.index(True)]
+            candidates = []
+            for p in source_folder.rglob("*"):
+                # is this a video extension?
+                if p.suffix.lower() not in vid.VIDEO_EXTENSIONS:
+                    continue
+                # does it contains exact match of camera name in path?
+                if not _contains_camera_name(p, cam):
+                    continue
+                candidates.append(p)
 
-    def _get_example_video_path(self) -> Path:
-        """
-        Finds a video file for metadata extraction Reused by FPS check and Length resolution.
-
-        Returns:
-            Path: The path to an example video file.
-        """
-        cam_0 = self.all_camera_names[0]
-        example_input_folder = self.io.get_data_source_folder(cam_0)
-
-        files = sorted(example_input_folder.glob(f"*{self.input_format}"))
-
-        if not files:
-            raise FileNotFoundError(
-                f"No video files ({self.input_format}) found in {example_input_folder} " f"for camera {cam_0}."
-            )
-        return files[0]
-
-    def _get_fps_validated(self, target_fps: int) -> int:
-        """
-        Validates the frames per second (fps) of the input video files against the
-        target fps specified in the configuration.
-
-        Args:
-            target_fps (int): The desired fps specified in the configuration.
-
-        Returns:
-            int: The fps of the input video files. Raises if target fps does not match detected fps.
-        """
-        if self.input_format in [".mp4", ".avi"]:
-            fps = vid.get_fps(str(self.video_sample_path))
-            if fps != target_fps:
-                logging.warning(f"Detected fps = {fps} does not match fps given in the " f"config = {target_fps}!")
-            return fps
-
-        raise NotImplementedError(f"FPS validation for input format '{self.input_format}' is not implemented.")
-
-    def _resolve_video_length(self, video_length: str | int, fps: int) -> int:
-        """
-        Resolves the video length in frames. If the video_length is specified in the
-        configuration, it is returned directly. If it is (-1), the length is determined
-        from the example video file.
-
-        Returns:
-            int: The resolved video length in frames.
-        """
-        video_length_frame = timestamp_to_frame_index(video_length, fps)
-        if video_length_frame > 0:  # TODO: check if frame in range
-            return video_length_frame
-
-        # If length is -1, we need to figure out the length from the video file
-
-        if self.input_format in [".mp4", ".avi"]:
-            total_frames = vid.get_number_of_frames(str(self.video_sample_path))
-            available_length = total_frames - self.start_frame
-
-            if available_length <= 0:
+            if len(candidates) == 0:
                 raise ValueError(
-                    f"video_start ({self.start_frame}) is beyond the end of the video "
-                    f"({total_frames} frames) in {self.video_sample_path.name}"
+                    f"No video file found for camera '{cam}' in '{source_folder}'. "
+                    f"Expected a file or directory named exactly '{cam}'."
+                )
+            if len(candidates) > 1:
+                raise ValueError(
+                    f"Ambiguous: found {len(candidates)} video files for camera '{cam}' "
+                    f"in '{source_folder}': {[str(p) for p in candidates]}"
                 )
 
-            logging.info(
-                f"Auto-detected length: {available_length} frames "
-                f"(Total: {total_frames}, Start: {self.start_frame})"
-            )
-            return available_length
+            result[cam] = candidates[0]
 
-        raise NotImplementedError(f"Video length resolution for '{self.input_format}' not implemented.")
+        return result
+
+    def _resolve_fps_and_length(self) -> tuple[int, int]:
+        """
+        Probe all camera videos, assert cross-camera consistency of FPS and
+        frame count, then validate FPS against config.
+
+        Returns:
+            (fps, length_frames) — fps detected from videos, length in frames
+            from config or auto-detected.
+
+        Raises:
+            ValueError: If cameras disagree on FPS or frame count, or if
+                video_start is beyond the end of the video.
+        """
+        infos = {}
+        for cam, path in self.camera_video_paths.items():
+            raw = vid.probe_video(str(path))
+            infos[cam] = vid.json_to_video_info(raw)
+
+        # Cross-camera consistency
+        fps_values = {cam: int(info.fps) for cam, info in infos.items() if info.fps is not None}
+        frame_values = {cam: info.frames for cam, info in infos.items() if info.frames is not None}
+
+        if len(set(fps_values.values())) > 1:
+            raise ValueError(f"Cameras have inconsistent FPS: {fps_values}")
+
+        if len(set(frame_values.values())) > 1:
+            raise ValueError(f"Cameras have inconsistent frame counts: {frame_values}")
+
+        # Resolve FPS
+        fps = next(iter(fps_values.values())) if fps_values else None
+        if fps is None:
+            raise ValueError("Could not determine FPS from any camera video.")
+
+        if fps != self.sequence_context.fps:
+            logging.warning(f"Detected fps={fps} does not match config fps={self.sequence_context.fps}!")
+
+        # Resolve length
+        video_length_frame = timestamp_to_frame_index(self.sequence_context.video_length, fps)
+        if video_length_frame > 0:
+            return fps, video_length_frame
+
+        # Auto-detect from frame count
+        total_frames = next(iter(frame_values.values())) if frame_values else None
+        if total_frames is None:
+            raise ValueError("Could not determine frame count from any camera video.")
+
+        start_frame = timestamp_to_frame_index(self.sequence_context.video_start, fps)
+        available = total_frames - start_frame
+        if available <= 0:
+            raise ValueError(f"video_start ({start_frame}) is beyond the end of the video " f"({total_frames} frames).")
+
+        logging.info(f"Auto-detected length: {available} frames " f"(Total: {total_frames}, Start: {start_frame})")
+        return fps, available
 
     def _input_data_creation(self) -> None:
         """
         Initializes the data required for running NICE toolbox.
         """
-        if self.input_format in [".avi", ".mp4"]:
-            if self._check_frames_exist():
-                logging.info("Frames FOUND in nicetoolbox input folder")
-            else:
-                logging.info("EXTRACTING frames from video...")
-                self._extract_frames_from_video()
-            self.filename_template = "{idx:09d}.png"
-
-        elif self.input_format in [".png", ".jpg", ".jpeg"]:
-            # TODO: implement source frame checking
-            # This requires knowing the original folder structure and
-            # filename template from config, including session_id, sequence_id, etc.
-            # cam_folder = root / self.session_id / self.sequence_id / cam /
-            raise NotImplementedError("Checking source frames is not implemented yet.")
+        if self._check_frames_exist():
+            logging.info("Frames FOUND in nicetoolbox input folder")
         else:
-            raise NotImplementedError(f"Input format '{self.input_format}' not supported for data creation.")
+            logging.info("EXTRACTING frames from video...")
+            self._extract_frames_from_video()
 
     def _check_frames_exist(self) -> bool:
         """
@@ -228,68 +209,43 @@ class VideoDataHandler(BaseModalityHandler):
         Returns:
             bool: True if frames exist for all cameras, False otherwise.
         """
-        template = self.filename_template
-
         start_idx = self.start_frame
         end_idx = self.start_frame + self.length_frames - 1
 
         for cam in self.all_camera_names:
-            cam_folder = self.input_folder / cam / "frames"
+            cam_folder = self.nice_input_folder / cam / "frames"
 
-            start_name = template.format(idx=start_idx)
-            end_name = template.format(idx=end_idx)
+            start_name = FILENAME_TEMPLATE.format(idx=start_idx)
+            end_name = FILENAME_TEMPLATE.format(idx=end_idx)
 
-            start_path = cam_folder / start_name
-            end_path = cam_folder / end_name
-
-            # Check existence
-            if not (start_path.exists() and end_path.exists()):
+            if not ((cam_folder / start_name).exists() and (cam_folder / end_name).exists()):
                 logging.info(f"No input frames found for camera '{cam}': " f"Files will be created in '{cam_folder}'.")
                 return False
 
         return True
 
-    def _extract_frames_from_video(self):
+    def _extract_frames_from_video(self) -> None:
         """
-        Create input frames from video files inside the nicetoolbox_input folder.
-
-        This method detects video input files, splits them into frames, and organizes
-        the frames into different data formats which are frames, segments, and snippets.
-
-        Raises:
-            AssertionError: If the length of the frame indices list does not match
-                the specified video length.
-            AssertionError: If the frame indices of different cameras do not match.
+        Extract frames from each camera's resolved video file into the
+        nicetoolbox_input folder.
         """
-        # detect all video input files
-        # Build glob pattern for all camera input folders and list video files
-        data_input_pattern = self.io.get_data_source_folder("*")
-        pattern = data_input_pattern / "*"
-        video_files = sorted(glob.glob(str(pattern)))
+        for cam, video_path in self.camera_video_paths.items():
+            logging.info(f"Extracting frames for camera '{cam}' from '{video_path}'...")
 
-        for video_file in video_files:
-            camera_name_indices = [name.lower() in video_file.lower() for name in list(self.all_camera_names)]
-            if not any(camera_name_indices):
-                continue
-            camera_name = list(self.all_camera_names)[camera_name_indices.index(True)]
-
-            logging.info("Extracting Video Specifications...")
-            raw_video_info = vid.probe_video(video_file)
-            video_info_path = os.path.join(self.input_folder, camera_name + "_meta.json")
+            raw_video_info = vid.probe_video(str(video_path))
+            video_info_path = self.nice_input_folder / f"{cam}_meta.json"
             with open(video_info_path, "w") as f:
                 json.dump(raw_video_info, f, indent=4)
 
-            logging.info("Parsing Video Specifications...")
             video_info = vid.json_to_video_info(raw_video_info)
 
-            # split video into frames
-            input_folder = os.path.join(self.input_folder, camera_name)
-            os.makedirs(input_folder, exist_ok=True)
+            cam_folder = self.nice_input_folder / cam
+            frames_folder = cam_folder / "frames"
+            frames_folder.mkdir(parents=True, exist_ok=True)
 
-            os.makedirs(os.path.join(input_folder, "frames"), exist_ok=True)
             vid.split_into_frames(
-                video_file,
-                os.path.join(input_folder, "frames/"),
+                str(video_path),
+                str(frames_folder) + "/",
                 video_info.frames,
                 start_frame=self.start_frame_index,
                 keep_indices=True,
@@ -299,9 +255,6 @@ class VideoDataHandler(BaseModalityHandler):
         """
         Load camera calibration from a file for a specific dataset.
 
-        Currently implemented for the datasets 'dyadic_communication' and
-        'mpi_inf_3dhp'.
-
         Returns:
             dict: A dictionary containing the loaded camera calibration.
 
@@ -309,13 +262,11 @@ class VideoDataHandler(BaseModalityHandler):
             KeyError: If loading camera calibration for the specified
             dataset is not implemented.
         """
-        # 1. Get calibration file path
         calib_path = self.io.get_calibration_file()
         if not calib_path or not os.path.isfile(calib_path):
             logging.warning("Calibration file not found, skipping calibration.")
             return None
 
-        # 2. Load calibration file
         calib_details = "__".join([word for word in [self.session_id, self.sequence_id] if word])
         try:
             loaded_calib = np.load(calib_path, allow_pickle=True)[calib_details].item()
@@ -327,9 +278,38 @@ class VideoDataHandler(BaseModalityHandler):
             )
             raise err
         try:
-            calib = dict((key, value) for key, value in loaded_calib.items() if key in self.all_camera_names)
+            calib = {key: value for key, value in loaded_calib.items() if key in self.all_camera_names}
         except Exception as err:
             logging.exception(f"An error occurred while creating calibration dictionary: {err}")
             raise err
 
         return calib
+
+
+# -------------------------------------------------------------------------
+# Module-level helpers
+# -------------------------------------------------------------------------
+
+
+def _contains_camera_name(video_path: Path, camera_name: str) -> bool:
+    """
+    Return True if the camera name matches the video file's stem or any
+    directory component in its path exactly (case-insensitive).
+
+    'cam_front' matches:
+      - cam_front.mp4          (stem == camera_name)
+      - cam_front/video.mp4    (parent dir == camera_name)
+      - root/cam_front/sub/v.mp4
+
+    'cam_front' does NOT match:
+      - cam_front_test.mp4     (stem != camera_name)
+      - cam_front_test/v.mp4   (dir != camera_name)
+    """
+    cam_lower = camera_name.lower()
+
+    # Check file stem
+    if video_path.stem.lower() == cam_lower:
+        return True
+
+    # Check every directory component in the path
+    return any(part.lower() == cam_lower for part in video_path.parts[:-1])

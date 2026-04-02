@@ -18,6 +18,18 @@ import cv2
 import numpy as np
 import pandas as pd
 
+# fmt: off
+# List of most common video extensions and images extensions
+VIDEO_EXTENSIONS = {
+    ".mp4", ".m4v", ".mkv", ".avi", ".mov", ".qt",
+    ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".mpe",
+    ".m2v", ".ts", ".m2ts", ".mts", ".vob", ".3gp",
+    ".3g2", ".ogv", ".ogg", ".rmvb", ".rm", ".asf",
+    ".divx", ".f4v", ".mxf", ".dv", ".h264", ".h265",
+    ".hevc", ".mjpeg", ".mjpg"
+}
+# fmt: on
+
 
 def get_number_of_frames(video_file: str) -> int:
     """
