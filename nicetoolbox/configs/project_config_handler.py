@@ -26,7 +26,7 @@ class ProjectConfigHandler:
     # Loaded configs
     project_config: ProjectConfig
 
-    def __init__(self, project_folder: Path):
+    def __init__(self, project_folder_path: Path):
         """
         Load shared base configuration files.
 
@@ -40,16 +40,16 @@ class ProjectConfigHandler:
 
         # add project_folder_path to the global context placeholders
         # it can be used to resolve path to other configs
-        self.project_folder = project_folder.resolve()  # get absolute path for logging and debugging
-        if not project_folder.is_dir():
-            raise FileNotFoundError(f"Project path '{project_folder}' isn't a directory!")
-        self.cfg_loader.extend_global_ctx({"project_folder_path": str(project_folder)})
+        self.project_folder = project_folder_path.resolve()  # get absolute path for logging and debugging
+        if not self.project_folder.is_dir():
+            raise FileNotFoundError(f"Project path '{project_folder_path}' isn't a directory!")
+        self.cfg_loader.extend_global_ctx({"project_folder_path": str(self.project_folder)})
 
         # load project config
         self.project_config_path = self.project_folder / PROJECT_CONFIG_FILENAME
         if not self.project_config_path.is_file():
             raise FileNotFoundError(
-                f"Project config {PROJECT_CONFIG_FILENAME} isn't found in '{project_folder}' "
+                f"Project config {PROJECT_CONFIG_FILENAME} isn't found in '{self.project_folder}' "
                 "Have you called 'make create_project' during installation?"
             )
         self.project_config = self.cfg_loader.load_config(self.project_config_path, ProjectConfig)
