@@ -102,6 +102,9 @@ def main(project_folder_path: Path, machine_specifics_file: Path, run_config_fil
             io = SequenceIO(sequence_context, all_algorithms)
             data = SequenceData(sequence_context, io)
 
+            # Save video config
+            config.save_video_config(sequence_context.video_config, io.get_output_folder("output"))
+
             # Algorithms based on user-selected components, topologically sorted
             selected_algorithms = sequence_context.all_selected_algorithms
             ordered_detectors = sort_detectors_order(

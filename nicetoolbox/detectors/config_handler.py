@@ -203,6 +203,10 @@ class Configuration(ProjectConfigHandler):
         )
         save_config(model_to_dict(config), output_folder / f"config_{code_config.time}.toml")
 
+    @staticmethod
+    def save_video_config(video_config, output_folder) -> None:
+        save_config(model_to_dict(video_config), output_folder / "video_config.toml")
+
     @property
     def visualize(self) -> bool:
         return self.run_config.visualize
