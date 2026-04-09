@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from ..configs.project_config_handler import ProjectConfigHandler
+from ..configs.schemas.detectors_run_file import RunConfigVideo
 from ..configs.schemas.experiment_config import DetectorsExperimentConfig
 from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..configs.schemas.visualizer_config import VisualizerConfig
@@ -68,7 +69,7 @@ class Configuration(ProjectConfigHandler):
         self.nice_tool_out_folder = self.visualizer_config["io"]["nice_tool_output_folder"]
 
     def _initialize_media(self) -> None:
-        # load the latest config from the experiment output of nicetoolbox
+        # Load the latest config from the experiment output of nicetoolbox
         try:
             experiment_config_file = sorted(
                 glob.glob(
@@ -89,6 +90,17 @@ class Configuration(ProjectConfigHandler):
             )
             raise
 
+        # Load the video config from the video/sequence output of nicetoolbox
+        try:
+            video_folder_path = os.path.join(
+                self.visualizer_config["io"]["experiment_folder"], self.visualizer_config["io"]["video_name"]
+            )
+
+            video_config_file = glob.glob(os.path.join(video_folder_path, "*config*.toml"))[-1]
+        except IndexError:
+            print("\nCould not find the video config file in " f"{video_folder_path}\n\n")
+            raise
+
         # load detectors expirement config
         # it should be already fully resolved except runtime placeholders
         # so we ignore global context and auto
@@ -97,9 +109,17 @@ class Configuration(ProjectConfigHandler):
             DetectorsExperimentConfig,
             ignore_auto_and_global=True,
         )
+
+        # load video config
+        loaded_video_config = self.cfg_loader.load_config(
+            Path(video_config_file),
+            RunConfigVideo,
+            ignore_auto_and_global=True,
+        )
         # TODO: rest of the codebase except the configs as dict
         # so we convert them from models to configs
         loaded_experiment_config = model_to_dict(loaded_experiment_config)
+        loaded_video_config = model_to_dict(loaded_video_config)
 
         # verify that the visualizer project matches the experiment project
         exp_configs_folder = Path(loaded_experiment_config["project_config"]["configs_folder_path"])
@@ -119,7 +139,7 @@ class Configuration(ProjectConfigHandler):
         self.dataset_name = self.visualizer_config["io"]["dataset_name"]
 
         # update visualizer config - which will be given to components
-        self.visualizer_config["video"] = self.experiment_run_config["run"][self.dataset_name]["videos"][0]
+        self.visualizer_config["video"] = loaded_video_config
         # add properties of the dataset
         self.visualizer_config["dataset_properties"] = self.dataset_properties[self.dataset_name]
 
@@ -156,9 +176,6 @@ class Configuration(ProjectConfigHandler):
             self.visualizer_config, runtime_ctx, ignore_auto_and_global=True
         )
         return updated_visualizer_config
-
-    def get_isa_tool_out_folder(self):
-        return self.nice_tool_out_folder
 
     def get_camera_names(self):
         # Extracting camera names
