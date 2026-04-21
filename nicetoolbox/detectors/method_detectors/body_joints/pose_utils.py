@@ -3,6 +3,7 @@ Pose estimation utilities. # TODO: Move to a more appropriate location?
 """
 
 import logging
+from typing import Optional
 
 import numpy as np
 import scipy.interpolate as interp
@@ -158,3 +159,28 @@ def create_iou_all_pairs(data):
     iou_scfs = np.transpose(iou_sscf, (0, 2, 3, 1)).astype(np.float32)
 
     return iou_scfs
+
+
+def merge_2d_for_pose_overlay(
+    interpolated: np.ndarray,
+    projected: Optional[np.ndarray] = None,
+    raw: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """
+    Stack 2D pose layers for OpenCV overlay videos: prefer ``projected`` when provided
+    and finite, else temporally interpolated 2D, then raw detector output.
+
+    All arrays share shape (..., 3) with x, y, score/conf in the last dimension.
+    """
+    out = np.array(interpolated, dtype=np.float64, copy=True)
+    if projected is not None:
+        p = np.asarray(projected, dtype=np.float64)
+        use_p = np.isfinite(p[..., 0]) & np.isfinite(p[..., 1])
+        out = np.where(use_p[..., np.newaxis], p, out)
+    if raw is not None:
+        r = np.asarray(raw, dtype=np.float64)
+        use_r = np.isfinite(r[..., 0]) & np.isfinite(r[..., 1])
+        need = ~(np.isfinite(out[..., 0]) & np.isfinite(out[..., 1]))
+        pick = need & use_r
+        out = np.where(pick[..., np.newaxis], r, out)
+    return out.astype(np.float32, copy=False)

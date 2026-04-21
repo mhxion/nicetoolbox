@@ -13,7 +13,7 @@ url = "https://keeper.mpdl.mpg.de/f/cf93d03b37ba4b50a002/?dl=1"
 ["multiview_eth_xgaze/mmod_human_face_detector.dat"]
 url = "https://keeper.mpdl.mpg.de/f/aae1a60f13394f099048/?dl=1"
 
-# --- MMPose Framework (HRNet, ViTPose, RTMPose) ---
+# --- MMPose Framework (HRNet, ViTPose, RTMPose, MotionBERT) ---
 ["mmpose/configs/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth"]
 url = "https://keeper.mpdl.mpg.de/f/b1ad36417abf45598c5c/?dl=1"
 
@@ -46,6 +46,12 @@ url = "https://keeper.mpdl.mpg.de/f/034a2e90816846678da4/?dl=1"
 
 ["mmpose/configs/td-hm_ViTPose-huge_8xb64-210e_coco-256x192-e32adcd4_20230314.pth"]
 url = "https://keeper.mpdl.mpg.de/f/3d8bbd4e6c3c4c049298/?dl=1"
+
+["mmpose/configs/motionbert_dstformer-243frm_8xb32-240e_h36m.py"]
+url = "https://keeper.mpdl.mpg.de/f/912deef505e140be981f/?dl=1"
+
+["mmpose/configs/motionbert_h36m-f554954f_20230531.pth"]
+url = "https://keeper.mpdl.mpg.de/f/2d618b9b1be14cbe8fb7/?dl=1"
 
 # --- SPIGA ---
 ["spiga/spiga_wflw.pt"]

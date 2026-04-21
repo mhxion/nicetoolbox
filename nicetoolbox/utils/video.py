@@ -317,24 +317,40 @@ def frames_to_video(input_folder: str, out_filename: str, fps: float = 30.0, sta
         int: Return code of the ffmpeg command.
     """
     if os.path.isdir(input_folder):
-        if os.listdir(input_folder) == []:
-            logging.error("Image folder is empty")
+        abs_folder = os.path.abspath(input_folder)
+        files = sorted(f for f in os.listdir(abs_folder) if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")))
+        if not files:
+            logging.error("Image folder is empty or has no image frames: %s", input_folder)
             return 1
-        num, file_format = os.listdir(input_folder)[0].split(".")
-        input_folder = os.path.join(input_folder, f"%0{len(num)}d.{file_format}")
+        stem, file_format = files[0].rsplit(".", 1)
+        input_pattern = os.path.join(abs_folder, f"%0{len(stem)}d.{file_format}")
+    else:
+        input_pattern = input_folder
 
     out_format = os.path.basename(out_filename).rsplit(".")[-1]
     # fmt: off
     if out_format != "gif":
+        # Even width/height required for yuv420p; odd sizes cause green lines / broken files.
         cmd = [
-            "ffmpeg", "-framerate", str(fps), "-start_number", str(start_frame),
-            "-loglevel", "error", "-i", input_folder, "-codec:v", "h264",
-            "-pix_fmt", "yuv420p", out_filename, "-y",
+            "ffmpeg", "-y",
+            "-framerate", str(fps),
+            "-start_number", str(start_frame),
+            "-loglevel", "error",
+            "-i", input_pattern,
+            "-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            out_filename,
         ]
     else:
         cmd = [
-            "ffmpeg", "-framerate", str(fps), "-start_number", str(start_frame),
-            "-loglevel", "error", "-i", input_folder, out_filename, "-y",
+            "ffmpeg", "-y",
+            "-framerate", str(fps),
+            "-start_number", str(start_frame),
+            "-loglevel", "error",
+            "-i", input_pattern,
+            out_filename,
         ]
     # fmt: on
 

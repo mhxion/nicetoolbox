@@ -1,5 +1,7 @@
 """
-Run the MMPose inference algorithm and save the results as npz files.
+Run the MMPose inference algorithm and save the results as npz files (2D only).
+
+Subprocess entry: ``mmpose_2d_inference.py`` (chosen by ``BaseMMPose._setup_subprocess_settings``).
 """
 
 import logging
@@ -297,7 +299,6 @@ def main(config):
     # use pose_config_file file for rtmpose and pose_config for others
     pose2d_path = required_assets.get("pose_config_file", config.get("pose_config"))
 
-    # Create inferencer object from MMPose API
     # Create inferencer object from MMPose API
     inferencer = MMPoseInferencer(
         pose2d=pose2d_path,

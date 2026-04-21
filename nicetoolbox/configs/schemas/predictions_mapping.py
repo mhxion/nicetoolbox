@@ -28,6 +28,13 @@ class CocoWholebody(BaseModel):
     connections: CocoWholebodyConnections
 
 
+class Human36mKeypointsIndex(BaseModel):
+    body: Dict[str, int]
+    foot: Dict[str, int]
+    face: Dict[str, List[int]]
+    hand: Dict[str, List[int]]
+
+
 class Human36mConnections(BaseModel):
     body_joints: List[List[str]]
     hand_joints: List
@@ -35,8 +42,8 @@ class Human36mConnections(BaseModel):
 
 
 class Human36m(BaseModel):
+    keypoints_index: Human36mKeypointsIndex
     connections: Human36mConnections
-    keypoints_index: Dict[str, int]
 
 
 class MpiiKeypointsIndex(BaseModel):

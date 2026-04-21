@@ -21,6 +21,7 @@ Per component, each `<algorithm>.npz` file contains several numpy arrays plus a 
 | component | contained numpy arrays |
 | - | - |
 | body_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
+| body_joints_lifted | 2d, 2d_interpolated, bbox_2d, bbox_overlap, 3d; optional 2d_filtered, 3d_filtered when filtering is enabled |
 | hand_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | face_landmarks | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | gaze_individual | landmarks_2d, 3d |
@@ -89,7 +90,7 @@ print(arr['data_description'].item()['3d'])
 
 
 ## Body joints
-Identifies and tracks the position of key body joints, (e.g., shoulders, elbows) to analyze body posture and movements. Available algorithms are *HRNet-w48* and *ViTPose*. The figure below illustrates the key body joints identified. *ViTPose* estimates full-body joints, including arms, shoulders, hips, wrists, and ankles, but excludes foot-specific joints like heels and toes. *HRNet-w48* includes these additional foot joints.
+Identifies and tracks the position of key body joints, (e.g., shoulders, elbows) to analyze body posture and movements. Available algorithms are *HRNet-w48*, *ViTPose* / *ViTPose-Huge*, and *RTMPose* variants. The figure below illustrates the key body joints identified. *ViTPose* estimates full-body joints, including arms, shoulders, hips, wrists, and ankles, but excludes foot-specific joints like heels and toes. *HRNet-w48* includes these additional foot joints.
 
 [<img src="../graphics/body_joints.png" height="400">](../graphics/body_joints.png)
 [<img src="../graphics/foot_joints.png" height="200">](../graphics/foot_joints.png)
@@ -105,6 +106,9 @@ Joint estimations with a confidence score below 0.60 are marked as missing becau
 
 With calibrated stereo cameras, the 3D positions (x, y, and z coordinates) of the body joints are computed via the triangulation method (see `..._3d.csv` or `3d.npy` file). Since 3D estimation is performed after interpolation of the 2D estimations, any missing 2D joint point will also be missing in the 3D results.
 If the user has more than two camera views, the first two camera views listed in the `frameworks.mmpose.camera_names` parameter in the [`./configs/detectors_config.toml`](../../configs/detectors_config.toml) file will be used for triangulation.
+
+## Body joints lifted
+Provides **root-relative 3D body pose** by lifting precomputed 2D body joint estimates into 3D using a temporal model. Available algorithm is *MotionBERT*, which reads the 2D keypoints and bounding boxes from an existing `body_joints` NPZ (default source: `vitpose_huge`) and outputs 17 keypoints in Human3.6M order. Unlike the stereo triangulation path, no camera calibration is required. See the [Algorithms wiki](wiki_algorithms.md#motionbert-3d-body-pose-lifting) for details.
 
 ## Hand joints
 Tracks the positions of hand joints to analyze hand movements and gestures. Available algorithm is *HRNet-w48*. The figure below represents the identified hand joints.

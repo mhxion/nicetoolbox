@@ -73,6 +73,7 @@ reach out to us at **<nicetoolbox@tue.mpg.de>**.
 
 The NICE Toolbox is using the following existing tools, methods, and frameworks:
 [MMPose](https://github.com/open-mmlab/mmpose/tree/main),
+[MotionBERT](https://arxiv.org/abs/2210.06551) (3D body lifting integrated via MMPose),
 [HigherHRNet](https://github.com/HRNet/HigherHRNet-Human-Pose-Estimation/tree/master),
 [ViTPose](https://github.com/ViTAE-Transformer/ViTPose/tree/main),
 [DarkPose](https://github.com/ilovepose/DarkPose/tree/master),
