@@ -104,7 +104,8 @@ Each component can be assigned to and run with multiple different algorithms. Wh
 [component_algorithm_mapping]
 gaze_individual = ['multiview_eth_xgaze']
 gaze_interaction = ['gaze_distance']
-body_joints = ['hrnetw48', 'vitpose']
+body_joints = ['hrnetw48', 'vitpose', 'vitpose_huge']
+body_joints_lifted = ['motionbert']
 hand_joints = ['hrnetw48']
 face_landmarks = ['hrnetw48']
 kinematics = ['velocity_body']
@@ -260,6 +261,7 @@ env_name = "env_type:env_id"
 - `input_data_format` describes which input type the algorithm expects (str). The currently supported option is "frames".
 - `camera_names` lists the camera views (as placeholders) of which the algorithm takes input data (list of str). Current options are "<cur_cam_front>", "<cur_cam_top>", "<cur_cam_face1>", "<cur_cam_face2>".
 - `env_name` defines the python or conda environment for running the algorithm (str). Options are "venv:env_id" for a python environment and "conda:env_id" for a conda environment, in both cases "env_id" is to replaced by the environment's name.
+
 
 
 ### Feature detectors

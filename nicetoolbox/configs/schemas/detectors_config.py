@@ -19,7 +19,6 @@ class DetectorsConfig(BaseModel):
         for name, alg in algos.items():
             if "framework" not in alg:
                 continue
-            # check that framework exists
             frm = alg["framework"]
             if frm not in frms:
                 raise ValueError(f"Invalid framework {frm} for algorithm {name}.")

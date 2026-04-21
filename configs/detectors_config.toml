@@ -99,6 +99,16 @@ pose_checkpoint = "<assets>/mmpose/configs/rtmpose-m_simcc-mpii_pt-aic-coco_210e
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
+[algorithms.motionbert]
+framework = "mmpose"
+keypoint_mapping = "human36m"
+min_detection_confidence = 0.5
+input_detector_names = [["body_joints", "vitpose_huge"]]
+
+[algorithms.motionbert.required_assets]
+pose3d_config_file = "<assets>/mmpose/configs/motionbert_dstformer-243frm_8xb32-240e_h36m.py"
+pose3d_checkpoint = "<assets>/mmpose/configs/motionbert_h36m-f554954f_20230531.pth"
+
 
 # kinematics
 [algorithms.velocity_body]

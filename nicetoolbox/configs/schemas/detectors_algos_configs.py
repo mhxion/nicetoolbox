@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, List, Optional, Type
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from nicetoolbox_core.input_recipes import InputRecipes
 
@@ -106,6 +106,8 @@ class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
     keypoint_mapping: str
     min_detection_confidence: float
     required_assets: Dict[str, str] = Field(default_factory=dict)
+    # Optional dependency edges for topological sort (same shape as feature detectors).
+    input_detector_names: Optional[List[List[str]]] = None
 
     # Nested runtime config class - extends base with MMPose-specific fields
     class RuntimeConfig(MethodDetectorRuntime):
@@ -115,6 +117,48 @@ class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
         image_folders: Dict[str, str]
         keypoints_indices: Dict[str, List[int]]
         keypoints_description: Dict[str, List[str]]
+        # Video / subprocess (explicit in run_config.toml — no guessed defaults in inference scripts).
+        fps: int
+
+
+@detector_config("motionbert")
+class MotionbertAlgorithmConfig(FrameworksMMPoseConfig):
+    """Static config for MotionBERT 3D lifting (2D NPZ input); kept separate from 2D MMPose algorithms."""
+
+    framework: str
+    keypoint_mapping: str
+    min_detection_confidence: float
+    # 3D lifter weights only; 2D detector assets are merged from input_detector_names at init.
+    required_assets: Dict[str, str] = Field(default_factory=dict)
+    # Must include exactly one upstream body_joints producer (NPZ path, 2D pose assets, etc.).
+    input_detector_names: List[List[str]]
+    # Optional MMPose 3D frame-export layout (serialized to run_config; read with strict keys in subprocess).
+    mmpose_3d_nice_multi_layout: bool = True
+    pelvis_sep_scale: float = 1.0
+
+    @model_validator(mode="after")
+    def _validate_body_joints_upstream(self) -> "MotionbertAlgorithmConfig":
+        algs = [e[1] for e in self.input_detector_names if len(e) == 2 and e[0] == "body_joints"]
+        if not algs:
+            raise ValueError(
+                "motionbert requires input_detector_names to include "
+                "['body_joints', '<upstream_2d_algorithm>'], e.g. [['body_joints', 'vitpose_huge']]."
+            )
+        if len(set(algs)) != 1:
+            raise ValueError(f"motionbert expects a single body_joints upstream algorithm; got {sorted(set(algs))!r}.")
+        for key in ("pose3d_config_file", "pose3d_checkpoint"):
+            if key not in self.required_assets:
+                raise ValueError(f"motionbert.required_assets must include {key!r}")
+        return self
+
+    class RuntimeConfig(MMPoseAlgorithmConfig.RuntimeConfig):
+        """Runtime fields for MotionBERT (NPZ path, merged 2D+3D assets, derived 2D lifter inputs)."""
+
+        pose_config: str
+        motionbert_2d_pose_det_dataset: str
+        motionbert_2d_coco_body_indices: List[int]
+        motionbert_2d_keypoints_npz: str
+        required_assets: Dict[str, str]
 
 
 @detector_config("spiga")

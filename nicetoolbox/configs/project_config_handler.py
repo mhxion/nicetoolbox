@@ -31,7 +31,7 @@ class ProjectConfigHandler:
         Load shared base configuration files.
 
         Args:
-            project_folder (Path): Path to the project folder containing nice_project.toml.
+            project_folder_path (Path): Path to the project folder containing nice_project.toml.
         """
         # init config loader with default auto placeholders and runtime
         self.auto_placeholders = default_auto_placeholders()

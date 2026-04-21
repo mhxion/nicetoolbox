@@ -1,6 +1,7 @@
 # Algorithms
 
-- [HrNet & VitPose](#hrnet--vitpose)
+- [HRNet, ViTPose, & RTMPose (2D)](#hrnet-vitpose--rtmpose-2d-pose-estimation)
+- [MotionBERT (3D lifting)](#motionbert-3d-body-pose-lifting)
 - [Multiview_eth_xgaze](#multiview_eth_xgaze)
 - [Py-FEAT](#pyfeat)
 - [SPIGA](#spiga)
@@ -24,6 +25,16 @@ The NICE toolbox integrates the **MMPose framework** to provide a suite of robus
 - **RTMPose (m/l/wholebody)**: A framework explicitly optimized for real-time multi-person pose estimation. RTMPose utilizes a highly efficient CSPNeXt backbone and replaces traditional heatmap generation with a SimCC-based prediction head (treating keypoint localization as a classification task). This architectural shift delivers an exceptional balance between low latency and high accuracy.   
   [Jiang et al., 2023](https://arxiv.org/abs/2303.07399)
 
+
+## MotionBERT (3D body pose lifting)
+
+**MotionBERT** is a **2D-to-3D pose lifter** based on a Dual-stream Spatio-temporal Transformer (DSTformer), integrated through **MMPose**. It lifts per-frame 2D keypoints into **root-relative 3D poses** without requiring a second camera calibration or world-space alignment pass.
+
+In NICE Toolbox, MotionBERT runs as the **`motionbert`** algorithm under the **`body_joints_lifted`** component. It reads 2D keypoints and bounding boxes directly from an existing **`body_joints`** NPZ (default upstream: **`vitpose_huge`**), so subject ordering and tracking stay consistent with the 2D pipeline. The lifter outputs **17 keypoints in Human3.6M order**.
+
+Post-processing applies optional temporal filtering and confidence masking on the 2D and 3D arrays. The upstream algorithm can be configured via **`input_detector_names`** in [`detectors_config.toml`](../../configs/detectors_config.toml).
+
+[Zhu et al., MotionBERT, ICCV 2023](https://arxiv.org/abs/2210.06551) · [MMPose MotionBERT model zoo](https://github.com/open-mmlab/mmpose/tree/main/configs/body_3d_keypoint/motionbert)
 
 
 ## Multiview_eth_xgaze

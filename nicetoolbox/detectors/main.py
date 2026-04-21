@@ -25,7 +25,7 @@ from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import SequenceIO
 from .method_detectors.audio_transcription.whisper_detector import Whisper
-from .method_detectors.body_joints.mmpose_framework import (
+from .method_detectors.body_joints.mmpose_framework_2d import (
     HRNetw48,
     RTMPoseLAIC,
     RTMPoseMPII,
@@ -33,6 +33,7 @@ from .method_detectors.body_joints.mmpose_framework import (
     VitPose,
     VitPoseHuge,
 )
+from .method_detectors.body_joints.mmpose_framework_3d import MotionBERT
 from .method_detectors.emotion_individual.py_feat import PyFeat
 from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
 from .method_detectors.head_orientation.spiga_detector import Spiga
@@ -46,6 +47,7 @@ ALL_DETECTORS = dict(
     rtmpose_l_aic=RTMPoseLAIC,
     rtmpose_l_wholebody=RTMPoseWHolebody,
     rtmpose_m_mpii=RTMPoseMPII,
+    motionbert=MotionBERT,
     py_feat=PyFeat,
     spiga=Spiga,
     whisper=Whisper,

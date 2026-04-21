@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **MotionBERT** (`motionbert`): MMPose-based **3D body pose lifting** from a precomputed **`body_joints`** NPZ (default 2D source **`vitpose_huge`**). Lifting uses stored 2D keypoints/boxes from the NICE 2D pipeline, not a second 2D inferencer pass; optional **`Pose3DInferencer`** is for visualization only. Post-processing keeps **root-relative** `3d` (PnP / `2d_projected` / `3d_pnp_world` removed).
+
 ## 0.2.2
 - Refactoring of data preprocessing and inference for all detectors.
 - Major optimization and bug-fixing of py-feat inference.
