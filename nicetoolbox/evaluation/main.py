@@ -3,86 +3,76 @@ Main script to run the NICE Toolbox evaluation.
 """
 
 import argparse
-import cProfile
 import logging
+import shutil
+import time
 from pathlib import Path
 
-from ..evaluation.auto_summaries import create_auto_summaries
-from ..evaluation.results_wrapper.core import EvaluationResults
-from ..utils.system import check_long_path_support
-from ..utils.to_csv import results_to_csv
+from ..utils import logging_utils as log_ut
+from ..utils.system import system_capability_check
 from .config_handler import ConfigHandler
-from .engine import EvaluationEngine
-from .in_out import IO
+from .data.results_saver import save_results
+from .metrics.base_metric import BaseMetric
+from .metrics.categorical.confusion_matrix import ConfusionMatrixMetric
+from .metrics.categorical.roc_auc import RocAucMetric
+from .metrics.joints.bone_length import BoneLengthMetric
+from .metrics.joints.distance_error import DistanceErrorMetric
+from .metrics.joints.missing_points import MissingPointsMetric
+
+ALL_METRICS: dict[str, type[BaseMetric]] = dict(
+    bone_length=BoneLengthMetric,
+    distance_error=DistanceErrorMetric,
+    missing_points=MissingPointsMetric,
+    confusion_matrix=ConfusionMatrixMetric,
+    roc_auc=RocAucMetric,
+)
 
 
-def main_evaluation_run(project_folder_path: Path, machine_specifics: Path, eval_config: Path) -> None:
-    """Main function to set up and run the evaluation."""
-    # Configure root logger and a common formatter
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+def main(project_folder_path: Path, machine_specifics: Path, eval_config: Path) -> None:
+    """Run the NICE Toolbox evaluation pipeline end-to-end.
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
-    check_long_path_support()
+    Args:
+        project_folder_path (Path): Path to the project folder containing nice_project.toml.
+        machine_specifics (Path): Path to machine_specific_paths.toml.
+        eval_config (Path): Path to evaluation_config.toml
+    """
+    # initialize default console logging and perform system check
+    log_ut.init_console_logging()
+    system_capability_check()
 
-    # Initialize Configuration
-    try:
-        config_handler = ConfigHandler(project_folder_path, machine_specifics, eval_config)
-    except FileNotFoundError as e:
-        logging.error(f"Configuration file not found: {e}. Exiting.")
-        raise
-    except Exception as e:
-        logging.error(f"Error loading configuration: {e}. Exiting.")
-        raise
+    # load all configs
+    config = ConfigHandler(project_folder_path, machine_specifics, eval_config)
 
-    # Initialize IO manager
-    io_manager = IO(
-        config_handler.io_config,
-        config_handler.experiment_io,
-        config_handler.cfg_loader,
-    )
+    # create output folder for experiment storage
+    output_dir = config.eval_config.output_folder
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
 
-    # Write log file to the output folder
-    log_file_path: Path = io_manager.output_folder / "nice_evaluation.log"
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
+    # setup file logging based on config
+    log_ut.init_file_logging(config.eval_config.log_file_path, config.eval_config.log_level)
+    log_ut.log_main_banner("NICE TOOLBOX EVALUATION STARTED")
+    logging.info(f"Project path: '{config.project_folder}'")
+    logging.info(f"Machine specific path: '{config.machine_specific_path}'")
+    logging.info(f"Evaluation config path: '{config.eval_config_file_path}'")
+    logging.info(f"Log file saved at: '{config.eval_config.log_file_path}'")
+    logging.info(f"Output path: '{output_dir}'")
 
-    if not config_handler.global_settings.skip_evaluation:
-        logging.info(f"\n{'#' * 80}\n\nNICE TOOLBOX EVALUATION\n\n{'#' * 80}\n\n")
-        logging.info(f"Using project folder: {project_folder_path.resolve()}")
-        logging.info(f"Using machine specifics: {config_handler.machine_specific_path}")
-        logging.info(f"Using evaluation config: {config_handler.eval_config_file_path}")
-        logging.info(f"Output will be saved to base folder: {io_manager.output_folder}")
-        logging.info(f"Running on device: {config_handler.global_settings.device}")
+    config_dump_path = config.save_experiment_config(output_dir)
+    logging.info(f"Full config dump saved at: '{config_dump_path}'")
 
-        # Save the effective configuration for the overall experiment run
-        config_handler.save_experiment_config(io_manager.output_folder)
+    log_ut.log_banner("Metrics calculation")
+    for metric_name, metric_config in config.eval_config.metrics_to_run().items():
+        metric_cls = ALL_METRICS[metric_config.metric_type]
+        log_ut.log_with_underscore(f"RUNNING '{metric_name}' ({metric_config.metric_type})")
 
-        # Instantiate and run the EvaluationEngine
-        engine = EvaluationEngine(config_handler, io_manager)
-        engine.run()
+        start_time = time.time()
+        metric = metric_cls(metric_config, config)
+        res = metric.compute()
+        save_results(res, output_dir)
+        end_time = time.time() - start_time
 
-        logging.info("All evaluations have been successfully completed.")
-
-        # Evaluation already done. Postprocessing: CSV export
-        if config_handler.global_settings.verbose:
-            logging.info("Converting results to CSV format.")
-            results_to_csv(io_manager.get_out_folder(), io_manager.get_csv_folder())
-            logging.info("CSV conversion completed.")
-
-    # Evaluation already done. Postprocessing: Automatic summary creation
-    if config_handler.global_settings.verbose:
-        logging.info("Loading evaluation results for automatic summary reports.")
-        try:
-            results: EvaluationResults = EvaluationResults(root=io_manager.get_out_folder())
-            create_auto_summaries(io_manager, results, config_handler.summaries_configs)
-            logging.info("Automatic summaries created and exported.")
-        except Exception as err:
-            logging.error(f"Automatic summary creation failed with error: {err}", exc_info=True)
+        logging.info(f"FINISHED '{metric_name}' in {end_time:.3}s.\n\n")
 
 
 def entry_point():
@@ -109,17 +99,9 @@ def entry_point():
         required=False,
         help="Path to evaluation_config.toml, supports placeholders",
     )
-    parser.add_argument("--profile", action="store_true", help="Enable memory profiling")
     args = parser.parse_args()
 
-    if args.profile:
-        profiler = cProfile.Profile()
-        profiler.enable()
-        main_evaluation_run(args.project_folder_path, args.machine_specifics, args.eval_config)
-        profiler.disable()
-        profiler.dump_stats("evaluation.prof")
-    else:
-        main_evaluation_run(args.project_folder_path, args.machine_specifics, args.eval_config)
+    main(args.project_folder_path, args.machine_specifics, args.eval_config)
 
 
 if __name__ == "__main__":

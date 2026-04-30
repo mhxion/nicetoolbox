@@ -9,7 +9,7 @@ import pytest
 import toml
 
 from nicetoolbox.detectors.main import main as run_detectors
-from nicetoolbox.evaluation.main import main_evaluation_run as run_evaluation
+from nicetoolbox.evaluation.main import main as run_evaluation
 from nicetoolbox.visual.media.main import main as run_visualizer
 
 # useful for debug - we can skip detectors run

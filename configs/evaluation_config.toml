@@ -1,78 +1,94 @@
 # This config supports using placeholders.
 # options are <git_hash> <commit_message> <me> <today> <yyyymmdd> <time> <pwd>
-# and all keys from your local 'machine_specific_paths.toml':
-# <datasets_folder_path> and <output_folder_path>
+# and all keys from your local 'machine_specific_paths.toml' or 'nice_project.toml':
 
-# === (1) Global Settings ===
+log_level = "INFO"            # Options: "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
+log_file_path = "<output_folder>/evaluation.log"
 
-device = 'cuda:0'           # One of ("cpu", "cuda:0")
-batchsize = 1000            # Batchsize for data loader 
-verbose = true              # Verbose outputs (incl. csv files and automatic summaries)
-skip_evaluation = false     # Skips main eval loop -> only summary generation on existing results
+# default experiment path (used when no other experiment specified)
+default_experiment_name = "<yyyymmdd>"
+default_experiment = "<output_folder_path>/experiments/<default_experiment_name>"
+output_folder = "<default_experiment>_eval"
 
-# === (2) Evaluation IO ===
+# path to other configs
+predictions_mapping = "<configs_folder_path>/predictions_mapping.toml"
 
-[io]
-# Evaluation input folders (NICE toolbox detector output folders)
-experiment_name = "<yyyymmdd>"
-experiment_folder = "<output_folder_path>/experiments/<experiment_name>"
-# Evaluation output folders
-output_folder = "<experiment_folder>_eval"
-eval_visualization_folder = "<output_folder>/visualization"
+# ============================================================================================
+# =                                     Metrics                                              =
+# ============================================================================================
 
-# === (3) Metric selection and configuration ===
+# Whitelist of metrics that will be executed. Write "*" to run all of them 
+# or list ["bone_length", "bone_length_verbose"] to only run selected.
+run_metrics = "*"
 
-[metrics.point_cloud_metrics]
-metric_names = ["jpe"]
-gt_required = true
+# ================================= Bone Length ==============================================
+# This metric estimates how consistent 3d body joints bones across video recording are.
+# Bones (connection between two body joints) are defined in predictions_mapping config.
+# Metric assumes that bones should have constant distance and any deviation is a tracking error.
 
-[metrics.keypoint_metrics]
-metric_names = ["jump_detection", "bone_length"]
-gt_required = false
-gt_components = ['body_joints', 'hand_joints', 'face_landmarks']
-keypoint_mapping_file = "configs/predictions_mapping.toml"
+# This metric doesn't require any ground truth data.
+# It produces .npz bone length per frame and two summary .csv reports.
+# Check 'std' and 'cv' in summary report - lower is better.
 
-[metrics.categorical_metrics]
-metric_names = ["accuracy", "precision", "recall", "f1_score"]  # "mse"
-gt_required = true
+# basic metric
+[metrics.bone_length]
+metric_type = "bone_length"
+predictions = { component = "body_joints", npz_key = "3d" }  # use default experiment, override with path if needed
+summary_group_by = ["subject", "sequence", "label"]
+summary_aggr = ["min", "mean", "max", "std", "cv"]
 
-# === (4) Metric aggregation summaries ===
+# filter by two algorithms
+[metrics.bone_length_hrnet_vs_vitpose]
+metric_type = "bone_length"
+predictions = { component = "body_joints", algorithm = ["hrnetw48", "vitpose_huge"], npz_key = "3d" }
+summary_group_by = ["subject", "sequence", "label"]
+summary_aggr = ["median", "std"]  # we can customize aggregation function
 
-# Here you can define multiple summaries with different aggregation settings
-# that are automatically computed after evaluation when `verbose` is set to true. 
+# motionBERT vs rest
+# usually motionBERT shows low variance, but high bias
+[metrics.bone_length_motion_bert]
+metric_type = "bone_length"
 
-[summaries.bone_length_report]                              # Name of the summary                                          
-metric_names = ["bone_length"]                              # List of metric names to include in the summary
-aggr_functions = ["mean", "std", "min", "max"]              # List of aggregation functions to apply
-filter = {dataset = "communication_multiview"}              # Filters to apply before aggregation
-aggregate_dims = ["sequence", "person", "camera", "frame"]  # Dimensions to aggregate over
+# we can declare input block with dot notation
+predictions.component = ["body_joints", "body_joints_lifted"]
+predictions.camera = ["3d", "view_center"]  # we take only view center prediction for motion bert
+predictions.npz_key = "3d"
 
-[summaries.bone_length_report_detailed] # bone length statistics for each bone 
-metric_names = ["bone_length"]
-aggr_functions = ["mean", "std", "min", "max"]
-filter = {dataset = "communication_multiview"}
-aggregate_dims = ["frame"]
+summary_group_by = ["subject", "sequence", "label"]
+summary_aggr = ["min", "mean", "max", "std", "cv"]
 
-[summaries.bone_length_legs_report] # bone length statistics for leg bones only grouped by participants
-metric_names = ["bone_length"]
-aggr_functions = ["mean", "std", "min", "max"]
-filter = {dataset = "communication_multiview", label=["left_upper_leg", "left_lower_leg", "right_upper_leg", "right_lower_leg"]}
-aggregate_dims = [ "camera", "frame"]
+# ================================= Missing Points ==============================================
+# Counts missing joints per frame. Joint considered missing if coordinate contains nan
+# or confidence below min_confidence threshold (optional)
 
-[summaries.jump_detection_report] # percentage of detected jumps by group (compares e.g. different algorithms)
-metric_names = ["jump_detection"]
-aggr_functions = ["mean"]
-filter = {dataset = "communication_multiview"}
-aggregate_dims = ["sequence", "person", "camera", "frame", "label"]
+# This metric doesn't require any ground truth data.
+# It produces .npz of counted joints (number and percent) per frame and two summary .csv reports.
+# Check detection rate as final score - higher is better. 
 
-[summaries.full_body_jump_detection_report] # percentage of detected jumps over all keypoints
-metric_names = ["jump_detection"]
-aggr_functions = ["mean"]
-filter = {dataset = "communication_multiview"}
-aggregate_dims = ["sequence", "person", "camera", "frame"]
+# let's compare 3d missing points (after triangulation for multi-camera setup)
+[metrics.missing_points_3d]
+metric_type = "missing_points"
+predictions = { component = "body_joints", npz_key = "3d" } 
+missing_points_summary_group_by = []  # no group by - just give one number per algorithm
+missing_points_summary_aggr = [
+# we can assign custom names for aggregation functions  
+#      column name            aggregation function
+    { name = "total_count",    fn = "count" },           # total number of points
+    { name = "miss_count",     fn = "sum" },             # all missing points
+    { name = "detection_rate", fn = "one_minus_mean" }   # percentage of detected points (1 - missing rate)
+]
 
-[summaries.body_joints_jump_detection_report] # percentage of detected jumps per keypoint
-metric_names = ["jump_detection"]
-aggr_functions = ["mean"]
-filter = {dataset = "communication_multiview", component="body_joints"}
-aggregate_dims = ["sequence", "person", "camera", "frame"]
+# again 3d missing point, but very detailed group by
+[metrics.missing_points_3d_verbose]
+metric_type = "missing_points"
+predictions = { component = "body_joints", npz_key = "3d" } 
+missing_points_summary_group_by = "*"  # full group by - as detailed summary as possible
+missing_points_summary_aggr = [{ name = "miss_rate", fn = "mean" }]
+
+# 2d missing points with confidence threshold > 0.5
+[metrics."missing_points_2d@0.5"]
+metric_type = "missing_points"
+predictions = { component = "body_joints", npz_key = "2d" } 
+min_confidence = 0.5  # custom threshold of confidence per joint
+missing_points_summary_group_by = "*"
+missing_points_summary_aggr = [{ name = "miss_rate", fn = "mean" }]

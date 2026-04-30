@@ -16,7 +16,7 @@ from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
 from ..utils.dependency_sort import sort_detectors_order
 from ..utils.error_handling import manage_error_scope
-from ..utils.system import check_long_path_support
+from ..utils.system import system_capability_check
 from . import config_handler as confh
 from .data import SequenceData
 from .feature_detectors.gaze_interaction.gaze_distance import GazeDistance
@@ -68,6 +68,10 @@ def main(project_folder_path: Path, machine_specifics_file: Path, run_config_fil
         machine_specifics_file (Path): The path to the machine specifics file.
         run_config_file (Path): The path to the run configuration file.
     """
+    # initialize default console logging and perform system check
+    log_ut.init_console_logging()
+    system_capability_check()
+
     # ==================================
     # PHASE 1: Load Static Configuration
     # ==================================
@@ -80,8 +84,8 @@ def main(project_folder_path: Path, machine_specifics_file: Path, run_config_fil
     main_output_folder.mkdir(parents=True, exist_ok=True)
 
     log_file = main_output_folder / "nicetoolbox.log"
-    log_ut.setup_logging(log_file, log_level.name)
-    check_long_path_support()
+
+    log_ut.init_file_logging(log_file, log_level.name)
     log_ut.log_main_banner(f"NICE TOOLBOX STARTED. Saving results to '{main_output_folder}'.")
 
     # asset download manager

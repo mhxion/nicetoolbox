@@ -105,7 +105,7 @@ To monitor the experiment, check the log file at `/path/to/<out_folder>/nicetool
 ## 6. Visualize the results
 
 There are multiple options to visualize the results of NICE toolbox.
-For an interactive experience, we recommend using our `visual` code, which runs `rerun`.
+For an interactive experience, we recommend using our visualizer code, which runs `rerun`.
 To do so, open `./configs/visualizer_config.toml` and update the entries `io.experiment_folder`, `io.dataset_name`, and `io.video_name`.
 
 ```toml

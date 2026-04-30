@@ -26,7 +26,8 @@ dependencies = [
     "pydantic",
     "urllib3==1.26.15",
     "requests",
-    "tqdm"
+    "tqdm",
+    "scikit-learn"
 ]
 
 [project.optional-dependencies]
@@ -45,21 +46,12 @@ dev = [
     "sphinxcontrib-video==0.3.1",
     "tox",
 ]
-visual = [
-    "matplotlib",
-    "plotly",
-    "seaborn",
-    "streamlit",
-    "tueplots",
-    "kaleido"
-]
 
 [project.scripts]
 run_detectors = "nicetoolbox.detectors.main:entry_point"
 run_visualization = "nicetoolbox.visual.media.main:entry_point"
 run_calibration_gui = "nicetoolbox.utils.calibration_gui.calibration_converter:entry_point"
 run_evaluation = "nicetoolbox.evaluation.main:entry_point"
-run_statistics = "nicetoolbox.visual.statistics.main:entry_point"
 download_assets = "nicetoolbox.download_manager.main:entry_point"
 
 # Setuptools
@@ -132,7 +124,7 @@ disable = "invalid-name"
 
 [tool.codespell]
 skip = "__pycache__,./.mypy_cache,.git,.idea,./venv,./env,./.tox"
-ignore-words-list = "setts"
+ignore-words-list = "setts,fpr,tpr"
 
 # Coverage run settings
 # coverage run -m  unittest discover
