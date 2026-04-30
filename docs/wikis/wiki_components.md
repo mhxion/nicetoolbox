@@ -15,7 +15,7 @@ This document first introduces the toolbox's output files and then details the d
 
 The output of each component is saved in the corresponding component folder as an `<algorithm_name>.npz` file. Additionally, if the `save_csv` parameter is set to true in the [`./configs/detectors_run_file.toml`](../../configs/detectors_run_file.toml) file, the outputs will also be saved in the csv_files folder as separate CSV files. For both file formats, the results for different algorithms are provided separately.
 
-### Numpy arrays
+### Numpy arrays (Video based components output format)
 Per component, each `<algorithm>.npz` file contains several numpy arrays plus a dictionary called `data_description`.
 
 | component | contained numpy arrays |
@@ -33,6 +33,45 @@ Per component, each `<algorithm>.npz` file contains several numpy arrays plus a 
 | emotion_individual | faceboxes, aus, emotions, poses |
 
 All these numpy arrays share a common structure: the first 3 dimensions contain the subjects, cameras, and frames, the remaining dimensions vary with the respective entity.
+
+### Json files (Audio based components output format)
+
+Per component, the `<algorithm_name>.json` file contains the output of the audio related components. These JSON files generally list results per audio track. Specifically for the `speaker_aligned_transcription` component output, the structure is always fixed as follows:
+
+```json
+{
+    "track_name": {
+        "total": {
+            "text": "full concatenated transcription text for the track",
+            "start": "start_time_of_first_segment",
+            "end": "end_time_of_last_segment"
+        },
+        "segments": [
+            {
+                "start": "segment_start_time",
+                "end": "segment_end_time",
+                "text": "segment_transcription_text",
+                "avg_logprob": "segment_avg_log_probability"
+            },
+            // next segment ...
+        ],
+        "word_segments": [
+            {
+                "word": "word_text",
+                "start": "word_start_time",
+                "end": "word_end_time",
+                "score": "word_log_probability_score",
+                "speaker": "speaker_label"
+            },
+            // next word segment ...
+        ],
+        "language": "detected_language"
+    },
+    // next track ...
+}
+```
+
+...
 
 ### Data description
 The `data_description` dictionary details the entries of all numpy files within on component's algorithm `.npz` file. `axis0` contains the subject descriptions, `axis1` the camera names or '3d', and `axis2` the frame numbers as a string of 5 digits. The remaining axis may take the following data:
@@ -180,3 +219,17 @@ Results are stored in `.npz` files under `<output_folder>/emotion_individual/<al
 The **head_orientation** component uses the SPIGA algorithm to estimate the direction in which each subject's head is pointing, as seen from different camera views. For every visible subject in each frame and view, SPIGA outputs a 2D vector representing the head pose: it begins at the estimated center of the nose and points outward in the predicted direction of the face. These vectors are computed by applying a rotation matrix (derived from the model’s estimated rotation vector) to a fixed reference vector, which is then projected onto the image plane.
 
 The output is saved as a `head_orientation` array within the `<output_folder>/head_orientation/<algorithm_name>.npz` file. This array includes the image-plane coordinates of the nose base and nose tip for each subject, camera, and frame, along with a confidence score (currently fixed at 1.0). These estimates can be used for visualizations or further analysis of directional behavior, such as identifying shifts in attention or synchrony between individuals. Each frame is processed independently, and results are aligned with the rest of the NICE Toolbox outputs, making this component easily integrable with gaze, pose, and emotion data.
+
+## Audio Transcription
+
+Extracts transcribed text from audio sources. The **audio_transcription** component converts spoken language in the audio tracks into written text. Depending on the underlying methodology, it may apply techniques like Voice Activity Detection (VAD) and forced alignment to generate highly accurate word-level or segment-level transcriptions. The intermediate outputs are saved in `<output_folder>/audio_transcription/<algorithm_name>.json`.
+
+## Audio Diarization
+
+Identifies "who spoke when" within the audio sources. The **audio_diarization** component separates the audio stream into distinct speaker turns. It partitions the audio segments and assigns speaker labels based on the audio tracks, allowing the system to track different speakers throughout a conversation. The intermediate outputs are saved in `<output_folder>/audio_diarization/<algorithm_name>.json`.
+
+## Speaker Aligned Transcription
+
+Combines transcription and diarization results into a single, fully structured format. The **speaker_aligned_transcription** component merges the extracted speech text with the identified speaker turns, mapping the correct speaker labels to the corresponding word or sentence segments. 
+
+The final processed output is saved in `<output_folder>/speaker_aligned_transcription/<algorithm_name>.json`. This component also produces extra outputs (e.g., subtitle `.srt` files in the detector output directory) which are utilized to bake visualizations like subtitle overlays into video files.

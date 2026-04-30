@@ -25,12 +25,19 @@ kinematics = ['velocity_body']
 proximity = ['body_distance']
 emotion_individual = ['py_feat']
 head_orientation = ['spiga']
-audio_transcription = ['whisper']
+audio_transcription = ['whisperx']
+audio_diarization = ['whisperx']
+speaker_aligned_transcription = ['whisperx']
 
 # define which data to run on
 [run]
 [run.communication_multiview]
-components = ["audio_transcription", "body_joints", "body_joints_lifted", "gaze_individual", "gaze_multiview", "gaze_interaction", "kinematics", "proximity", "emotion_individual", "head_orientation"]
+components = [
+   "audio_transcription", "audio_diarization", "speaker_aligned_transcription",
+   "body_joints", "body_joints_lifted", 
+   "gaze_individual", "gaze_multiview", "gaze_interaction", 
+   "kinematics", "proximity", "emotion_individual", "head_orientation"
+]
 videos = [
    {session_ID = "", sequence_ID="sequence_xyz", video_start = 0, video_length = -1}  # Note: -1 for full video length
 ]

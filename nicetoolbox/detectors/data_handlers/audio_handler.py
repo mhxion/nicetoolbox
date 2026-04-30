@@ -96,11 +96,13 @@ class AudioDataHandler(BaseModalityHandler):
         hears = track_cfg.hears_subjects
         logging.info(f"Extracting audio track '{track_name}', stream: {stream_idx}, channel: {channel_idx}")
 
+        camera = None
         # check where to look for a file
         if track_cfg.is_embedded:
             logging.info(f"Audio track is embedded into video, looking for camera {track_cfg.camera}...")
             source_path = self._find_video_for_camera(track_cfg.camera)
             source_type = "embedded"
+            camera = track_cfg.camera
         elif track_cfg.is_standalone:
             source_path = Path(track_cfg.path)
             source_type = "standalone"
@@ -115,7 +117,7 @@ class AudioDataHandler(BaseModalityHandler):
         output_path = self.audio_output_folder / f"{track_name}.wav"
         if output_path.exists():
             logging.info(f"Audio track '{track_name}' already prepared: '{output_path}'")
-            self._register_file(track_name, source_type, hears, output_path, source_path)
+            self._register_file(track_name, source_type, hears, output_path, source_path, camera=camera)
             return
 
         # validate input file with ffprobe before processing
@@ -128,7 +130,7 @@ class AudioDataHandler(BaseModalityHandler):
         # extract with ffmpeg
         logging.info("Extracting Audio Track from file...")
         self._ffmpeg_extract_full(source_path, output_path, stream_idx, channel_idx)
-        self._register_file(track_name, source_type, hears, output_path, source_path)
+        self._register_file(track_name, source_type, hears, output_path, source_path, camera=camera)
         logging.info(f"Audio Track extracted: {output_path}")
 
     # -------------------------------------------------------------------------
@@ -142,6 +144,7 @@ class AudioDataHandler(BaseModalityHandler):
         hears_subjects: List[int],
         output_path: Path,
         source_path: Optional[Path] = None,
+        camera: Optional[str] = None,
     ) -> None:
         """Probe and register an audio file as a stream."""
         streams = self._probe_file(output_path)
@@ -166,6 +169,7 @@ class AudioDataHandler(BaseModalityHandler):
             sample_rate=int(sample_rate),
             channels=int(channels),
             source_type=source_type,
+            camera=camera,
             hears_subjects=hears_subjects,
         )
 

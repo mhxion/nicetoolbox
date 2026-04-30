@@ -71,5 +71,28 @@ Py-FEAT includes a variety of **pre-trained models** for **face detection, facia
 
 SPIGA uses **InsightFace** for face detection, then applies its GNN-powered inference module to extract facial landmarks and head orientation vectors. Outputs include annotated images (if enabled) and compressed `.npz` files containing head pose vectors for each camera-subject-frame triplet.
 
+## WhisperX (Audio Transcription & Speaker Diarization)
 
+**WhisperX** provides fast automatic speech recognition (ASR) with word-level timestamps and speaker diarization. By integrating voice activity detection (VAD) preprocessing and forced alignment, WhisperX significantly reduces hallucinations and improves timestamp accuracy compared to the original Whisper model. In the NICE toolbox, it is utilized to process audio tracks for transcription and to systematically identify who is speaking and when.  
+[Bain et al., 2023](https://arxiv.org/abs/2303.00747)
+
+### Voice Activity Detection (VAD)
+The detection of the presence or absence of human speech. WhisperX uses VAD preprocessing to cleanly segment the audio. This crucial step enables efficient batched inference and reduces model hallucinations.
+
+### Audio Transcription
+Leverages the core Whisper architecture (via a `faster-whisper` backend) to generate highly accurate text predictions from the isolated speech segments.
+
+### Audio Alignment
+To achieve precise word-level timestamps, WhisperX applies "forced alignment". This process uses language-specific phoneme-based ASR models (such as `wav2vec2.0`) to align the orthographic transcriptions with the physical phonemes in the audio recording.
+
+### Speaker Diarization
+The process of partitioning the audio stream into homogeneous segments based on the identity of each speaker. WhisperX integrates `pyannote-audio` to cluster the speech segments, ultimately assigning discrete speaker ID labels to the timestamped words. *Note that currently we can not safely map the speaker labels to the actual subjects in the video.*
+
+### Detector Configuration
+The following parameters can be fine-tuned inside the detector configuration file:
+- **`model_size`** (`"large-v3"`): The size of the underlying Whisper model. Larger models improve transcription accuracy but require more GPU memory.
+- **`batch_size`** (`16`): The number of audio segments processed concurrently. Decrease this value if you encounter out-of-memory errors on smaller GPUs.
+- **`language`** (`"en"`): Explicitly setting the language code speeds up processing and ensures the correct forced alignment model is queried.
+- **`vad_onset` / `vad_offset`** (`0.9`): Activation and deactivation probability thresholds for generating speech segments in the VAD step.
+- **`alignment_model_name`** (`"WAV2VEC2_ASR_LARGE_LV60K_960H"`): The specific Hugging Face repository name containing the phoneme-based model used to align transcriptions to the audio.
 

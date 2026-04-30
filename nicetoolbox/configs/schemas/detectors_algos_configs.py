@@ -200,10 +200,21 @@ class MultiViewETHXGazeConfig(BaseModel):
     required_assets: Dict[str, str] = Field(default_factory=dict)
 
 
-@detector_config("whisper")
-class WhisperConfig(BaseModel):
+@detector_config("whisperx")
+class WhisperXConfig(BaseModel):
     env_name: str
     visualize: bool
+    track_names: List[str]
+
+    model_size: str
+    compute_type: str
+    batch_size: int
+    language: Optional[str]
+    vad_onset: float
+    vad_offset: float
+    hf_token: str
+    alignment_model_name: str
+    required_assets: Dict[str, str] = Field(default_factory=dict)
 
 
 # === Add Method detectors HERE ===

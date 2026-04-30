@@ -304,7 +304,14 @@ def remove_last_segment_from_file(segments_list_file: str) -> None:
     segments_df.to_csv(segments_list_file)
 
 
-def frames_to_video(input_folder: str, out_filename: str, fps: float = 30.0, start_frame: int = 0) -> int:
+def frames_to_video(
+    input_folder: str,
+    out_filename: str,
+    fps: float = 30.0,
+    start_frame: int = 0,
+    audio_path: Optional[str] = None,
+    srt_path: Optional[str] = None,
+) -> int:
     """
     Convert a folder of frames to a video using ffmpeg.
 
@@ -312,50 +319,107 @@ def frames_to_video(input_folder: str, out_filename: str, fps: float = 30.0, sta
         input_folder (str): Path to the folder containing the frames.
         out_filename (str): Path to the output video file.
         fps (float, optional): Frames per second of the output video. Defaults to 30.0.
+        start_frame (int, optional): The starting frame number. Defaults to 0.
+        audio_path (Optional[str], optional): Path to an audio file to include. Defaults to None.
+        srt_path (Optional[str], optional): Path to a subtitle (SRT) file to include. Defaults to None.
 
     Returns:
         int: Return code of the ffmpeg command.
     """
     if os.path.isdir(input_folder):
-        abs_folder = os.path.abspath(input_folder)
-        files = sorted(f for f in os.listdir(abs_folder) if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")))
-        if not files:
-            logging.error("Image folder is empty or has no image frames: %s", input_folder)
+        if os.listdir(input_folder) == []:
+            logging.error("Image folder is empty")
             return 1
-        stem, file_format = files[0].rsplit(".", 1)
-        input_pattern = os.path.join(abs_folder, f"%0{len(stem)}d.{file_format}")
-    else:
-        input_pattern = input_folder
+        num, file_format = os.listdir(input_folder)[0].split(".")
+        input_folder = os.path.join(input_folder, f"%0{len(num)}d.{file_format}")
 
     out_format = os.path.basename(out_filename).rsplit(".")[-1]
+
     # fmt: off
+    cmd = [
+        "ffmpeg", "-y",
+        "-framerate", str(fps), "-start_number", str(start_frame),
+        "-loglevel", "error", "-i", input_folder
+    ]
+    vf_filters = []
+
+    if audio_path:
+        cmd.extend(["-i", audio_path])
+
+    if srt_path:
+        # there is a bug in ffmpeg for Windows - need double escaping for filters
+        # also for whitespace path - we include single brackets
+        srt_escaped = srt_path.replace("\\", r"\\\\").replace(":", r"\\:")
+        vf_filters.append(f"subtitles='{srt_escaped}'")
+
     if out_format != "gif":
         # Even width/height required for yuv420p; odd sizes cause green lines / broken files.
-        cmd = [
-            "ffmpeg", "-y",
-            "-framerate", str(fps),
-            "-start_number", str(start_frame),
-            "-loglevel", "error",
-            "-i", input_pattern,
-            "-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2",
-            "-c:v", "libx264",
+        vf_filters.append("crop=trunc(iw/2)*2:trunc(ih/2)*2")
+        cmd.extend([
+            "-codec:v", "libx264",
             "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
-            out_filename,
-        ]
-    else:
-        cmd = [
-            "ffmpeg", "-y",
-            "-framerate", str(fps),
-            "-start_number", str(start_frame),
-            "-loglevel", "error",
-            "-i", input_pattern,
-            out_filename,
-        ]
+        ])
+
+    if vf_filters:
+        cmd.extend(["-vf", ",".join(vf_filters)])
+
+    if audio_path:
+        cmd.extend(["-c:a", "aac", "-shortest"])
+
+    cmd.append(out_filename)
     # fmt: on
 
     output = subprocess.run(cmd, check=False)
     return output.returncode
+
+
+def video_with_subtitles_from_frames(
+    input_folder: Optional[str],
+    audio_path: str,
+    srt_path: str,
+    output_path: str,
+    fps: float = 30.0,
+    start_frame: int = 0,
+) -> None:
+    """
+    Creates a video with subtitles baked in. If input_folder is provided,
+    builds the video from the frames. Otherwise, creates a black fallback video
+    matching the audio duration.
+
+    Args:
+        input_folder (Optional[str]): Path to the folder containing the frames.
+            If None, a black fallback video is generated.
+        audio_path (str): Path to the audio file.
+        srt_path (str): Path to the subtitle (SRT) file.
+        output_path (str): Path to the output video file.
+        fps (float, optional): Frames per second. Defaults to 30.0.
+        start_frame (int, optional): The starting frame number. Defaults to 0.
+    """
+    if input_folder:
+        ret = frames_to_video(
+            input_folder=input_folder,
+            out_filename=output_path,
+            fps=fps,
+            start_frame=start_frame,
+            audio_path=audio_path,
+            srt_path=srt_path,
+        )
+        if ret != 0:
+            logging.error(f"Failed to generate video from {input_folder}")
+    else:
+        # fmt: off
+        cmd = [
+            "ffmpeg", "-y",
+            "-loglevel", "error",
+            "-i", audio_path,
+            "-f", "lavfi", "-i", f"color=c=black:s=1280x720:r={fps}",
+            "-vf", f"subtitles={srt_path}",
+            "-c:v", "h264", "-c:a", "aac", "-shortest",
+            output_path,
+        ]
+        # fmt: on
+        subprocess.run(cmd, check=True)
 
 
 def probe_video(video_path: str) -> dict:
