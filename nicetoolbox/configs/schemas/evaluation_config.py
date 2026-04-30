@@ -1,78 +1,66 @@
+from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field, PrivateAttr, field_validator
+from pydantic import BaseModel, Field, model_validator
 
-
-class EvaluationIO(BaseModel):
-    """
-    I/O paths configuration for evaluation.
-    """
-
-    experiment_name: str
-    experiment_folder: Path
-    output_folder: Path
-    eval_visualization_folder: Path
+from .evaluation_metrics_config import METRICS_REGISTRY, BaseMetricConfig
 
 
-class EvaluationMetricType(BaseModel):
-    """
-    Configuration for a single evaluation metric type.
-    """
-
-    metric_names: List[str]
-    gt_required: bool
-    gt_components: Optional[List[str]] = None
-    keypoint_mapping_file: Optional[Path] = None
-
-    # Runtime fields
-    _metric_type: str = PrivateAttr()
-
-
-class AggregationConfig(BaseModel):
-    """
-    Configuration for aggregated metrics summaries.
-    """
-
-    metric_names: List[str]
-    aggr_functions: List[str]
-    filter: dict[str, str | List[str]] = Field(default_factory=dict)
-    aggregate_dims: List[str] = Field(default_factory=list)
-
-    # Runtime fields
-    _summary_name: str = PrivateAttr()
-
-    @field_validator("aggregate_dims", mode="before")
-    def _validate_aggregate_dims(cls, values: List[str]) -> List[str]:
-        allowed = {"sequence", "person", "camera", "label", "frame"}
-        invalid = set(values) - allowed
-        if invalid:
-            raise ValueError(
-                f"Invalid aggregate_dims entries: {sorted(invalid)}. " f"Allowed values are {sorted(allowed)}."
-            )
-        return values
-
-
-# Top-level keys in evaluation_config.toml
 class EvaluationConfig(BaseModel):
-    """
-    Configuration schema for evaluation settings.
-    Contains I/O paths and metric type definitions.
-    """
+    """Top-level evaluation configuration loaded from TOML."""
 
-    device: str
-    batchsize: int
-    verbose: bool
-    skip_evaluation: bool
+    log_level: str
+    log_file_path: Path
 
-    io: EvaluationIO
-    metrics: dict[str, EvaluationMetricType] = Field(default_factory=dict)
-    summaries: dict[str, AggregationConfig] = Field(default_factory=dict)
+    default_experiment: Path
+    output_folder: Path
 
-    def model_post_init(self, _):
-        # injecting key into each metrics
-        for key, value in self.metrics.items():
-            value._metric_type = key
-        # injecting key into each summary
-        for key, value in self.summaries.items():
-            value._summary_name = key
+    predictions_mapping: Path
+
+    # subset of metric names to run; "*" means run all
+    run_metrics: list[str] | str = "*"
+    metrics: dict[str, BaseMetricConfig] = Field(default_factory=dict)
+
+    compare: dict[str, Any] = Field(default_factory=dict)
+    summaries: dict[str, Any] = Field(default_factory=dict)
+
+    def metrics_to_run(self) -> dict[str, BaseMetricConfig]:
+        """Return the subset of metrics selected by run_metrics."""
+        if self.run_metrics == "*":
+            return self.metrics
+        run = [self.run_metrics] if isinstance(self.run_metrics, str) else self.run_metrics
+        unknown = set(run) - self.metrics.keys()
+        if unknown:
+            raise ValueError(f"run_metrics refers to unknown metrics: {unknown}")
+        return {name: self.metrics[name] for name in run}
+
+    @model_validator(mode="after")
+    def fill_default_experiment_paths(self) -> "EvaluationConfig":
+        for metric in self.metrics.values():
+            for block in metric.input_blocks():
+                if block.path is None:
+                    block.path = self.default_experiment
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_metrics(cls, values):
+        # because we will modify the input dict, it is safer to deepcopy first
+        values = deepcopy(values)
+        metrics_raw = values.get("metrics", {})
+
+        # validate metrics schemas based on their type
+        # TODO: make this general for registry?
+        parsed_metrics = {}
+        for name, metric_dict in metrics_raw.items():
+            if "metric_type" not in metric_dict:
+                raise ValueError(f"Metric '{name}' is missing required 'metric' field.")
+            metric_type = metric_dict["metric_type"]
+
+            cfg = METRICS_REGISTRY.parse(metric_type, metric_dict)
+            cfg._metric_name = name
+            parsed_metrics[name] = cfg
+
+        values["metrics"] = parsed_metrics
+        return values

@@ -6,16 +6,6 @@ from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, PrivateAttr,
 from ..models.dict_model import DictModel
 
 
-class DatasetConfigEvaluation(BaseModel):
-    """
-    Optional evaluation configuration for a dataset.
-    Specifies annotation components and metric types to be used.
-    """
-
-    annotation_components: List[str]
-    metric_types: List[str]
-
-
 class AudioTrackConfig(BaseModel):
     """
     Configuration for a single audio track.
@@ -71,6 +61,22 @@ class DatasetAudio(BaseModel):
     tracks: Optional[Dict[str, AudioTrackConfig]] = Field(default_factory=dict)
 
 
+class AnnotationComponentConfig(BaseModel):
+    """
+    Annotation source configuration for a single component.
+    """
+
+    path: Path
+
+
+class DatasetAnnotation(BaseModel):
+    """
+    Optional per-component annotation paths used by evaluation input blocks.
+    """
+
+    components: Dict[str, AnnotationComponentConfig] = Field(default_factory=dict)
+
+
 class DatasetConfig(BaseModel):
     """
     Configuration schema for a single dataset.
@@ -94,10 +100,7 @@ class DatasetConfig(BaseModel):
     start_frame_index: NonNegativeInt
     fps: PositiveInt
 
-    path_to_annotations: Path
-    evaluation: List[DatasetConfigEvaluation]
-    synonyms: Optional[dict] = Field(default_factory=dict)
-
+    annotation: DatasetAnnotation = Field(default_factory=DatasetAnnotation)
     audio: DatasetAudio = Field(default_factory=DatasetAudio)
 
     # Runtime fields

@@ -43,6 +43,7 @@ def entry_point():
 
     args = parser.parse_args()
 
+    log_ut.init_console_logging()
     config = confh.Configuration(args.project_folder_path, args.machine_specifics, args.run_config)
 
     log_level = config.run_config.log_level
@@ -51,7 +52,7 @@ def entry_point():
     main_output_folder.mkdir(parents=True, exist_ok=True)
 
     log_file = main_output_folder / "nicetoolbox.log"
-    log_ut.setup_logging(log_file, log_level.name)
+    log_ut.init_file_logging(log_file, log_level.name)
 
     logging.info(f"Initialising asset manager; project: '{args.project_folder_path}', run_config: '{args.run_config}'")
     manager = AssetManager(config)

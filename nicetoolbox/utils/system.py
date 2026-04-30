@@ -8,6 +8,11 @@ import platform
 from .logging_utils import log_banner
 
 
+def system_capability_check() -> None:
+    """Checks current system-specific capabilities (i.e. max path length)"""
+    check_long_path_support()
+
+
 def check_long_path_support() -> None:
     """Check if Windows long path support is enabled and warn if not.
 

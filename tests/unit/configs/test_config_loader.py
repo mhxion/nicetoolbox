@@ -1,13 +1,15 @@
 from pathlib import Path
 
+from pydantic import BaseModel, Field
+
 from nicetoolbox.configs.config_loader import ConfigLoader
-from nicetoolbox.configs.placeholders import get_placeholders
+from nicetoolbox.configs.placeholders import get_placeholders, resolve_placeholders
 from nicetoolbox.configs.schemas.dataset_properties import DatasetProperties
 from nicetoolbox.configs.schemas.detectors_config import DetectorsConfig
 from nicetoolbox.configs.schemas.detectors_run_file import DetectorsRunFile
 from nicetoolbox.configs.schemas.machine_specific_paths import MachineSpecificConfig
 from nicetoolbox.configs.schemas.project_config import ProjectConfig
-from nicetoolbox.configs.utils import default_runtime_placeholders
+from nicetoolbox.configs.utils import default_runtime_placeholders, dict_to_model
 
 PROJECT_FOLDER = Path(".")
 
@@ -60,3 +62,36 @@ def test_load_detectors_config():
         res_dataset = cfg_loader.resolve(dataset, ctx)
         example_field = res_dataset["communication_multiview"].data_input_folder
         assert sequence_ID in str(example_field)
+
+
+def test_load_config_default_placeholder_not_resolved():
+    """
+    Regression test: placeholders embedded in Pydantic field *defaults* are not
+    resolved by ConfigLoader.load_config.
+
+    load_config resolves placeholders on the raw TOML dict, then calls
+    dict_to_model to construct the Pydantic model.  Fields absent from the TOML
+    are filled in by Pydantic from their Python defaults *after* resolution has
+    already run, so any placeholder in a default (e.g.
+    ``Field(default=Path("<base_dir>/result"))``) is never seen by the resolver.
+
+    The fix requires a second resolve() pass on the constructed model inside
+    load_config.  Until that fix lands, the assertion below documents the broken
+    behaviour.
+    """
+
+    class ConfigWithDefault(BaseModel):
+        name: str
+        path: Path = Field(default=Path("<base_dir>/result"))
+
+    # Simulate what load_config does: resolve the raw dict, then construct model.
+    raw = {"name": "<app_name>"}  # 'path' intentionally absent — default will apply
+    placeholders = {"app_name": "MyApp", "base_dir": "/data"}
+
+    resolved_raw = resolve_placeholders(raw, placeholders)
+    model = dict_to_model(resolved_raw, ConfigWithDefault)
+
+    assert model.name == "MyApp"
+    # BUG: path default was never seen by the resolver — placeholder survives.
+    assert model.path == Path("<base_dir>/result")  # remove once bug is fixed
+    assert model.path != Path("/data/result")  # remove once bug is fixed
