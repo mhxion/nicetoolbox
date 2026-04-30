@@ -39,6 +39,7 @@ class AudioStreamRecipe(BaseModel):
     sample_rate: int
     channels: int
     source_type: str  # 'embedded' (from video) or 'standalone' (separate file)
+    camera: Optional[str] = None  # Camera name if source_type is 'embedded'
     hears_subjects: List[int] = Field(min_length=1)  # Subject indices this track can hear.
 
 

@@ -18,6 +18,7 @@ ifeq ($(OS), Windows_NT)
 	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/Scripts
 	PYFEAT_EXE_DIR = ./envs/py_feat/Scripts
 	SPIGA_EXE_DIR = ./envs/spiga/Scripts
+	WHISPERX_EXE_DIR = ./envs/whisperx/Scripts
 else
 	PYTHON_EXE = python3.10
     CONDA_DIR := $(shell conda info --base)
@@ -26,6 +27,7 @@ else
 	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/bin
 	PYFEAT_EXE_DIR = ./envs/py_feat/bin
 	SPIGA_EXE_DIR = ./envs/spiga/bin
+	WHISPERX_EXE_DIR = ./envs/whisperx/bin
 endif
 
 
@@ -188,6 +190,11 @@ ifeq ("$(wildcard $(SPIGA_EXE_DIR)/activate)","")
 	@make install_spiga
 endif
 
+#	Install WhisperX if not already installed
+ifeq ("$(wildcard $(WHISPERX_EXE_DIR)/activate)","")
+	@make install_whisperx
+endif
+
 #	check for conda installation
 ifeq ($(which conda),"")
 	@echo "No CONDA installation found. Check the documentation for instructions: https://nicetoolbox.readthedocs.io/en/stable/installation.html."
@@ -276,6 +283,23 @@ install_spiga:
 	@$(SPIGA_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/head_orientation/spiga_requirements.txt
 	@$(SPIGA_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'SPIGA' environment setup completed successfully."
+
+
+# Install the venv for pyfeat
+.PHONY: install_whisperx
+install_whisperx:
+	@make create_separator
+	@echo "Installing virtual environment for algorithm 'WhisperX'..."
+
+	@echo "Creating virtual environment..."
+	@$(PYTHON_EXE) -m venv ./envs/whisperx
+	@echo "Virtual environment created in ./envs/whisperx"
+
+	@echo "Installing requirements for 'WhisperX'..."
+	@$(WHISPERX_EXE_DIR)/pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126 --extra-index-url https://pypi.org/simple
+	@$(WHISPERX_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/audio_transcription/whisperx_requirements.txt
+	@$(WHISPERX_EXE_DIR)/pip install -e ./nicetoolbox_core
+	@echo "'WhisperX' environment setup completed successfully."
 
 
 # Install the venv for mmpose

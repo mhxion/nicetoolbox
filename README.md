@@ -79,6 +79,7 @@ The NICE Toolbox is using the following existing tools, methods, and frameworks:
 [DarkPose](https://github.com/ilovepose/DarkPose/tree/master),
 [ETH-XGaze](https://github.com/xucong-zhang/ETH-XGaze),
 [SPIGA](https://github.com/andresprados/SPIGA),
+[WhisperX](https://github.com/m-bain/whisperx),
 [Py-FEAT](https://py-feat.org/pages/intro.html), and
 [rerun.io](https://rerun.io/).
 

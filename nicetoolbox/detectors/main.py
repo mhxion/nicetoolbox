@@ -24,7 +24,7 @@ from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import SequenceIO
-from .method_detectors.audio_transcription.whisper_detector import Whisper
+from .method_detectors.audio_transcription.whisperx_detector import WhisperX
 from .method_detectors.body_joints.mmpose_framework_2d import (
     HRNetw48,
     RTMPoseLAIC,
@@ -50,7 +50,7 @@ ALL_DETECTORS = dict(
     motionbert=MotionBERT,
     py_feat=PyFeat,
     spiga=Spiga,
-    whisper=Whisper,
+    whisperx=WhisperX,
     # feature detectors
     velocity_body=VelocityBody,
     body_distance=BodyDistance,

@@ -162,7 +162,18 @@ dataset_name = "wflw" # model name, can be wflw, 300wpublic, 300wprivate or merl
 [algorithms.spiga.required_assets]
 model_weights_path = "<assets>/spiga/spiga_<dataset_name>.pt" # path to weights folder
 
-[algorithms.whisper]
-track_names = ["room"]
-env_name = "venv:nicetoolbox"
+[algorithms.whisperx]
+track_names = ["room", "left_mic", "right_mic"]
+env_name = "venv:whisperx"
+model_size = "large-v3"
+compute_type = "float16"
+batch_size = 16
+language = "en"
+vad_onset = 0.9
+vad_offset = 0.9
+hf_token = "" # INSERT HUGGINGFACE TOKEN HERE
+alignment_model_name = "WAV2VEC2_ASR_LARGE_LV60K_960H"
 visualize = true
+
+[algorithms.whisperx.required_assets]
+base_dir = "<assets>/whisperx"

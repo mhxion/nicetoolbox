@@ -113,6 +113,9 @@ proximity = ['body_distance']
 leaning = ['body_angle']
 emotion_individual = ['py_feat']
 head_orientation = ['spiga']
+audio_transcription = ['whisperx']
+audio_diarization = ['whisperx']
+speaker_aligned_transcription = ['whisperx']
 ```
 - The dictionary keys are all implemented component names (str).
 - Per component, the value (list of str) lists which algorithms should run for its prediction. Note: One algorithm may predict multiple components and multiple algorithms may be chosen per component.
