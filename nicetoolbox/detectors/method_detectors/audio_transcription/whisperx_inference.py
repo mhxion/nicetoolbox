@@ -32,6 +32,7 @@ def whisperx_inference(config: dict) -> None:
     logging.info("Starting WhisperX Inference Pipeline.")
 
     algo_name = config["algorithm"]
+    subjects_description = config["subjects_descr"]
     res_folders = config["result_folders"]  # top level json (npz) results
     extra_detector_output_folder = config["out_folder"]  # additional detector results (e.g. SRT files)
     assets_dir = config["required_assets"]["base_dir"]
@@ -88,6 +89,18 @@ def whisperx_inference(config: dict) -> None:
         # (4) Diarization
         num_speakers = len(hears_subjects)
         diarize_segments = diarize_model(audio, min_speakers=num_speakers, max_speakers=num_speakers)
+        if num_speakers == 1:
+            num_speakers_detected = len(diarize_segments["speaker"].unique())
+            if num_speakers_detected != 1:
+                logging.warning(
+                    f"Expected 1 speaker for track '{track_name}' based on hears_subjects, but pyannote found "
+                    f"{num_speakers_detected} unique speakers. Check diarization for this track and tune VAD options."
+                )
+            else:
+                # Assign actual subject name to speaker label since we know there's only 1 speaker for this track
+                # based on hears_subjects
+                diarize_segments["speaker"] = subjects_description[hears_subjects[0]]
+
         out_diarization[track_name] = diarize_segments.to_dict(orient="records")
 
         # (5) Assign Speakers
