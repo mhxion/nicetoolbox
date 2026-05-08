@@ -45,10 +45,11 @@ def pair_arrays_to_df(
                 f"Axis merge lost rows: pred={len(pred_df)}, merged={len(merged)}. "
                 "align_arrays invariant violated — pred and gt must share axis labels per pair."
             )
-        parts.append(merged)
+        struct_cols = [c for c in merged.columns if c not in set(value_names)]
+        parts.append(merged.set_index(struct_cols))
     if not parts:
         return pd.DataFrame()
-    return pd.concat(parts, ignore_index=True)
+    return pd.concat(parts)
 
 
 def arrays_to_dataframe(arrays: list[LoadedArray]) -> pd.DataFrame:
@@ -141,7 +142,7 @@ def resolve_group_levels(
         Ordered list of column names to pass to a groupby call.
     """
     always = meta_type.always_iterate()
-    available = list(df.columns)
+    available = [n for n in df.index.names if n is not None]
 
     user_dims = group_by.resolve([c for c in available if c not in exclude])
 

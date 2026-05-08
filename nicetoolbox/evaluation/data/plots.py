@@ -331,7 +331,37 @@ def plot_roc_curves(
     ax.set_ylim(0, 1.02)
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.legend(loc="lower right", fontsize=8)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), fontsize=8)
+    ax.set_title(base_title)
+    fig.tight_layout()
+    return fig
+
+
+def plot_pr_curves(
+    curves: list[tuple[str, np.ndarray, np.ndarray, float, float]],
+    base_title: str,
+) -> plt.Figure:
+    """Precision-recall curve figure with one line per group.
+
+    Each group also gets a dashed horizontal baseline at its positive class
+    prevalence, which is what a random classifier achieves at every threshold.
+
+    Args:
+        curves: list of (label, recall, precision, ap, prevalence) tuples, one per group row.
+        base_title: figure suptitle.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    for label, recall, precision, ap, prevalence in curves:
+        color = _label_color(label)
+        ax.plot(recall, precision, color=color, linewidth=1.5, label=f"{label} (AP={ap:.3f})")
+        ax.axhline(prevalence, color=color, linewidth=0.8, linestyle="--", alpha=0.6)
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.12), fontsize=8)
     ax.set_title(base_title)
     fig.tight_layout()
     return fig
@@ -370,7 +400,7 @@ def plot_confusion_matrix_grid(
 
         metric_names = ["accuracy", "precision", "recall", "f1"]
         values = [float(row[m]) for m in metric_names]
-        bars = ax2.bar(metric_names, values, color=[_label_color(m) for m in metric_names])
+        bars = ax2.bar(metric_names, values, color=_TAB10)
         ax2.set_ylim(0, 1.1)
         ax2.set_ylabel("Score")
         ax2.set_title(f"Metrics\n{subtitle}", fontsize=9)

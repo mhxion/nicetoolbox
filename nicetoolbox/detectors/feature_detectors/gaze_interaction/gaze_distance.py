@@ -106,10 +106,11 @@ class GazeDistance(BaseFeature):
 
         # reshape arrays
         def reshape(arr):
+            nan = np.full_like(arr[0], np.nan, dtype=float)
             return np.stack(
                 (
-                    np.concatenate((np.zeros_like(arr[0]), arr[0]), axis=-1),
-                    np.concatenate((arr[1], np.zeros_like(arr[1])), axis=-1),
+                    np.concatenate((nan, arr[0].astype(float)), axis=-1),
+                    np.concatenate((arr[1].astype(float), nan), axis=-1),
                 ),
                 axis=0,
             )
@@ -127,15 +128,15 @@ class GazeDistance(BaseFeature):
             "data_description": {
                 f"distance_gaze_{dim}": dict(
                     **data_description,
-                    axis3=[f"to_face_{subj}" for subj in subject_description],
+                    axis3=subject_description,
                 ),
                 f"gaze_look_at_{dim}": dict(
                     **data_description,
-                    axis3=[f"look_at_{subj}" for subj in subject_description],
+                    axis3=subject_description,
                 ),
                 f"gaze_mutual_{dim}": dict(
                     **data_description,
-                    axis3=[f"with_{subj}" for subj in subject_description],
+                    axis3=subject_description,
                 ),
             },
         }

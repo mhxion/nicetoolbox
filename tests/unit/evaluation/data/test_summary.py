@@ -290,10 +290,10 @@ class TestPairArraysToDf:
         df = pair_arrays_to_df([(pred, gt)])
 
         assert len(df) == 2
-        assert df.loc[df["label"] == "j1", "pred"].item() == 0.0
-        assert df.loc[df["label"] == "j1", "gt"].item() == 0.0
-        assert df.loc[df["label"] == "j2", "pred"].item() == 1.0
-        assert df.loc[df["label"] == "j2", "gt"].item() == 1.0
+        assert df.xs("j1", level="label")["pred"].item() == 0.0
+        assert df.xs("j1", level="label")["gt"].item() == 0.0
+        assert df.xs("j2", level="label")["pred"].item() == 1.0
+        assert df.xs("j2", level="label")["gt"].item() == 1.0
 
     def test_gt_meta_is_dropped(self):
         # Both ExperimentMeta but different algorithms — only pred's algorithm appears in output
@@ -302,7 +302,17 @@ class TestPairArraysToDf:
         df = pair_arrays_to_df([(pred, gt)])
 
         assert len(df) == 1
-        assert df["algorithm"].item() == "algo_pred"
+        assert df.index.get_level_values("algorithm")[0] == "algo_pred"
+
+    def test_value_columns_not_in_index(self):
+        pred = make_loaded_array(_exp())
+        gt = make_loaded_array(_ann())
+        df = pair_arrays_to_df([(pred, gt)])
+
+        assert "pred" in df.columns
+        assert "gt" in df.columns
+        assert "pred" not in df.index.names
+        assert "gt" not in df.index.names
 
     def test_custom_value_names(self):
         pred = make_loaded_array(_exp())
@@ -320,7 +330,7 @@ class TestPairArraysToDf:
         df = pair_arrays_to_df([pair1, pair2])
 
         assert len(df) == 2
-        assert set(df["algorithm"].tolist()) == {"algo_a", "algo_b"}
+        assert set(df.index.get_level_values("algorithm").tolist()) == {"algo_a", "algo_b"}
 
     def test_empty_pairs_returns_empty_dataframe(self):
         df = pair_arrays_to_df([])
@@ -341,15 +351,20 @@ class TestPairArraysToDf:
 # ---------------------------------------------------------------------------
 
 
+def _mi(*names: str) -> pd.DataFrame:
+    """Empty DataFrame whose MultiIndex carries the given level names."""
+    return pd.DataFrame(index=pd.MultiIndex.from_tuples([], names=list(names)))
+
+
 class TestResolveGroupLevels:
     def test_always_iterate_included_without_user_dims(self):
-        df = pd.DataFrame(columns=["component", "algorithm", "npz_key", "subject"])
+        df = _mi("component", "algorithm", "npz_key", "subject")
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=[]))
 
         assert set(result) == {"component", "algorithm", "npz_key"}
 
     def test_user_dims_appended_after_always_iterate(self):
-        df = pd.DataFrame(columns=["component", "algorithm", "npz_key", "subject"])
+        df = _mi("component", "algorithm", "npz_key", "subject")
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=["subject"]))
 
         assert set(result) == {"component", "algorithm", "npz_key", "subject"}
@@ -357,31 +372,38 @@ class TestResolveGroupLevels:
         assert result.index("subject") > max(always_positions)
 
     def test_deduplication_when_user_requests_always_iterate_col(self):
-        df = pd.DataFrame(columns=["component", "algorithm", "npz_key", "subject"])
+        df = _mi("component", "algorithm", "npz_key", "subject")
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=["algorithm", "subject"]))
 
         assert result.count("algorithm") == 1
         assert result.index("algorithm") < result.index("subject")
 
     def test_frame_excluded_by_default(self):
-        df = pd.DataFrame(columns=["component", "algorithm", "npz_key", "frame", "label"])
+        df = _mi("component", "algorithm", "npz_key", "frame", "label")
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=None))
 
         assert "frame" not in result
 
     def test_custom_exclude_removes_always_iterate_col(self):
-        df = pd.DataFrame(columns=["component", "algorithm", "npz_key"])
+        df = _mi("component", "algorithm", "npz_key")
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=[]), exclude=frozenset({"component"}))
 
         assert "component" not in result
         assert {"algorithm", "npz_key"}.issubset(result)
 
     def test_unavailable_always_iterate_cols_not_in_result(self):
-        df = pd.DataFrame(columns=["component", "algorithm"])  # "npz_key" absent
+        df = _mi("component", "algorithm")  # "npz_key" absent
         result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=[]))
 
         assert "npz_key" not in result
         assert set(result) == {"component", "algorithm"}
+
+    def test_value_cols_never_included_with_wildcard(self):
+        df = _mi("component", "algorithm", "npz_key", "subject", "label")
+        result = resolve_group_levels(df, ExperimentMeta, GroupBySpec(dims=None))
+
+        assert "pred" not in result
+        assert "gt" not in result
 
 
 # ---------------------------------------------------------------------------
