@@ -480,8 +480,7 @@ class GazeIndividualComponent(Component):
         Returns:
             List[int]: The look at color.
         """
-        look_to_label = f"look_at_{look_to_subject}"
-        look_to_ind = self.look_at_labels.index(look_to_label)
+        look_to_ind = self.look_at_labels.index(look_to_subject)
         is_look_at = self.look_at_data[sub_idx, 0, frame_idx, look_to_ind]
         color_index = 0 if is_look_at else 1
         return self.visualizer_config["media"]["gaze_interaction"]["appearance"]["colors"][alg_idx][color_index]

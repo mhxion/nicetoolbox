@@ -48,12 +48,11 @@ summary_aggr = ["median", "std"]  # we can customize aggregation function
 # usually motionBERT shows low variance, but high bias
 [metrics.bone_length_motion_bert]
 metric_type = "bone_length"
-
 # we can declare input block with dot notation
 predictions.component = ["body_joints", "body_joints_lifted"]
 predictions.camera = ["3d", "view_center"]  # we take only view center prediction for motion bert
 predictions.npz_key = "3d"
-
+# the rest of fields as normal
 summary_group_by = ["subject", "sequence", "label"]
 summary_aggr = ["min", "mean", "max", "std", "cv"]
 
@@ -92,3 +91,90 @@ predictions = { component = "body_joints", npz_key = "2d" }
 min_confidence = 0.5  # custom threshold of confidence per joint
 missing_points_summary_group_by = "*"
 missing_points_summary_aggr = [{ name = "miss_rate", fn = "mean" }]
+
+
+# ================================= PCK (Percentage of Correct Keypoints) =======================
+# Measures 2d keypoint accuracy against ground truth annotations.
+# A keypoint is considered correct if exist (not-NaN) and within N pixels of the ground truth.
+
+# This metric requires ground truth annotation data.
+# It produces .npz of per-frame per-joint correctness flags and summary .csv reports.
+# Check 'pck' in summary report - higher is better.
+
+# very strict threshold
+[metrics."body_pck@5px"]
+metric_type = "pck"
+threshold = 5  # threshold in pixels
+predictions = { component = "body_joints", npz_key = "2d_interpolated" }
+ground_truth = { source = "annotation", component = "body_joints", npz_key = "2d" }
+summary_group_by = ["label"]
+summary_aggr = [
+    { name = "pck",           fn = "mean"  },  # fraction of correct keypoints
+    { name = "correct_count", fn = "sum"   },  # number of correct frames
+    { name = "support",       fn = "count" },  # total evaluated frames
+]
+
+# very loose threshold
+[metrics."body_pck@20px"]
+metric_type = "pck"
+threshold = 20
+predictions = { component = "body_joints", npz_key = "2d_interpolated" }
+ground_truth = { source = "annotation", component = "body_joints", npz_key = "2d" }
+summary_group_by = ["label"]
+summary_aggr = [
+    { name = "pck",           fn = "mean"  },  # fraction of correct keypoints
+    { name = "correct_count", fn = "sum"   },  # number of correct frames
+    { name = "support",       fn = "count" },  # total evaluated frames
+]
+
+
+# ================================= Confusion Matrix ============================================
+# Computes binary confusion matrix (True Positive, False Negative, etc.) 
+# with derived precision, recall, F1, accuracy.
+
+# This metric requires ground truth annotation data.
+# It produces summary .csv reports with per-group scores.
+# Check 'f1', 'precision', 'recall' in summary report - higher is better.
+
+[metrics.confusion_matrix_gaze_look_at]
+metric_type = "confusion_matrix"
+predictions = { component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+ground_truth = { source = "annotation", component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+compute_group_by = []
+
+[metrics.confusion_matrix_gaze_look_at_detailed]
+metric_type = "confusion_matrix"
+predictions = { component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+ground_truth = { source = "annotation", component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+compute_group_by = "*"
+
+# ================================= ROC AUC =====================================================
+# Computes ROC (Receiver Operating Characteristic) curve and Area Under Curve (AUC)
+# score by varying decision thresholds (TPR vs FPR).
+# Also derives the optimal threshold via Youden's J statistic (maximizes TPR - FPR).
+
+# This metric requires ground truth annotation data.
+# It produces summary .csv reports and roc_curves.png visualization.
+# Check 'auc' in summary report - higher is better (1.0 perfect, 0.5 random).
+
+[metrics.roc_auc_gaze_look_at]
+metric_type = "roc_auc"
+predictions = { component = "gaze_interaction", npz_key = "distance_gaze_3d" }
+ground_truth = { source = "annotation", component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+negate_scores = true  # larger distance = not looking, inverting scores
+compute_group_by = []
+
+# ================================= PR Curve ====================================================
+# Computes Precision-Recall curve and Average Precision (AP) score by varying decision thresholds.
+# Also derives the optimal threshold by maximizing F1 across the curve.
+
+# This metric requires ground truth annotation data.
+# It produces summary .csv reports and pr_curves.png visualization.
+# Check 'ap' in summary report - higher is better.
+
+[metrics.pr_curve_gaze_look_at]
+metric_type = "pr_curve"
+predictions = { component = "gaze_interaction", npz_key = "distance_gaze_3d" }
+ground_truth = { source = "annotation", component = "gaze_interaction", npz_key = "gaze_look_at_3d" }
+negate_scores = true  # larger distance = not looking, inverting scores
+compute_group_by = []

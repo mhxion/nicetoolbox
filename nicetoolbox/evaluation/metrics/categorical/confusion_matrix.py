@@ -52,12 +52,7 @@ class ConfusionMatrixMetric(BaseMetric):
         group_levels = resolve_group_levels(df, meta_type, self.metric_config.compute_group_by)
 
         # generate summary
-        summary = (
-            df[group_levels + ["pred", "gt"]]
-            .groupby(group_levels, observed=True)
-            .apply(self._compute_cm_row)
-            .reset_index()
-        )
+        summary = df.groupby(level=group_levels, observed=True).apply(self._compute_cm_row).reset_index()
 
         # optional visualization
         figures = {}

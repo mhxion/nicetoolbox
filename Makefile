@@ -40,7 +40,7 @@ OUTPUTS_DIR = ../outputs
 DATASETS_DIR = ../datasets
 ASSETS_DIR = nicetoolbox/detectors
 
-EXAMPLE_DATASET_URL = https://keeper.mpdl.mpg.de/seafhttp/f/046b0b0143554b94ada9/?op=view
+EXAMPLE_DATASET_URL = https://keeper.mpdl.mpg.de/seafhttp/f/cc7462d680064a7d98c0/?op=view
 
 
 # -----------------------------------

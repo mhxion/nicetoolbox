@@ -14,16 +14,20 @@ from .config_handler import ConfigHandler
 from .data.results_saver import save_results
 from .metrics.base_metric import BaseMetric
 from .metrics.categorical.confusion_matrix import ConfusionMatrixMetric
+from .metrics.categorical.pr_curve import PrCurveMetric
 from .metrics.categorical.roc_auc import RocAucMetric
 from .metrics.joints.bone_length import BoneLengthMetric
 from .metrics.joints.distance_error import DistanceErrorMetric
 from .metrics.joints.missing_points import MissingPointsMetric
+from .metrics.joints.pck import PCKMetric
 
 ALL_METRICS: dict[str, type[BaseMetric]] = dict(
     bone_length=BoneLengthMetric,
     distance_error=DistanceErrorMetric,
     missing_points=MissingPointsMetric,
+    pck=PCKMetric,
     confusion_matrix=ConfusionMatrixMetric,
+    pr_curve=PrCurveMetric,
     roc_auc=RocAucMetric,
 )
 

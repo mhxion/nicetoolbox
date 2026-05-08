@@ -67,6 +67,19 @@ class DistanceErrorConfig(BaseMetricConfig):
     summary_aggr: AggSpec
 
 
+@metric_config("pck")
+class PCKConfig(BaseMetricConfig):
+    visualize: bool = True
+    threshold: float  # joint is correct if L2 dist <= threshold (input units, e.g. pixels)
+    broadcast_single: bool = False
+
+    predictions: InputBlock
+    ground_truth: InputBlock
+
+    summary_group_by: GroupBySpec
+    summary_aggr: AggSpec
+
+
 @metric_config("missing_points")
 class MissingPointsConfig(BaseMetricConfig):
     visualize: bool = True
@@ -85,6 +98,18 @@ class MissingPointsConfig(BaseMetricConfig):
 
 @metric_config("roc_auc")
 class RocAucConfig(BaseMetricConfig):
+    visualize: bool = True
+    broadcast_single: bool = False
+    negate_scores: bool = False  # set True when lower score = more positive (e.g. distance)
+
+    predictions: InputBlock  # float confidence scores
+    ground_truth: InputBlock  # bool labels
+
+    compute_group_by: GroupBySpec
+
+
+@metric_config("pr_curve")
+class PrCurveConfig(BaseMetricConfig):
     visualize: bool = True
     broadcast_single: bool = False
     negate_scores: bool = False  # set True when lower score = more positive (e.g. distance)

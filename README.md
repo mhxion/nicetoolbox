@@ -29,8 +29,7 @@ For more details, please see the
 [components overview](https://nicetoolbox.readthedocs.io/en/stable/wikis/wiki_components.html)
 page in the wiki.
 
-The toolbox  also includes a visualizer module, which allows users to
-visualize and investigate the algorithm’s outputs.
+The toolbox  also includes a visualizer module, which allows users to visualize and investigate the algorithm’s outputs. The toolbox further includes an evaluation module, which runs configurable metrics over detector outputs and produces CSV summary reports and plots.
 
 ## Installation & getting started
 
@@ -55,13 +54,6 @@ In future releases, we plan to extend the NICE Toolbox to include detectors for 
 expressions, head movements, eye closure, active speaking, emotional valence and arousal,
 and micro-action recognition.
 
-Further, we will move beyond mere visual inspection and integrate a versatile
-evaluation framework. Based on our experience in computer vision, we are aware that no
-single algorithm can perform flawlessly across all capture settings.
-To support you to choose the best algorithms for your settings, we are developing an
-evaluation workflow that better elucidates the limitations of the algorithms, that allows
-for systematic comparisons of the algorithms, and that assess their accuracy within a
-given setting.
 Our goal is to provide comprehensive and objective evaluations of the algorithms,
 ultimately creating a practically useful toolbox for researchers analyzing human
 interaction and communication.
@@ -90,7 +82,8 @@ Gökce Ergün,
 Timo Lübbing,
 Ashutosh Jha,
 Senya Polikovsky,
-Aleksandr Evgrashin
+Aleksandr Evgrashin,
+Sophie Bauer
 
 All authors are with the Optics and Sensing Laboratory at Max-Planck Insitute for Intelligent Systems.
 
@@ -98,8 +91,8 @@ We thank the [MPI-IS Software Workshop](https://is.mpg.de/en/software-workshop) 
 
 ## License
 
-[NICE Toolbox](https://github.com/OSLabTools/nicetoolbox) © 2025 by Carolin Schmitt, Gökce Ergün,
-Timo Lübbing, Ashutosh Jha, Senya Polikovsky, Aleksandr Evgrashin is licensed under
+[NICE Toolbox](https://github.com/OSLabTools/nicetoolbox) © 2026 by Carolin Schmitt, Gökce Ergün,
+Timo Lübbing, Ashutosh Jha, Senya Polikovsky, Aleksandr Evgrashin, Sophie Bauer is licensed under
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/?ref=chooser-v1), see [LICENSE.md](https://github.com/OSLabTools/nicetoolbox/blob/main/LICENSE.md).
 
 Some components of the NICE Toolbox further use algorithms that are being distributed under other licenses
@@ -107,4 +100,4 @@ listed in [LICENSES_ALGORITHMS.md](https://github.com/OSLabTools/nicetoolbox/blo
 
 ## Copyright
 
-Copyright 2025, Max Planck Society / Optics and Sensing Laboratory - Max Planck Institute for Intelligent Systems
+Copyright 2026, Max Planck Society / Optics and Sensing Laboratory - Max Planck Institute for Intelligent Systems

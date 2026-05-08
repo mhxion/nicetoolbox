@@ -2,33 +2,33 @@ import logging
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import average_precision_score, precision_recall_curve
 
-from ....configs.schemas.evaluation_metrics_config import RocAucConfig
+from ....configs.schemas.evaluation_metrics_config import PrCurveConfig
 from ...data.input_loader import align_arrays, get_meta_type, load_input
-from ...data.plots import plot_roc_curves
+from ...data.plots import plot_pr_curves
 from ...data.summary import pair_arrays_to_df, resolve_group_levels, split_aligned_arrays
 from ..base_metric import BaseMetric
 from ..metric_result import FrameResult, MetricResult, PlotResult, SummaryResult
 
 
-class RocAucMetric(BaseMetric):
-    """ROC curve and AUC score per pre-compute group.
+class PrCurveMetric(BaseMetric):
+    """Precision-recall curve and average precision (AP) per pre-compute group.
 
     Predictions must be float confidence scores; ground truth must be bool.
-    AUC is computed once per group by pooling all frames — same rationale as
-    ConfusionMatrixMetric (avoids averaging per-pair scores across groups with
+    AP is computed once per group by pooling all frames — same rationale as
+    RocAucMetric (avoids averaging per-pair scores across groups with
     different support and class balance).
     """
 
-    metric_config: RocAucConfig
+    metric_config: PrCurveConfig
 
     def compute(self) -> MetricResult:
         preds = load_input(self.metric_config.predictions)
         gt = load_input(self.metric_config.ground_truth)
         pairs = align_arrays(preds, gt, self.metric_config.broadcast_single)
         if not pairs:
-            raise ValueError(f"Failed to compute ROC AUC '{self.metric_name}': no aligned pred/GT pairs found.")
+            raise ValueError(f"Failed to compute PR curve '{self.metric_name}': no aligned pred/GT pairs found.")
 
         df = pair_arrays_to_df(pairs)
 
@@ -41,20 +41,18 @@ class RocAucMetric(BaseMetric):
                 f"({100 * n_dropped / n_before:.1f}%). Missing predictions are excluded."
             )
 
-        _validate_roc_inputs(df, self.metric_name)
+        _validate_pr_inputs(df, self.metric_name)
 
         meta_type = get_meta_type([p for p, _ in pairs])
         group_levels = resolve_group_levels(df, meta_type, self.metric_config.compute_group_by)
 
-        # user dims only (exclude always-iterate) — used for short curve labels
         always = meta_type.always_iterate()
         label_levels = [lvl for lvl in group_levels if lvl not in always] or group_levels
         # drop dimensions that are constant across all groups — they add length without distinguishing curves
         label_levels = [lvl for lvl in label_levels if df.index.get_level_values(lvl).nunique() > 1] or label_levels
 
-        # compute per-group: AUC scalar + curve arrays
         records: list[dict] = []
-        curves: list[tuple[str, np.ndarray, np.ndarray, float]] = []
+        curves: list[tuple[str, np.ndarray, np.ndarray, float, float]] = []
 
         for keys, group in df.groupby(level=group_levels, observed=True):
             if not isinstance(keys, tuple):
@@ -66,6 +64,8 @@ class RocAucMetric(BaseMetric):
             if self.metric_config.negate_scores:
                 y_score = -y_score
 
+            prevalence = float(y_true.mean())
+
             if y_true.sum() == 0 or y_true.sum() == len(y_true):
                 logging.warning(
                     "[%s] Skipping degenerate group %s — only one class present (positives=%d/%d).",
@@ -74,26 +74,30 @@ class RocAucMetric(BaseMetric):
                     int(y_true.sum()),
                     len(y_true),
                 )
-                auc = float("nan")
+                ap = float("nan")
                 optimal_threshold = float("nan")
-                fpr = tpr = np.array([0.0, 1.0])
+                precision_pts = recall_pts = np.array([1.0, 0.0])
             else:
-                fpr, tpr, thresholds = roc_curve(y_true, y_score)
-                auc = float(roc_auc_score(y_true, y_score))
-                # Youden's J: point on curve closest to top-left corner
-                optimal_threshold = float(thresholds[np.argmax(tpr - fpr)])
+                precision_pts, recall_pts, thresholds = precision_recall_curve(y_true, y_score)
+                ap = float(average_precision_score(y_true, y_score))
+                # Optimal threshold: maximise F1 over the threshold-aligned prefix (exclude the
+                # appended (precision=1, recall=0) sentinel that has no corresponding threshold).
+                with np.errstate(invalid="ignore"):
+                    f1 = 2 * precision_pts[:-1] * recall_pts[:-1] / (precision_pts[:-1] + recall_pts[:-1])
+                f1 = np.nan_to_num(f1)
+                optimal_threshold = float(thresholds[np.argmax(f1)])
                 if self.metric_config.negate_scores:
                     optimal_threshold = -optimal_threshold
 
             label = " | ".join(f"{lvl}={key_map[lvl]}" for lvl in label_levels)
-            curves.append((label, fpr, tpr, auc))
-            records.append({**key_map, "auc": auc, "optimal_threshold": optimal_threshold, "support": len(y_true)})
+            curves.append((label, recall_pts, precision_pts, ap, prevalence))
+            records.append({**key_map, "ap": ap, "optimal_threshold": optimal_threshold, "support": len(y_true)})
 
         summary = pd.DataFrame(records)
 
         figures = {}
         if self.metric_config.visualize:
-            figures["roc_curves"] = plot_roc_curves(curves, self.metric_name)
+            figures["pr_curves"] = plot_pr_curves(curves, self.metric_name)
 
         pred_aligned, gt_aligned = split_aligned_arrays(*pairs)
         return MetricResult(
@@ -104,7 +108,7 @@ class RocAucMetric(BaseMetric):
         )
 
 
-def _validate_roc_inputs(df: pd.DataFrame, metric_name: str) -> None:
+def _validate_pr_inputs(df: pd.DataFrame, metric_name: str) -> None:
     if not pd.api.types.is_bool_dtype(df["gt"]) and not pd.api.types.is_float_dtype(df["gt"]):
         raise TypeError(f"[{metric_name}] Column 'gt' must be bool or float, got {df['gt'].dtype}.")
     unique = df["gt"].unique()
@@ -113,5 +117,5 @@ def _validate_roc_inputs(df: pd.DataFrame, metric_name: str) -> None:
     if not pd.api.types.is_float_dtype(df["pred"]):
         raise TypeError(
             f"[{metric_name}] Column 'pred' must be float (confidence scores), got {df['pred'].dtype}. "
-            "Bool predictions belong in confusion_matrix, not roc_auc."
+            "Bool predictions belong in confusion_matrix, not pr_curve."
         )
