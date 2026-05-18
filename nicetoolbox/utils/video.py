@@ -18,6 +18,8 @@ import cv2
 import numpy as np
 import pandas as pd
 
+from .system import normalize_ffmpeg_filter_path_in_windows
+
 # fmt: off
 # List of most common video extensions and images extensions
 VIDEO_EXTENSIONS = {
@@ -311,6 +313,7 @@ def frames_to_video(
     start_frame: int = 0,
     audio_path: Optional[str] = None,
     srt_path: Optional[str] = None,
+    frame_limit: Optional[int] = None,
 ) -> int:
     """
     Convert a folder of frames to a video using ffmpeg.
@@ -347,10 +350,7 @@ def frames_to_video(
         cmd.extend(["-i", audio_path])
 
     if srt_path:
-        # there is a bug in ffmpeg for Windows - need double escaping for filters
-        # also for whitespace path - we include single brackets
-        srt_escaped = srt_path.replace("\\", r"\\\\").replace(":", r"\\:")
-        vf_filters.append(f"subtitles='{srt_escaped}'")
+        vf_filters.append(f"subtitles={srt_path}")
 
     if out_format != "gif":
         # Even width/height required for yuv420p; odd sizes cause green lines / broken files.
@@ -367,9 +367,11 @@ def frames_to_video(
     if audio_path:
         cmd.extend(["-c:a", "aac", "-shortest"])
 
+    if frame_limit:
+        cmd.extend(["-vframes", str(frame_limit)])
+
     cmd.append(out_filename)
     # fmt: on
-
     output = subprocess.run(cmd, check=False)
     return output.returncode
 
@@ -381,6 +383,7 @@ def video_with_subtitles_from_frames(
     output_path: str,
     fps: float = 30.0,
     start_frame: int = 0,
+    frame_limit: Optional[int] = None,
 ) -> None:
     """
     Creates a video with subtitles baked in. If input_folder is provided,
@@ -395,7 +398,10 @@ def video_with_subtitles_from_frames(
         output_path (str): Path to the output video file.
         fps (float, optional): Frames per second. Defaults to 30.0.
         start_frame (int, optional): The starting frame number. Defaults to 0.
+        frame_limit (int, optional): Limit on how many frames to compose. Defaults to None.
     """
+    # ffmpeg in Windows - need double escaping for filters
+    srt_escape = normalize_ffmpeg_filter_path_in_windows(srt_path)
     if input_folder:
         ret = frames_to_video(
             input_folder=input_folder,
@@ -403,7 +409,8 @@ def video_with_subtitles_from_frames(
             fps=fps,
             start_frame=start_frame,
             audio_path=audio_path,
-            srt_path=srt_path,
+            srt_path=srt_escape,
+            frame_limit=frame_limit,
         )
         if ret != 0:
             logging.error(f"Failed to generate video from {input_folder}")
@@ -414,10 +421,14 @@ def video_with_subtitles_from_frames(
             "-loglevel", "error",
             "-i", audio_path,
             "-f", "lavfi", "-i", f"color=c=black:s=1280x720:r={fps}",
-            "-vf", f"subtitles={srt_path}",
-            "-c:v", "h264", "-c:a", "aac", "-shortest",
-            output_path,
+            "-vf", f"subtitles={srt_escape}",
+            "-c:v", "h264", "-c:a", "aac", "-shortest"
         ]
+
+        if frame_limit is not None:
+            cmd.extend(["-vframes", str(frame_limit)])
+
+        cmd.append(output_path)
         # fmt: on
         subprocess.run(cmd, check=True)
 

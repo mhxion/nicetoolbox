@@ -128,6 +128,13 @@ class WhisperX(BaseMethod):
                 logging.warning(f"No SRT found for {track_name}, skipping visualization.")
                 continue
 
+            if os.path.getsize(srt_path) == 0:
+                logging.warning(
+                    f"SRT file {srt_path} is empty for {track_name}. This probably means no person was"
+                    " detected for this track. Skipping visualization."
+                )
+                continue
+
             info = self.audio_loader.get_stream_info(track_name)
             source = info["source_path"]
 
@@ -137,6 +144,7 @@ class WhisperX(BaseMethod):
             frame_folder = None
             video_recipe = self.data.get_input_recipes().video_input_recipe
             start_frame = self.data.video_start_frame_index
+            frame_limit = None
             fps = self.data.fps
 
             if video_recipe:
@@ -146,6 +154,8 @@ class WhisperX(BaseMethod):
 
                 if camera_to_use and camera_to_use in video_recipe.camera_names:
                     frame_folder = os.path.join(video_recipe.root_path, camera_to_use, "frames")
+                start_frame = video_recipe.range_start
+                frame_limit = video_recipe.range_end - video_recipe.range_start
 
             logging.info(f"Baking subtitles into {video_out}")
             logging.info(f"Using frame folder: {frame_folder}" if frame_folder else "Using black background fallback.")
@@ -157,4 +167,5 @@ class WhisperX(BaseMethod):
                 output_path=video_out,
                 fps=fps,
                 start_frame=start_frame,
+                frame_limit=frame_limit,
             )
