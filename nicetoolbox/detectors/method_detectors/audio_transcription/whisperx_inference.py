@@ -2,6 +2,7 @@
 WhisperX inference entrypoint.
 """
 
+import copy
 import json
 import logging
 import os
@@ -79,12 +80,12 @@ def whisperx_inference(config: dict) -> None:
 
         # (2) Transcribe
         result = model.transcribe(audio, batch_size=batch_size, language=language)
-        out_transcription[track_name] = result
 
         # (3) Alignment
         result_aligned = whisperx.align(
             result["segments"], align_model, metadata, audio, device, return_char_alignments=False
         )
+        out_transcription[track_name] = result_aligned
 
         # (4) Diarization
         num_speakers = len(hears_subjects)
@@ -104,7 +105,8 @@ def whisperx_inference(config: dict) -> None:
         out_diarization[track_name] = diarize_segments.to_dict(orient="records")
 
         # (5) Assign Speakers
-        result_final = whisperx.assign_word_speakers(diarize_segments, result_aligned)
+        result_aligned_copy = copy.deepcopy(result_aligned)  # Avoid modifying original aligned results in place
+        result_final = whisperx.assign_word_speakers(diarize_segments, result_aligned_copy)
         result_final["language"] = language
 
         # (6) Save extra detector output (SRT and JSON files)

@@ -70,3 +70,12 @@ def detect_os_type() -> str:
     elif platform.system() == "Linux" or platform.system() == "Darwin":
         os_type = "linux"
     return os_type
+
+
+def normalize_ffmpeg_filter_path_in_windows(path: str) -> str:
+    os_type = detect_os_type()
+    if os_type == "windows":  # Windows
+        path = path.replace("\\", "/")
+        if len(path) >= 2 and path[1] == ":":
+            path = path[0] + "\\\\:" + path[2:]  # double backslash
+    return path
