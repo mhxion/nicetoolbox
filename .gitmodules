@@ -7,6 +7,12 @@
 [submodule "submodules/SPIGA"]
 	path = submodules/SPIGA
 	url = https://github.com/OSLabTools/SPIGA
+[submodule "submodules/py-feat"]
+	path = submodules/py-feat
+	url = https://github.com/OSLabTools/py-feat.git
+[submodule "submodules/whisperX"]
+	path = submodules/whisperX
+	url = https://github.com/OSLabTools/whisperX.git
 [submodule "submodules/sam-3d-body"]
 	path = submodules/sam-3d-body
 	url = https://github.com/OSLabTools/sam-3d-body

@@ -277,8 +277,8 @@ install_pyfeat:
 
 	@echo "Installing requirements for 'Py-Feat'..."
 	@$(PYFEAT_EXE_DIR)/pip install torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu118
-	@$(PYFEAT_EXE_DIR)/pip install py-feat
 	@$(PYFEAT_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/emotion_individual/py_feat_requirements.txt
+	@$(PYFEAT_EXE_DIR)/pip install submodules/py-feat
 	@$(PYFEAT_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'Py-Feat' environment setup completed successfully."
 
@@ -310,6 +310,7 @@ install_whisperx:
 
 	@echo "Installing requirements for 'WhisperX'..."
 	@$(WHISPERX_EXE_DIR)/pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126 --extra-index-url https://pypi.org/simple
+	@$(WHISPERX_EXE_DIR)/pip install submodules/whisperX
 	@$(WHISPERX_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/audio_transcription/whisperx_requirements.txt
 	@$(WHISPERX_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'WhisperX' environment setup completed successfully."
