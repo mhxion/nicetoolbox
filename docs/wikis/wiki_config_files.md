@@ -57,8 +57,11 @@ The `./machine_specific_paths.toml` file configures paths specific to the machin
 
 ```toml
 conda_path = ''
+# Optional; leave empty if you do not run detectors that need Hugging Face gated weights.
+hugging_face_token = ''
 ```
 - `conda_path` contains the absolute path to the conda installation on the machine (str).
+- `hugging_face_token` is an optional secret for Hugging Face Hub (e.g. **sam_3d_body**, **WhisperX** pyannote diarization). Hub-based detectors read only this field (not shell environment variables).
 
 
 ## Project config
@@ -104,8 +107,9 @@ Each component can be assigned to and run with multiple different algorithms. Wh
 [component_algorithm_mapping]
 gaze_individual = ['multiview_eth_xgaze']
 gaze_interaction = ['gaze_distance']
-body_joints = ['hrnetw48', 'vitpose', 'vitpose_huge']
-body_joints_lifted = ['motionbert']
+body_joints = ['hrnetw48', 'vitpose_huge', 'rtmpose_l_wholebody', 'rtmpose_m_mpii', 'sam_3d_body']
+body_joints_local = ['sam_3d_body', 'motionbert']
+body_mesh = ['sam_3d_body']
 hand_joints = ['hrnetw48']
 face_landmarks = ['hrnetw48']
 kinematics = ['velocity_body']
@@ -119,6 +123,7 @@ speaker_aligned_transcription = ['whisperx']
 ```
 - The dictionary keys are all implemented component names (str).
 - Per component, the value (list of str) lists which algorithms should run for its prediction. Note: One algorithm may predict multiple components and multiple algorithms may be chosen per component.
+- **SAM 3D Body** uses the algorithm key **`sam_3d_body`** only (no separate output component). Register it under **`body_joints`**, **`body_joints_local`**, and **`body_mesh`**. Outputs live under **`…/<component>/sam_3d_body/`** next to **`run_config`** (raw **`_sam_3d_body_inference_raw.npz`** is **not** inside **`detector_output/`**). **`body_joints`** receives **`sam_3d_body.npz`** only when calibration includes intrinsics + projection matrix for each configured camera; **`body_joints_local`** always receives **`sam_3d_body_camera.npz`**. **MotionBERT** uses **`body_joints_local`** as **`motionbert.npz`** (root-relative 3D).
 
 
 ### Defining the experiments
@@ -265,6 +270,8 @@ env_name = "env_type:env_id"
 - `camera_names` lists the camera views (as placeholders) of which the algorithm takes input data (list of str). Current options are "<cur_cam_front>", "<cur_cam_top>", "<cur_cam_face1>", "<cur_cam_face2>".
 - `env_name` defines the python or conda environment for running the algorithm (str). Options are "venv:env_id" for a python environment and "conda:env_id" for a conda environment, in both cases "env_id" is to replaced by the environment's name.
 
+**SAM 3D Body** is configured as a **standalone algorithm** in **`[algorithms.sam_3d_body]`** only (no **`[frameworks.sam_3d_body]`** and no **`framework =`** key). That block includes `camera_names`, **`env_name`** (default **`venv:sam_3d_body`**; create with **`make install_sam3d_body`**), `device`, `visualize`, `hf_repo_id`, **`sam3d_repo_path`** (optional; empty = default checkout **`submodules/sam-3d-body`** from the git submodule), `save_vertices` (needed for **mesh** output and **`body_mesh/…/visualization_3d`**), `visualize_mesh`, **`keypoint_mapping`** (for kinematics/proximity on SAM outputs), **`export_raw_outputs_json`** / **`export_raw_outputs_csv`**, and optional flags for smoothing, world alignment, and cross-view diagnostics. Post-process writes **`sam_3d_body.npz`** into **`body_joints`**, **`body_joints_local`**, and **`body_mesh`** result folders. See [`wiki_algorithms.md`](../wikis/wiki_algorithms.md#sam-3d-body) and [`wiki_components.md`](../wikis/wiki_components.md).
+
 
 
 ### Feature detectors
@@ -286,7 +293,7 @@ input_detector_names = [["component_name", "algorithm_name"]]
 
 ## Predictions mapping
 
-The config file `./configs/predictions_mapping.toml` contains information about mappings between different data identifiers. These are, for example, different conventions for selecting and naming human body joints, also called keypoints. The mappings are primarily used for internal purposes.
+The config file `./configs/predictions_mapping.toml` contains information about mappings between different data identifiers. These are, for example, different conventions for selecting and naming human body joints, also called keypoints. The mappings are primarily used for internal purposes. The section **`[human_pose.sam_3d_body_mhr]`** defines the **COCO body-17 ↔ MHR70** index pairs and MHR skeleton edges used by the **`sam_3d_body`** algorithm for optional comparison to **body_joints** and for 2D visualization overlays.
 
 
 

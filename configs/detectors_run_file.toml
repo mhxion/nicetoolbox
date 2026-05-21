@@ -17,8 +17,9 @@ check_missing_detectors_dependencies = true
 gaze_individual = ['multiview_eth_xgaze']
 gaze_multiview = ['gaze_fusion']
 gaze_interaction = ['gaze_distance']
-body_joints = ['hrnetw48', 'vitpose_huge', 'rtmpose_l_wholebody', 'rtmpose_m_mpii']
-body_joints_lifted = ['motionbert']
+body_joints = ['hrnetw48', 'vitpose_huge', 'rtmpose_l_wholebody', 'rtmpose_m_mpii', 'sam_3d_body']
+body_joints_local = ['sam_3d_body', 'motionbert']
+body_mesh = ['sam_3d_body']
 hand_joints = ['hrnetw48', 'rtmpose_l_wholebody']
 face_landmarks = ['hrnetw48', 'rtmpose_l_wholebody']
 kinematics = ['velocity_body']
@@ -34,7 +35,7 @@ speaker_aligned_transcription = ['whisperx']
 [run.communication_multiview]
 components = [
    "audio_transcription", "audio_diarization", "speaker_aligned_transcription",
-   "body_joints", "body_joints_lifted", 
+   "body_joints", "body_joints_local", "body_mesh",
    "gaze_individual", "gaze_multiview", "gaze_interaction", 
    "kinematics", "proximity", "emotion_individual", "head_orientation"
 ]

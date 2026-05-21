@@ -212,8 +212,56 @@ class WhisperXConfig(BaseModel):
     language: Optional[str]
     vad_onset: float
     vad_offset: float
-    hf_token: str
     alignment_model_name: str
+    hf_weights_cache_dir: str = Field(
+        default="<assets>/whisperx",
+        description="Directory for WhisperX / Hugging Face weight caches (created at inference if missing).",
+    )
+
+    class RuntimeConfig(MethodDetectorRuntime):
+        """Runtime including HF token for pyannote / Hub (resolved in detector init)."""
+
+        hf_token: str
+
+
+@detector_config("sam_3d_body")
+class Sam3dBodyConfig(BaseModel):
+    """SAM 3D Body (Hugging Face weights; set hugging_face_token in machine_specific_paths.toml)."""
+
+    camera_names: List[str]
+    env_name: str
+    device: str
+    visualize: bool
+
+    hf_repo_id: str = "facebook/sam-3d-body-dinov3"
+    sam3d_repo_path: str = ""
+    detector_name: str = "vitdet"
+    segmentor_name: str = "sam2"
+    fov_name: str = "moge2"
+    inference_type: str = "body"
+    save_vertices: bool = True
+    visualize_mesh: bool = True
+    visualize_mesh_interactive: bool = False
+    interactive_mesh_frame_stride: int = 1
+    interactive_mesh_camera_index: int = 0
+    interactive_mesh_prefer_world: bool = True
+    interactive_mesh_subject_spacing: Optional[float] = None
+    interactive_mesh_line_width: int = 1
+    # Keep interactive HTML browser-sized (uncapped wire × frames can exceed ~500 MB).
+    interactive_mesh_max_edges: int = 12_000
+    interactive_mesh_max_frames: int = 48
+    interactive_mesh_plotlyjs_cdn: bool = False
+    bbox_sort_left_to_right: bool = True
+    temporal_smooth: bool = True
+    smooth_window_length: int = 7
+    smooth_polyorder: int = 2
+    world_align_keypoints_3d: bool = True
+    cross_view_consistency: bool = True
+    stereo_triangulation_body_joints: bool = True
+    triangulation_min_detection_confidence: float = 0.6
+    keypoint_mapping: str = "sam_3d_body_mhr"
+    export_raw_outputs_json: bool = True
+    export_raw_outputs_csv: bool = True
     required_assets: Dict[str, str] = Field(default_factory=dict)
 
 

@@ -8,7 +8,8 @@ import os
 
 from nicetoolbox_core.audio_loaders import AudioStreamLoader
 
-from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
+from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime, WhisperXConfig
+from ....utils.hf_token import effective_hf_hub_token
 from ....utils.video import video_with_subtitles_from_frames
 from ..base_method import BaseMethod
 
@@ -24,15 +25,21 @@ class WhisperX(BaseMethod):
         if not self.data.has_audio():
             raise RuntimeError("WhisperX requires audio data but no audio was prepared.")
 
-        if not self.detector_config.hf_token:
-            raise ValueError("WhisperX requires a valid 'hf_token' for pyannote diarization in detectors_config.toml.")
+        resolved = effective_hf_hub_token(self.sequence_context.machine)
+        if not resolved:
+            raise ValueError(
+                "WhisperX requires a Hugging Face token for pyannote diarization. "
+                "Set hugging_face_token in machine_specific_paths.toml."
+            )
+        self._resolved_hf_hub_token = resolved
 
         # Initialize global dataloader
         self.audio_loader = AudioStreamLoader(
             config=self.data.get_input_recipes(), expected_tracks=self.detector_config.track_names
         )
 
-        return super()._initialize_detector()
+        rt = super()._initialize_detector()
+        return WhisperXConfig.RuntimeConfig(**rt.model_dump(), hf_token=self._resolved_hf_hub_token)
 
     def post_inference(self) -> None:
         """

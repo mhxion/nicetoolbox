@@ -37,6 +37,7 @@ from .method_detectors.body_joints.mmpose_framework_3d import MotionBERT
 from .method_detectors.emotion_individual.py_feat import PyFeat
 from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
 from .method_detectors.head_orientation.spiga_detector import Spiga
+from .method_detectors.sam_3d_body.sam_3d_body_detector import Sam3dBody
 
 ALL_DETECTORS = dict(
     # method detectors
@@ -51,6 +52,7 @@ ALL_DETECTORS = dict(
     py_feat=PyFeat,
     spiga=Spiga,
     whisperx=WhisperX,
+    sam_3d_body=Sam3dBody,
     # feature detectors
     velocity_body=VelocityBody,
     body_distance=BodyDistance,

@@ -7,3 +7,6 @@
 [submodule "submodules/SPIGA"]
 	path = submodules/SPIGA
 	url = https://github.com/OSLabTools/SPIGA
+[submodule "submodules/sam-3d-body"]
+	path = submodules/sam-3d-body
+	url = https://github.com/OSLabTools/sam-3d-body

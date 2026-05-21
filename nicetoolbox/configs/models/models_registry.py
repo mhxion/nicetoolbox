@@ -27,7 +27,13 @@ class ModelsRegistry:
     def parse(self, name: str, data: Dict[str, Any]) -> BaseModel:
         model = self._models.get(name, self._default_model)
         if model is None:
-            raise ValueError(f"Unknown schema for {name}")
+            known = ", ".join(sorted(self._models.keys()))
+            raise ValueError(
+                f"Unknown schema for {name!r}. "
+                "If you added a new detector, reinstall nicetoolbox "
+                "(e.g. `pip install -e .` or `make install` with DEV=true). "
+                f"Registered keys: {known}"
+            )
         return model.model_validate(data)
 
     def parse_dict(self, data: Dict[str, Any]) -> Dict[str, BaseModel]:

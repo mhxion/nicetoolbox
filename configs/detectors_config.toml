@@ -171,9 +171,45 @@ batch_size = 16
 language = "en"
 vad_onset = 0.9
 vad_offset = 0.9
-hf_token = "" # INSERT HUGGINGFACE TOKEN HERE
 alignment_model_name = "WAV2VEC2_ASR_LARGE_LV60K_960H"
 visualize = true
+# Hugging Face / WhisperX model cache root (directory created at inference if missing).
+hf_weights_cache_dir = "<assets>/whisperx"
 
-[algorithms.whisperx.required_assets]
-base_dir = "<assets>/whisperx"
+[algorithms.sam_3d_body]
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
+env_name = "venv:sam_3d_body"
+device = "cuda:0"
+visualize = true
+hf_repo_id = "facebook/sam-3d-body-dinov3"
+# If Empty, use git submodule at submodules/sam-3d-body 
+# (run: git submodule update --init submodules/sam-3d-body).
+sam3d_repo_path = ""
+detector_name = "vitdet"
+segmentor_name = "sam2"
+fov_name = "moge2"
+inference_type = "body"
+save_vertices = true
+visualize_mesh = true
+# Optional single-file 3D mesh viewer (Plotly HTML)
+# visualize_mesh_interactive = true
+# interactive_mesh_frame_stride = 5
+# interactive_mesh_camera_index = 0
+# interactive_mesh_prefer_world = true
+# Omit interactive_mesh_subject_spacing for auto spacing.
+# interactive_mesh_subject_spacing = 0
+# interactive_mesh_line_width = 1
+# interactive_mesh_max_edges = 12000
+# interactive_mesh_max_frames = 48
+# interactive_mesh_plotlyjs_cdn = true
+bbox_sort_left_to_right = true
+temporal_smooth = true
+smooth_window_length = 7
+smooth_polyorder = 2
+world_align_keypoints_3d = true
+cross_view_consistency = true
+stereo_triangulation_body_joints = true
+triangulation_min_detection_confidence = 0.6
+keypoint_mapping = "sam_3d_body_mhr"
+export_raw_outputs_json = true
+export_raw_outputs_csv = true

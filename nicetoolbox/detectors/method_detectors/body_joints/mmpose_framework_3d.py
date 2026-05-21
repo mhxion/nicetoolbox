@@ -149,7 +149,7 @@ class MotionBERT(MMPose3D):
     """
 
     algorithm = "motionbert"
-    components = ["body_joints_lifted"]
+    components = ["body_joints_local"]
 
     def __init__(self, io, data, video_context):
         super().__init__(io, data, video_context)
@@ -209,6 +209,6 @@ class MotionBERT(MMPose3D):
         return MotionbertAlgorithmConfig.RuntimeConfig(**payload)
 
     def get_per_component_keypoint_mapping(self, keypoints_indices):
-        indices = dict(body_joints_lifted=confh.flatten_list(list(keypoints_indices.body.values())))
-        description = dict(body_joints_lifted=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
+        indices = dict(body_joints_local=confh.flatten_list(list(keypoints_indices.body.values())))
+        description = dict(body_joints_local=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
         return indices, description
