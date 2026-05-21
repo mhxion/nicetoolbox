@@ -7,7 +7,9 @@ import requests
 from tqdm import tqdm
 
 from ..configs.schemas.asset_manifest import AssetManifest
+from ..configs.schemas.machine_specific_paths import MachineSpecificConfig
 from ..utils import logging_utils as log_ut
+from ..utils.hf_token import effective_hf_hub_token
 
 
 class AssetManager:
@@ -150,3 +152,16 @@ class AssetManager:
 
         logging.info(f"AssetManager check: Found {len(required_assets)} required assets for this run.")
         self.verify_and_download(required_assets)
+        self._log_hf_only_models(active_algos, config.machine_specific_config)
+
+    def _log_hf_only_models(self, active_algos: set, machine: MachineSpecificConfig) -> None:
+        """Log Hugging Face token status for algorithms not on the Keeper manifest."""
+        if "sam_3d_body" not in active_algos:
+            return
+        if effective_hf_hub_token(machine):
+            logging.info("AssetManager: sam_3d_body uses Hugging Face weights (token configured).")
+        else:
+            logging.error(
+                "AssetManager: sam_3d_body needs hugging_face_token in machine_specific_paths.toml "
+                "(and Hub license acceptance)."
+            )

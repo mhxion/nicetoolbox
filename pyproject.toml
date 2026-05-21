@@ -27,7 +27,7 @@ dependencies = [
     "urllib3==1.26.15",
     "requests",
     "tqdm",
-    "scikit-learn"
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]

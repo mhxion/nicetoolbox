@@ -65,3 +65,7 @@ url = "https://keeper.mpdl.mpg.de/f/233f8871d9c4462ab1ef/?dl=1"
 
 ["spiga/spiga_merlrav.pt"]
 url = "https://keeper.mpdl.mpg.de/f/c3cbf5ea07e341bbba4e/?dl=1"
+
+# --- SAM 3 D Body ---
+# Weights are distributed on Hugging Face (gated).
+# AssetManager logs a reminder when `sam_3d_body` is in the run; use hugging_face_token in machine_specific_paths.toml.

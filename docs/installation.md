@@ -1,6 +1,6 @@
 # Installation
 
-We conducted tests of the installation on Windows 11 and Ubuntu versions 20 and 22, using CUDA 11.8.
+Optional detector virtual environments each ship their own PyTorch CUDA build in an isolated venv (for example **MMPose / Py-Feat / SPIGA** use **`cu118`**, **SAM 3D Body** uses **`cu121`**, **WhisperX** uses **`cu126`**). They do not share one global PyTorch install, so different CUDA lines in different venvs do not conflict. **SAM 3D Body** expects a **CUDA 12.1 toolkit** with matching **`nvcc`** when **Detectron2** is built from source.
 
 <!-- TOC -->
 - [Installation](#installation)
@@ -9,6 +9,7 @@ We conducted tests of the installation on Windows 11 and Ubuntu versions 20 and 
     - [Python 3.10](#python-310)
     - [Conda](#conda)
     - [Cuda 11.8](#cuda-118)
+    - [SAM 3D Body and Detectron2 (CUDA toolkit 12.1)](#sam-3d-body-and-detectron2-cuda-toolkit-121)
     - [FFmpeg](#ffmpeg)
     - [Git](#git)
     - [On Windows: Microsoft Visual C++](#on-windows-microsoft-visual-c)
@@ -44,7 +45,7 @@ For Windows users, we also recommend clicking **"Disable path length limit"** on
 
 ![python_windows_path_limit.png](graphics/python_windows_path_limit.png)
 
-Youj an always disable or enable line limit manually. See [Enable long path support](#on-windows-enable-long-path-support) for more details.
+You can always disable or enable line limit manually. See [Enable long path support](#on-windows-enable-long-path-support) for more details.
 
 ### Conda
 
@@ -80,7 +81,52 @@ On Windows, after installing Conda, ensure that the Conda paths are added to the
 
 ### Cuda 11.8
 
+Several Makefile targets install PyTorch from `https://download.pytorch.org/whl/cu118` (for example Multiview ETH-XGaze, Py-Feat, SPIGA, and the OpenMMLab script for MMPose). Those wheels bundle a CUDA 11.8 **runtime** for inference; you normally do **not** need the full CUDA toolkit unless you compile CUDA extensions yourself.
+
 Please find installation instructions on the official websites: for [Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html) and [Linux Ubuntu](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
+
+### SAM 3D Body and Detectron2 (CUDA toolkit 12.1)
+
+Upstream **SAM 3D Body** code lives in the git submodule **`submodules/sam-3d-body`** ([`OSLabTools/sam-3d-body`](https://github.com/OSLabTools/sam-3d-body)). After cloning, run **`git submodule update --init submodules/sam-3d-body`** (or clone with **`--recurse-submodules`**) so that directory contains the **`sam_3d_body/`** package.
+
+The SAM 3D Body virtual environment installs **`torch==2.4.1+cu121`** and **`torchvision==0.19.1+cu121`** (see `nicetoolbox/detectors/method_detectors/sam_3d_body/sam_3d_body_pip_requirements.txt`). **Detectron2** is required and is installed by **`make install_sam3d_body`**, which tries **building from the GitHub repository** first. That compile step uses **`nvcc`** from the **CUDA toolkit** on your system; it must match PyTorch’s CUDA (**12.1**), or the build fails with a CUDA version mismatch.
+
+**GPU driver:** `nvidia-smi` must report a driver whose maximum CUDA version is **at least 12.1**. PyTorch **`cu121`** wheels bundle a CUDA 12.1 **runtime**; the driver only needs to be new enough to run that runtime. Building Detectron2 from source additionally needs a **CUDA 12.1 toolkit** so **`nvcc`** matches.
+
+**Checklist for a successful Linux install**
+
+1. **Driver:** `nvidia-smi` should show a maximum CUDA version **≥ 12.1** (the line labeled “CUDA Version” is the driver capability, not your installed toolkit).
+
+2. **CUDA toolkit 12.1 for `nvcc`:** Install the [CUDA 12.1 toolkit](https://developer.nvidia.com/cuda-12-1-0-download-archive) (or your administrator’s equivalent). Set **`CUDA_HOME`** to that install and put **`${CUDA_HOME}/bin`** early on **`PATH`** so **`nvcc --version`** reports **release 12.1**.
+
+   **Shell / `PATH`:** Editing **`~/.bashrc`** does not affect shells that are already open—**`source ~/.bashrc`** or open a new terminal. **Conda** **`activate.d`** scripts and **environment modules** can point **`nvcc`** at a different toolkit (for example **12.6** under **`/is/software/nvidia/cuda-12.6`** when that path is missing on your machine). Check with **`which nvcc`** and **`nvcc -V`** in the same shell you use for **`make`**.
+
+3. **Host C++ compiler:** Detectron2’s CUDA extensions are compiled with **`nvcc`**, which only supports certain **GCC** versions per toolkit. For CUDA **12.1**, **GCC must not be newer than 12** (GCC **13+** typically triggers `unsupported GNU version! gcc versions later than 12 are not supported` in `host_config.h`). Install an older GCC (e.g. on Ubuntu **24.04**: `gcc-12` / `g++-12`) and **only for the build session** point the build at it, for example:
+
+   ```bash
+   export CC=/usr/bin/gcc-12
+   export CXX=/usr/bin/g++-12
+   ```
+
+4. **Run the Makefile** from the repo root:
+
+   ```bash
+   make install_sam3d_body
+   ```
+
+5. **Verify** PyTorch in that venv:
+
+   ```bash
+   ./envs/sam_3d_body/bin/python -c "import torch; print(torch.__version__, torch.version.cuda)"
+   ```
+
+**If the git build fails:** the Makefile installs from Meta’s wheel index next (`cu121` / `torch2.4`); if **`pip`** reports **no matching distribution**, the index may be empty or blocked on your network—in that case fix **GCC/toolkit** and retry the source build, or install Detectron2 manually per **`sam_3d_body_pip_requirements.txt`** comments.
+
+**Windows:** Install **CUDA Toolkit 12.1** and a **Visual Studio** toolchain supported by that CUDA version; set **`CUDA_PATH`** per NVIDIA’s [Windows guide](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html), then run **`make install_sam3d_body`**.
+
+**Alternative:** If you cannot satisfy toolkit **12.1** + compiler constraints, you can repin SAM to **`cu118`** and the matching Detectron2 wheel URL (see comments in `sam_3d_body_pip_requirements.txt` and the Makefile)—that aligns SAM with the same PyTorch CUDA line as several other detectors, at the cost of editing pins and retesting.
+
+**WhisperX (`cu126`):** **`make install_whisperx`** installs **PyTorch `cu126`** into **`./envs/whisperx`**, a separate venv. That does not affect **`./envs/sam_3d_body`**. You only need a driver new enough for the **highest** CUDA line you actually run (check **`nvidia-smi`** if you use both detectors on one GPU).
 
 ### FFmpeg
 
@@ -149,7 +195,7 @@ git clone --recurse-submodules git@github.com:OSLabTools/nicetoolbox.git
 cd /path/to/nicetoolbox
 ```
 
-The `--recurse-submodules` flag ensures that all submodules are are automatically initialized and updated. 
+The `--recurse-submodules` flag ensures that all submodules are are automatically initialized and updated (including **MMPose**, **SPIGA**, **SAM 3D Body** at `submodules/sam-3d-body`, etc.). 
 Alternatively, you can run the following commands after having cloned the repository without this flag:
 ```bash
 git submodule init           # to initialize your local configuration file
@@ -164,7 +210,7 @@ The NICE Toolbox includes a Makefile that handles the installation of all requir
 - `make` or `make all`  - Run all the commands below.
 - `make create_machine_specifics` - Generate the machine-specific configuration file.
 - `make create_project` - Generate the project configuration file.
-- `make install` - Install all dependencies.
+- `make install` - Install all dependencies. On Linux, if **`./envs/sam_3d_body`** is missing, the Makefile also runs **`install_sam3d_body`** (PyTorch **`cu121`** + **Detectron2**); that step needs a matching **CUDA 12.1 toolkit / `nvcc`**—see [SAM 3D Body and Detectron2](#sam-3d-body-and-detectron2-cuda-toolkit-121).
 - `make download_assets` - Check and download assets.
 - `make download_dataset` - Check and download the example dataset.
 

@@ -20,8 +20,10 @@ Per component, each `<algorithm>.npz` file contains several numpy arrays plus a 
 
 | component | contained numpy arrays |
 | - | - |
-| body_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
-| body_joints_lifted | 2d, 2d_interpolated, bbox_2d, bbox_overlap, 3d; optional 2d_filtered, 3d_filtered when filtering is enabled |
+| body_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d (from MMPose triangulation); **SAM 3D Body** writes **`sam_3d_body.npz`** only under **`body_joints/sam_3d_body/`** when calibration has intrinsics + projection matrix—world-primary **`3d`** via **K,P alignment** (not multi-view triangulation); optional **`3d_camera`** / **`3d_world`** |
+| body_joints_local | **SAM 3D Body**: **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** — camera-native **`3d`** primary; optional **`3d_world`** after alignment. **MotionBERT**: **`motionbert.npz`** — root-relative **H36M-order** **`3d`** (see **`body_joints_local/motionbert.npz`** layout). |
+| body_mesh | **`sam_3d_body.npz`** under **`body_mesh/sam_3d_body/`**: faces, vertices (optional vertices_world), data_description |
+| *(run key)* | Register **`sam_3d_body`** under **`body_joints`**, **`body_joints_local`**, **`body_mesh`**. Raw inference **`_sam_3d_body_inference_raw.npz`** lives next to **`run_config`** under **`body_joints/sam_3d_body/`** (not inside **`detector_output/`**). |
 | hand_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | face_landmarks | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | gaze_individual | landmarks_2d, 3d |
@@ -146,8 +148,19 @@ Joint estimations with a confidence score below 0.60 are marked as missing becau
 With calibrated stereo cameras, the 3D positions (x, y, and z coordinates) of the body joints are computed via the triangulation method (see `..._3d.csv` or `3d.npy` file). Since 3D estimation is performed after interpolation of the 2D estimations, any missing 2D joint point will also be missing in the 3D results.
 If the user has more than two camera views, the first two camera views listed in the `frameworks.mmpose.camera_names` parameter in the [`./configs/detectors_config.toml`](../../configs/detectors_config.toml) file will be used for triangulation.
 
-## Body joints lifted
-Provides **root-relative 3D body pose** by lifting precomputed 2D body joint estimates into 3D using a temporal model. Available algorithm is *MotionBERT*, which reads the 2D keypoints and bounding boxes from an existing `body_joints` NPZ (default source: `vitpose_huge`) and outputs 17 keypoints in Human3.6M order. Unlike the stereo triangulation path, no camera calibration is required. See the [Algorithms wiki](wiki_algorithms.md#motionbert-3d-body-pose-lifting) for details.
+## Body joints local
+
+**SAM 3D Body** exports **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** (camera-native **`3d`** primary; optional **`3d_world`** when calibration alignment ran—see **`data_description.sam_3d_body.export_policy`**).
+
+**MotionBERT** exports **`motionbert.npz`** under **`body_joints_local/`** (same tensor layout as before; root-relative **Human3.6M-order** **`3d`**). It lifts precomputed **2D** **`body_joints`** NPZs (see **`input_detector_names`**). See the [Algorithms wiki](wiki_algorithms.md#motionbert-3d-body-pose-lifting).
+
+## SAM 3D Body (`sam_3d_body`)
+
+The **`sam_3d_body`** algorithm (code under **`method_detectors/sam_3d_body`**) runs **SAM 3D Body** (MHR). Inference writes **`_sam_3d_body_inference_raw.npz`** under **`body_joints/sam_3d_body/`** (alongside **`run_config`**); optional raw **JSON/CSV** dumps go under **`detector_output/`**. **Post-processing** converts that into **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** always, **`sam_3d_body.npz`** under **`body_joints/sam_3d_body/`** only when usable calibration is present (otherwise **`body_joints`** NPZ is skipped), and **`sam_3d_body.npz`** under **`body_mesh/sam_3d_body/`**. **`export_policy`** in **`data_description`** records alignment vs triangulation expectations.
+
+With **`visualize = true`**, 2D skeleton JPEGs and per-camera MP4s are under **`body_joints/sam_3d_body/visualization/<camera_name>/`**. When **`visualize_mesh`** and **`save_vertices`** are enabled, mesh overlays and their MP4s are under **`body_mesh/sam_3d_body/visualization_3d/<camera_name>/`** (not under **body_joints**).
+
+Configuration is **`[algorithms.sam_3d_body]`** in [`./configs/detectors_config.toml`](../../configs/detectors_config.toml). In [`detectors_run_file.toml`](../../configs/detectors_run_file.toml), add **`sam_3d_body`** to **`[component_algorithm_mapping]`** for **`body_joints`**, **`body_joints_local`**, and **`body_mesh`**. For a minimal SAM 3D run, include **`"body_joints"`**, **`"body_mesh"`**, and (optionally) **`"body_joints_local"`** in the dataset’s **`components`** list; duplicate algorithm names are deduplicated to a single run.
 
 ## Hand joints
 Tracks the positions of hand joints to analyze hand movements and gestures. Available algorithm is *HRNet-w48*. The figure below represents the identified hand joints.

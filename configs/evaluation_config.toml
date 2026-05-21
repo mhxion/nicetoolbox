@@ -44,12 +44,10 @@ predictions = { component = "body_joints", algorithm = ["hrnetw48", "vitpose_hug
 summary_group_by = ["subject", "sequence", "label"]
 summary_aggr = ["median", "std"]  # we can customize aggregation function
 
-# motionBERT vs rest
-# usually motionBERT shows low variance, but high bias
 [metrics.bone_length_motion_bert]
 metric_type = "bone_length"
 # we can declare input block with dot notation
-predictions.component = ["body_joints", "body_joints_lifted"]
+predictions.component = ["body_joints", "body_joints_local"]
 predictions.camera = ["3d", "view_center"]  # we take only view center prediction for motion bert
 predictions.npz_key = "3d"
 # the rest of fields as normal
@@ -64,7 +62,6 @@ summary_aggr = ["min", "mean", "max", "std", "cv"]
 # It produces .npz of counted joints (number and percent) per frame and two summary .csv reports.
 # Check detection rate as final score - higher is better. 
 
-# let's compare 3d missing points (after triangulation for multi-camera setup)
 [metrics.missing_points_3d]
 metric_type = "missing_points"
 predictions = { component = "body_joints", npz_key = "3d" } 

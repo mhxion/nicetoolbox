@@ -17,6 +17,7 @@ from ...configs.schemas.detectors_algos_configs import MethodDetectorRuntime
 from ...configs.video_runtime_config import SequenceRuntimeConfig
 from ...utils.base_detectors import flatten_inference_config
 from ...utils.config import save_config
+from ...utils.hf_token import effective_hf_hub_token
 from ...utils.system import detect_os_type
 from ..base_detector import BaseDetector
 from ..data import SequenceData
@@ -28,7 +29,15 @@ class BaseMethod(BaseDetector):
     Abstract base class for method detectors.
 
     Method detectors run inference in external virtual environments via subprocess.
+
+    Subclasses may set inference_package_name to the subdirectory under
+    method_detectors/ that contains {framework}_inference.py when it
+    differs from components[0] (e.g. algorithm sam_3d_body writes to
+    body_joints / body_mesh but runs sam_3d_body_inference.py).
     """
+
+    # If set, used for get_inference_path instead of components[0].
+    inference_package_name: str | None = None
 
     runtime: MethodDetectorRuntime
 
@@ -74,10 +83,13 @@ class BaseMethod(BaseDetector):
         # (4) Flatten config for subprocess
         inference_config = flatten_inference_config(self.detector_config, self.runtime)
 
-        # (5) Save config for subprocess
+        # (5) Save config for subprocess (primary path is components[0]; subprocess uses config_path).
         folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
         self.config_path = folder / "run_config.toml"
         save_config(inference_config, self.config_path)
+        for comp in self.components[1:]:
+            dup = self.io.get_detector_output_folder(comp, self.algorithm, "run_config") / "run_config.toml"
+            save_config(inference_config, dup)
 
         logging.info("Inference preparation completed.\n")
 
@@ -116,10 +128,19 @@ class BaseMethod(BaseDetector):
         self.venv, self.env_name = env_name.split(":")
 
         framework = getattr(self.detector_config, "framework", self.algorithm)
-        self.script_path = self.io.get_inference_path(self.components[0], framework)
+        inference_pkg = getattr(type(self), "inference_package_name", None) or self.components[0]
+        self.script_path = self.io.get_inference_path(inference_pkg, framework)
 
         if self.venv == "venv":
             self.venv_path = self.io.get_venv_path(framework, self.env_name)
+
+    def _subprocess_env(self) -> dict:
+        """Copy os.environ and set HF_TOKEN from machine_specific_paths.toml when configured."""
+        env = os.environ.copy()
+        tok = effective_hf_hub_token(self.sequence_context.machine)
+        if tok:
+            env["HF_TOKEN"] = tok
+        return env
 
     # -------------------------------------------------------------------------
     # BaseDetector Interface Implementation
@@ -139,11 +160,18 @@ class BaseMethod(BaseDetector):
 
         command = self._create_command()
 
+        sub_env = self._subprocess_env()
         if self.os_type == "windows":
-            cmd_result = subprocess.run(command, capture_output=True, text=True, shell=True, check=False)
+            cmd_result = subprocess.run(command, capture_output=True, text=True, shell=True, check=False, env=sub_env)
         else:
             cmd_result = subprocess.run(
-                command, capture_output=True, text=True, shell=True, executable="/bin/bash", check=False
+                command,
+                capture_output=True,
+                text=True,
+                shell=True,
+                executable="/bin/bash",
+                check=False,
+                env=sub_env,
             )
 
         if cmd_result.returncode == 0:

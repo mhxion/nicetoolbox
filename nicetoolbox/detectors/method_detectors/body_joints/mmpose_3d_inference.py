@@ -369,9 +369,9 @@ def main(config: dict[str, Any]) -> None:
     ]
 
     number_subjects = max(len(config["cam_sees_subjects"][c]) for c in config["camera_names"])
-    fallback_k = config["keypoints_indices"]["body_joints_lifted"]
+    fallback_k = config["keypoints_indices"]["body_joints_local"]
     if not len(fallback_k):
-        raise ValueError("keypoints_indices.body_joints_lifted must be non-empty for 3D lift export.")
+        raise ValueError("keypoints_indices.body_joints_local must be non-empty for 3D lift export.")
     fallback_num_keypoints = max(fallback_k) + 1
 
     camera_keypoints_output: list[np.ndarray] = []

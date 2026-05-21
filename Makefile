@@ -6,30 +6,35 @@ VENV = nicetoolbox
 VENV_ROOT_DIR = ./envs
 VENV_DIR = $(VENV_ROOT_DIR)/$(VENV)
 DEV = false
+# `make all DEV=true` — editable install. Many people type `dev=TRUE`; forward that to DEV.
+ifneq ($(strip $(dev)),)
+	DEV := $(dev)
+endif
 MACHINE_SPECIFICS = machine_specific_paths.toml
 PROJECT_CONFIG = nice_project.toml
 
 # Define variables for third party venvs
 ifeq ($(OS), Windows_NT)
 	PYTHON_EXE = python
-    CONDA_DIR := $(shell conda info --base | tr '\\\\' '/')
+	CONDA_DIR := $(shell conda info --base | tr '\\\\' '/')
 	MMPOSE = ./nicetoolbox/detectors/method_detectors/body_joints/install_openmmlab_conda.bat
 	VENV_EXE_DIR = $(VENV_DIR)/Scripts
 	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/Scripts
 	PYFEAT_EXE_DIR = ./envs/py_feat/Scripts
 	SPIGA_EXE_DIR = ./envs/spiga/Scripts
 	WHISPERX_EXE_DIR = ./envs/whisperx/Scripts
+	SAM3D_BODY_EXE_DIR = $(VENV_ROOT_DIR)/sam_3d_body/Scripts
 else
 	PYTHON_EXE = python3.10
-    CONDA_DIR := $(shell conda info --base)
+	CONDA_DIR := $(shell conda info --base)
 	MMPOSE = ./nicetoolbox/detectors/method_detectors/body_joints/install_openmmlab_conda.sh
 	VENV_EXE_DIR = $(VENV_DIR)/bin
 	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/bin
 	PYFEAT_EXE_DIR = ./envs/py_feat/bin
 	SPIGA_EXE_DIR = ./envs/spiga/bin
 	WHISPERX_EXE_DIR = ./envs/whisperx/bin
+	SAM3D_BODY_EXE_DIR = $(VENV_ROOT_DIR)/sam_3d_body/bin
 endif
-
 
 # Download data variables
 EXAMPLE_DATASET = communication_multiview
@@ -87,6 +92,9 @@ $(MACHINE_SPECIFICS):
 ifeq ($(OS), Windows_NT)
 	@echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" > $(MACHINE_SPECIFICS)
 	@echo "conda_path = '$(CONDA_DIR)'" >> $(MACHINE_SPECIFICS)
+	@echo "" >> $(MACHINE_SPECIFICS)
+	@echo "# Optional Hugging Face token for gated Hub models (e.g. sam_3d_body). Leave empty if unused." >> $(MACHINE_SPECIFICS)
+	@echo "hugging_face_token = ''" >> $(MACHINE_SPECIFICS)
 	@echo "Created machine specifics paths file"
 else
 	@echo "Looking for valid conda envs_dirs..."
@@ -99,6 +107,9 @@ else
 	fi; \
 	echo "# Where to find your conda (miniconda or anaconda) installation as absolute path (str)" > $(MACHINE_SPECIFICS); \
 	echo "conda_path = '$$(realpath $$VALID_CONDA_PATH/..)'">> $(MACHINE_SPECIFICS); \
+	echo "" >> $(MACHINE_SPECIFICS); \
+	echo "# Optional Hugging Face token for gated Hub models (e.g. sam_3d_body). Leave empty if unused." >> $(MACHINE_SPECIFICS); \
+	echo "hugging_face_token = ''" >> $(MACHINE_SPECIFICS); \
 	echo "Using conda installation at: $$VALID_CONDA_PATH"; \
 	echo "Created machine specifics paths file"
 endif
@@ -195,6 +206,11 @@ ifeq ("$(wildcard $(WHISPERX_EXE_DIR)/activate)","")
 	@make install_whisperx
 endif
 
+#	SAM 3D Body venv (optional during make install; failure does not stop other envs)
+ifeq ("$(wildcard $(SAM3D_BODY_EXE_DIR)/activate)","")
+	-@make install_sam3d_body
+endif
+
 #	check for conda installation
 ifeq ($(which conda),"")
 	@echo "No CONDA installation found. Check the documentation for instructions: https://nicetoolbox.readthedocs.io/en/stable/installation.html."
@@ -218,16 +234,16 @@ $(VENV_EXE_DIR)/activate: pyproject.toml
 	@echo "Creating virtual environment in $(VENV_DIR)..."
 	@$(PYTHON_EXE) -m venv $(VENV_DIR)
 
-#   install nicetoolbox-core
+#	install nicetoolbox-core
 	@echo "Installing nicetoolbox-core dependencies..."
 	@$(VENV_EXE_DIR)/pip install -e ./nicetoolbox_core
 
 ifeq ($(DEV), false)
-# 	basic installation
+#	basic installation
 	@echo "Installing $(TOOL_NAME)..."
 	@$(VENV_EXE_DIR)/pip install .
 else
-# 	developer installation
+#	developer installation
 	@echo "Installing $(TOOL_NAME) editable for developers..."
 	@$(VENV_EXE_DIR)/pip install -e ".[dev]"
 endif
@@ -242,7 +258,7 @@ install_multiview_eth_xgaze:
 	@$(PYTHON_EXE) -m venv ./envs/multiview_eth_xgaze
 	@echo "Virtual environment created in ./envs/multiview_eth_xgaze"
 
-	@echo ""Installing requirements for 'Multiview ETH-XGaze'...""
+	@echo "Installing requirements for 'Multiview ETH-XGaze'..."
 	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
 	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install submodules/multiview_eth_xgaze -c submodules/multiview_eth_xgaze/constraints.txt
 	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install -e ./nicetoolbox_core
@@ -282,7 +298,7 @@ install_spiga:
 	@echo "'SPIGA' environment setup completed successfully."
 
 
-# Install the venv for pyfeat
+# Install the venv for whisperx
 .PHONY: install_whisperx
 install_whisperx:
 	@make create_separator
@@ -310,3 +326,19 @@ else
 	@chmod +x $(MMPOSE) && $(MMPOSE)
 endif
 	@echo "'MMPose' environment setup completed successfully."
+
+# Standard venv at ./envs/sam_3d_body (matches detectors_config env_name = "venv:sam_3d_body").
+.PHONY: install_sam3d_body
+install_sam3d_body:
+	@make create_separator
+	@echo "Creating SAM 3D Body venv at $(VENV_ROOT_DIR)/sam_3d_body ..."
+	@$(PYTHON_EXE) -m venv ./envs/sam_3d_body
+	@echo "Installing PyTorch (2.8.0, cu129)..."
+	@$(SAM3D_BODY_EXE_DIR)/pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu129 --extra-index-url https://pypi.org/simple
+	@echo "Installing SAM 3D Body dependencies..."
+	@$(SAM3D_BODY_EXE_DIR)/pip install -r nicetoolbox/detectors/method_detectors/sam_3d_body/sam_3d_body_pip_requirements.txt
+	@echo "Installing Detectron2..."
+	@$(SAM3D_BODY_EXE_DIR)/pip install "detectron2==0.6+fd27788pt2.8.0cu129" --extra-index-url https://miropsota.github.io/torch_packages_builder --no-deps
+	@echo "Installing MoGe..."
+	@$(SAM3D_BODY_EXE_DIR)/pip install 'git+https://github.com/microsoft/MoGe.git'
+	@$(SAM3D_BODY_EXE_DIR)/pip install -e ./nicetoolbox_core

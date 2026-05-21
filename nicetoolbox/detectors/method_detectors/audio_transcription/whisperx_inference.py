@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import os
+from pathlib import Path
 
 import librosa
 import torch
@@ -36,7 +37,12 @@ def whisperx_inference(config: dict) -> None:
     subjects_description = config["subjects_descr"]
     res_folders = config["result_folders"]  # top level json (npz) results
     extra_detector_output_folder = config["out_folder"]  # additional detector results (e.g. SRT files)
-    assets_dir = config["required_assets"]["base_dir"]
+
+    cache_raw = config.get("hf_weights_cache_dir")
+    if not cache_raw:
+        raise ValueError("WhisperX config must set hf_weights_cache_dir (see WhisperXConfig).")
+    assets_dir = str(Path(cache_raw).expanduser())
+    os.makedirs(assets_dir, exist_ok=True)
 
     model_size = config["model_size"]
     language = config["language"]
