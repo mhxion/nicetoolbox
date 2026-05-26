@@ -17,19 +17,9 @@ It aims to enable the investigation of observable signs that reflect the mental 
 and behaviors of the individual. Additionally, these visual nonverbal cues reveal the
 interpersonal dynamics between people in face-to-face conversations.
 
-NICE Toolbox incorporates a growing set of Computer Vision algorithms to track and
-identify important visual components of nonverbal communication. Existing deep-learning
-and rule-based algorithms are combined into a single, easy-to-use software toolbox.
-Based on single- or multi-camera video data, the initial release encompasses whole-body
-pose estimation and gaze tracking for each individual, as well as movement dynamics
-calculation (kinematics), gaze interaction monitoring (mutual-gaze), the measurement
-of physical body distance between dyads, and emotion detection.
-This first set of components and algorithms is going to be extended in future releases.
-For more details, please see the
-[components overview](https://nicetoolbox.readthedocs.io/en/stable/wikis/wiki_components.html)
-page in the wiki.
+NICE combines existing computer vision **detectors** into a single, easy-to-use framework. Working from single- or multi-camera video data, it covers whole-body pose estimation, gaze tracking, movement dynamics (kinematics), gaze interaction monitoring (mutual gaze), physical proximity between dyads, emotion detection and more. For a full list, see the [components overview](https://nicetoolbox.readthedocs.io/en/stable/wikis/wiki_components.html).
 
-The toolbox  also includes a visualizer module, which allows users to visualize and investigate the algorithm’s outputs. The toolbox further includes an evaluation module, which runs configurable metrics over detector outputs and produces CSV summary reports and plots.
+The toolbox also includes a **visualizer** molule for interactively exploring outputs, an **evaluation** module that runs configurable metrics and a collection of **connectors** for importing/exporting data to third-party tools (i.e. for labelling in [ELAN](https://archive.mpi.nl/tla/elan) or [napari](https://napari.org/)).
 
 ## Installation & getting started
 
@@ -43,10 +33,6 @@ page. Further tutorials and documentation can be found on the
 access this [documentation](https://nicetoolbox.readthedocs.io/en/stable/index.html) offline
 by downloading it as a PDF. Just use the ReadTheDocs pop-up menu located in the bottom right
 corner of the screen.
-
-## Code structure
-
-![toolbox_design.png](docs/graphics/toolbox_design.png)
 
 ## Future releases
 
@@ -65,7 +51,7 @@ reach out to us at **<nicetoolbox@tue.mpg.de>**.
 
 The NICE Toolbox is using the following existing tools, methods, and frameworks:
 [MMPose](https://github.com/open-mmlab/mmpose/tree/main),
-[MotionBERT](https://arxiv.org/abs/2210.06551) (3D body lifting integrated via MMPose),
+[MotionBERT](https://arxiv.org/abs/2210.06551),
 [HigherHRNet](https://github.com/HRNet/HigherHRNet-Human-Pose-Estimation/tree/master),
 [ViTPose](https://github.com/ViTAE-Transformer/ViTPose/tree/main),
 [DarkPose](https://github.com/ilovepose/DarkPose/tree/master),

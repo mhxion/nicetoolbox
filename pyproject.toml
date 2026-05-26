@@ -53,6 +53,8 @@ run_visualization = "nicetoolbox.visual.media.main:entry_point"
 run_calibration_gui = "nicetoolbox.utils.calibration_gui.calibration_converter:entry_point"
 run_evaluation = "nicetoolbox.evaluation.main:entry_point"
 download_assets = "nicetoolbox.download_manager.main:entry_point"
+napari_connector = "nicetoolbox.connectors.napari.cli:entry_point"
+elan_connector = "nicetoolbox.connectors.elan.cli:entry_point"
 
 # Setuptools
 [tool.setuptools.packages.find]

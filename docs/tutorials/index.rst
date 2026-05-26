@@ -15,4 +15,6 @@ And for in-depth information about certain parts of the NICE Tolbox, have a look
    tutorial3_calibration_conversion
    tutorial4_rerun_visualization
    tutorial5_evaluation
-   tutorial6_results_wrapper
+   tutorial6_elan_connector
+   tutorial7_napari_deeplabcut_connector
+
