@@ -17,18 +17,6 @@ def frame_person_list(frame_bundle: Any, cam: str, cam_idx: int, mode: str) -> l
     return []
 
 
-def _max_keypoints(per_frame: list[Any], camera_names: list[str], mode: str) -> int:
-    m = 0
-    for fb in per_frame:
-        for ci, cam in enumerate(camera_names):
-            for p in frame_person_list(fb, cam, ci, mode):
-                kp = p.get("pred_keypoints_2d")
-                if kp is None:
-                    continue
-                m = max(m, int(np.asarray(kp).shape[0]))
-    return max(m, 1)
-
-
 def _max_vertices(per_frame: list[Any], camera_names: list[str], mode: str) -> int:
     m = 0
     for fb in per_frame:
@@ -82,6 +70,8 @@ def _subject_axis_names(number_subjects: int, subjects_descr: list[str]) -> list
 def build_body_joints_npz_payload(
     per_frame: list[Any],
     *,
+    joint_indices: list[int],
+    joint_names: list[str],
     camera_names: list[str],
     mode: str,
     subjects_descr: list[str],
@@ -89,17 +79,19 @@ def build_body_joints_npz_payload(
     video_start_frame_index: int,
     three_d_primary: Literal["world", "camera"] = "world",
 ) -> dict[str, Any]:
-    """Build body_joints NPZ payload (MMPose-style keys). three_d_primary: world or camera-native 3d."""
+    """Build joints NPZ payload (MMPose-style keys). three_d_primary: world or camera-native 3d."""
     n_frames = len(per_frame)
     n_cams = len(camera_names)
     n_sub = _number_subject_slots(cam_sees_subjects, camera_names)
-    n_kp = _max_keypoints(per_frame, camera_names, mode)
+    n_kp = len(joint_indices)
 
     arr_2d = np.full((n_sub, n_cams, n_frames, n_kp, 3), np.nan, dtype=np.float64)
     arr_3d = np.full((n_sub, n_cams, n_frames, n_kp, 4), np.nan, dtype=np.float64)
     arr_3d_w = np.full((n_sub, 1, n_frames, n_kp, 4), np.nan, dtype=np.float64)
     bbox = np.full((n_sub, n_cams, n_frames, 1, 5), np.nan, dtype=np.float64)
     any_world = False
+
+    idx_arr = np.asarray(joint_indices, dtype=np.intp)
 
     for fi, fb in enumerate(per_frame):
         for ci, cam in enumerate(camera_names):
@@ -111,31 +103,31 @@ def build_body_joints_npz_payload(
                 subj = int(slots[pid])
                 if subj < 0 or subj >= n_sub:
                     continue
-                kp2 = _kp2_to_xy_conf(person.get("pred_keypoints_2d", np.zeros((0, 3))))
-                kp3 = np.asarray(person.get("pred_keypoints_3d"), dtype=np.float64)
-                kp3w = person.get("pred_keypoints_3d_world")
+                kp2_full = _kp2_to_xy_conf(person.get("pred_keypoints_2d", np.zeros((0, 3))))
+                kp3_full = np.asarray(person.get("pred_keypoints_3d"), dtype=np.float64)
+                kp3w_full = person.get("pred_keypoints_3d_world")
                 bb = np.asarray(person.get("bbox"), dtype=np.float64).ravel()
-                if kp2.shape[0] > 0:
-                    take = min(n_kp, kp2.shape[0])
-                    arr_2d[subj, ci, fi, :take, :] = kp2[:take, :]
-                if kp3.size > 0 and kp3.ndim == 2 and kp3.shape[1] >= 3:
-                    take3 = min(n_kp, kp3.shape[0])
-                    conf2 = kp2[:take3, 2] if kp2.shape[0] >= take3 else None
-                    arr_3d[subj, ci, fi, :take3, :] = _kp3_to_xyz_conf(kp3[:take3], conf2)
-                if kp3w is not None:
-                    w = np.asarray(kp3w, dtype=np.float64)
+                if n_kp > 0 and kp2_full.shape[0] > 0:
+                    valid = idx_arr[idx_arr < kp2_full.shape[0]]
+                    arr_2d[subj, ci, fi, : len(valid), :] = kp2_full[valid]
+                if n_kp > 0 and kp3_full.size > 0 and kp3_full.ndim == 2 and kp3_full.shape[1] >= 3:
+                    valid3 = idx_arr[idx_arr < kp3_full.shape[0]]
+                    conf2 = kp2_full[valid3, 2] if kp2_full.shape[0] > 0 else None
+                    arr_3d[subj, ci, fi, : len(valid3), :] = _kp3_to_xyz_conf(kp3_full[valid3], conf2)
+                if n_kp > 0 and kp3w_full is not None:
+                    w = np.asarray(kp3w_full, dtype=np.float64)
                     if w.ndim == 2 and w.shape[1] >= 3:
                         any_world = True
-                        take_w = min(n_kp, w.shape[0])
-                        conf2 = kp2[:take_w, 2] if kp2.shape[0] >= take_w else None
-                        arr_3d_w[subj, 0, fi, :take_w, :] = _kp3_to_xyz_conf(w[:take_w], conf2)
+                        validw = idx_arr[idx_arr < w.shape[0]]
+                        conf2 = kp2_full[validw, 2] if kp2_full.shape[0] > 0 else None
+                        arr_3d_w[subj, 0, fi, : len(validw), :] = _kp3_to_xyz_conf(w[validw], conf2)
                 if bb.size >= 4:
                     bbox[subj, ci, fi, 0, :4] = bb[:4]
                     bbox[subj, ci, fi, 0, 4] = 1.0
 
     frame_indices = [f"{video_start_frame_index + i:09d}" for i in range(n_frames)]
     subj_names = _subject_axis_names(n_sub, subjects_descr)
-    joint_labels = [f"mhr_{i}" for i in range(n_kp)]
+    joint_labels = list(joint_names)
 
     axis_2d = {
         "axis0": subj_names,
@@ -299,6 +291,7 @@ def build_body_mesh_npz_payload(
             "axis3": mesh_vertex_axis3,
             "axis4": ["coordinate_x", "coordinate_y", "coordinate_z"],
             "note": "Last dimension indexes mesh template vertices 0 … V-1.",
+            "csv_skip": True,
         },
         "sam_3d_body": {
             "description": "SAM 3D Body dense mesh vertices per subject, camera, and frame.",
@@ -311,6 +304,7 @@ def build_body_mesh_npz_payload(
             "axis2": frame_indices,
             "axis3": mesh_vertex_axis3,
             "axis4": ["coordinate_x", "coordinate_y", "coordinate_z"],
+            "csv_skip": True,
         }
     out_mesh: dict[str, Any] = {
         "faces": np.asarray(faces, dtype=np.int32),

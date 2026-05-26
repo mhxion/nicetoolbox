@@ -44,11 +44,12 @@ predictions = { component = "body_joints", algorithm = ["hrnetw48", "vitpose_hug
 summary_group_by = ["subject", "sequence", "label"]
 summary_aggr = ["median", "std"]  # we can customize aggregation function
 
-[metrics.bone_length_motion_bert]
+# compare local-space algorithms
+[metrics.bone_length_local]
 metric_type = "bone_length"
 # we can declare input block with dot notation
-predictions.component = ["body_joints", "body_joints_local"]
-predictions.camera = ["3d", "view_center"]  # we take only view center prediction for motion bert
+predictions.component = "body_joints_local"
+predictions.camera = "view_center"  # we take only view center prediction for motion bert
 predictions.npz_key = "3d"
 # the rest of fields as normal
 summary_group_by = ["subject", "sequence", "label"]
@@ -98,10 +99,10 @@ missing_points_summary_aggr = [{ name = "miss_rate", fn = "mean" }]
 # It produces .npz of per-frame per-joint correctness flags and summary .csv reports.
 # Check 'pck' in summary report - higher is better.
 
-# very strict threshold
-[metrics."body_pck@5px"]
+# strict threshold
+[metrics."body_pck@10px"]
 metric_type = "pck"
-threshold = 5  # threshold in pixels
+threshold = 10  # threshold in pixels
 predictions = { component = "body_joints", npz_key = "2d_interpolated" }
 ground_truth = { source = "annotation", component = "body_joints", npz_key = "2d" }
 summary_group_by = ["label"]
@@ -111,10 +112,10 @@ summary_aggr = [
     { name = "support",       fn = "count" },  # total evaluated frames
 ]
 
-# very loose threshold
-[metrics."body_pck@20px"]
+# loose threshold
+[metrics."body_pck@25px"]
 metric_type = "pck"
-threshold = 20
+threshold = 25
 predictions = { component = "body_joints", npz_key = "2d_interpolated" }
 ground_truth = { source = "annotation", component = "body_joints", npz_key = "2d" }
 summary_group_by = ["label"]

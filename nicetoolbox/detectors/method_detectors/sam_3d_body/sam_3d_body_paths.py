@@ -10,8 +10,8 @@ SAM3D_REPO_DIRNAME = "sam-3d-body"
 SUBMODULES_DIRNAME = "submodules"
 
 SAM3D_BODY_OUTPUT_NPZ_STEM = "sam_3d_body"
-SAM3D_BODY_LOCAL_NPZ_STEM = "sam_3d_body_camera"
-RAW_INFERENCE_NPZ_NAME = "_sam_3d_body_inference_raw.npz"
+SAM3D_BODY_LOCAL_NPZ_STEM = "sam_3d_body"
+RAW_INFERENCE_NPZ_NAME = "sam_3d_body_inference_raw.npz"
 
 
 def repo_root_from_this_file() -> Path:

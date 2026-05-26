@@ -16,14 +16,12 @@ from ..metric_result import FrameResult, MetricResult, PlotResult, SummaryResult
 class BoneLengthMetric(BaseMetric):
     """Compute L2 bone lengths per frame from joint positions.
 
-    Single-input metric (no ground truth). Uses ``human_pose.bone_dict`` for semantic
-    joint names (MMPose / MPII-style NPZs) and ``human_pose.bone_dict_mhr`` for SAM 3D Body
-    NPZs whose axis3 labels are ``mhr_<idx>``. Chooses the table from the loaded array's labels.
+    Single-input metric (no ground truth). Uses ``human_pose.bone_dict`` to map
+    semantic joint names to bone endpoint pairs.
     """
 
     metric_config: BoneLengthConfig
-    bones_semantic: dict[str, list[str]]
-    bones_mhr: dict[str, list[str]]
+    bones: dict[str, list[str]]
 
     def _init_metric(self) -> None:
         # this metrics config guarantees, that group_by will contain sequence, subject and label
@@ -31,8 +29,7 @@ class BoneLengthMetric(BaseMetric):
         # and mixing bone length of multiple subjects doesn't make any sense
         assert self.metric_config.summary_group_by.contains("sequence", "subject", "label")
         hp = self.config_handler.predictions_mapping.human_pose
-        self.bones_semantic = hp.bone_dict
-        self.bones_mhr = hp.bone_dict_mhr
+        self.bones = hp.bone_dict
 
     def compute(self) -> MetricResult:
         # read input
@@ -106,14 +103,7 @@ class BoneLengthMetric(BaseMetric):
         # Use spatial coordinates only (drop confidence if present)
         positions = arr.data[..., :3]
         joints = {name: i for i, name in enumerate(arr.axes.labels)}
-        use_mhr = _joint_labels_are_mhr(arr.axes.labels)
-        bones = self.bones_mhr if use_mhr else self.bones_semantic
-        if use_mhr:
-            logging.debug(
-                "bone_length: using bone_dict_mhr for algorithm=%s component=%s",
-                getattr(arr.meta, "algorithm", "?"),
-                getattr(arr.meta, "component", "?"),
-            )
+        bones = self.bones
 
         lengths: list[np.ndarray] = []
         processed_bones: list[str] = []
@@ -146,10 +136,3 @@ class BoneLengthMetric(BaseMetric):
             labels=processed_bones,
         )
         return LoadedArray(meta=arr.meta, data=result_data, axes=result_axes)
-
-
-def _joint_labels_are_mhr(labels: list[str]) -> bool:
-    """True when axis labels follow SAM 3D Body convention ``mhr_<idx>`` for all joints."""
-    if not labels:
-        return False
-    return all(str(lab).startswith("mhr_") for lab in labels)

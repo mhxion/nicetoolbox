@@ -54,6 +54,9 @@ def convert_npz_to_csv_files(npz_path, output_folder) -> None:
                 key,
             )
             continue
+        if data_desc_arr.get("csv_skip"):
+            logger.debug("Skipping CSV for %s key %r: csv_skip=True in data_description.", npz_path, key)
+            continue
 
         arr = data[key]
         if arr.ndim < 3:
