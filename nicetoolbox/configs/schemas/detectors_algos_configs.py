@@ -260,8 +260,6 @@ class Sam3dBodyConfig(BaseModel):
     stereo_triangulation_body_joints: bool = True
     triangulation_min_detection_confidence: float = 0.6
     keypoint_mapping: str = "sam_3d_body_mhr"
-    export_raw_outputs_json: bool = True
-    export_raw_outputs_csv: bool = True
     required_assets: Dict[str, str] = Field(default_factory=dict)
 
 

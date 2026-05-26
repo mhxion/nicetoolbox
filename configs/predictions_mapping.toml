@@ -20,11 +20,11 @@
 "left_ankle" = 15
 "right_ankle" = 16
 [human_pose.coco_wholebody.keypoints_index.foot]
-"left_bigtoe" =  17
-"left_smalltoe" = 18
+"left_big_toe" =  17
+"left_small_toe" = 18
 "left_heel" = 19
-"right_bigtoe" = 20
-"right_smalltoe" = 21
+"right_big_toe" = 20
+"right_small_toe" = 21
 "right_heel" = 22
 [human_pose.coco_wholebody.keypoints_index.face]
 "face_landmarks" =  [23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39] #exclusive last element, i.e. 40
@@ -45,10 +45,10 @@
 
 [human_pose.coco_wholebody.connections]
 'body_joints' = [
-    ["left_wrist", "left_elbow", "left_shoulder", "left_hip", "left_knee", "left_ankle", "left_bigtoe"],
-    ["left_heel", "left_ankle", "left_smalltoe"],
-    ["right_wrist", "right_elbow", "right_shoulder", "right_hip", "right_knee", "right_ankle", "right_bigtoe"],
-    ["right_heel", "right_ankle", "right_smalltoe"],
+    ["left_wrist", "left_elbow", "left_shoulder", "left_hip", "left_knee", "left_ankle", "left_big_toe"],
+    ["left_heel", "left_ankle", "left_small_toe"],
+    ["right_wrist", "right_elbow", "right_shoulder", "right_hip", "right_knee", "right_ankle", "right_big_toe"],
+    ["right_heel", "right_ankle", "right_small_toe"],
     ["left_shoulder", "right_shoulder"],
     ["left_hip", "right_hip"]]
 
@@ -113,19 +113,6 @@ lower_body = ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", 
 "right_upper_leg" = ["right_hip", "right_knee"]
 "right_lower_leg"= ["right_knee", "right_ankle"]
 
-# Parallel to bone_dict: endpoints use SAM 3D Body NPZ labels (mhr_0 … mhr_69). Indices match
-# coco_body_17_joint_names ↔ coco_body_17_mhr70_index in [human_pose.sam_3d_body_mhr].
-[human_pose.bone_dict_mhr]
-"eye_distance" = ["mhr_1", "mhr_2"]
-"left_upper_arm" = ["mhr_5", "mhr_7"]
-"left_lower_arm" = ["mhr_7", "mhr_62"]
-"right_upper_arm" = ["mhr_6", "mhr_8"]
-"right_lower_arm" = ["mhr_8", "mhr_41"]
-"left_upper_leg" = ["mhr_9", "mhr_11"]
-"left_lower_leg" = ["mhr_11", "mhr_13"]
-"right_upper_leg" = ["mhr_10", "mhr_12"]
-"right_lower_leg" = ["mhr_12", "mhr_14"]
-
 [human_pose.joint_diameter_size] #in meter
 "left_eye" = 0.025
 "right_eye" = 0.025
@@ -144,8 +131,8 @@ lower_body = ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", 
 "right_knee" = 0.080
 "left_ankle" = 0.055
 "right_ankle" = 0.055
-#"left_bigtoe" = 0.030
-#"right_bigtoe" = 0.030
+#"left_big_toe" = 0.030
+#"right_big_toe" = 0.030
 #"left_heel" = 0.040
 #"right_heel" = 0.040
 
@@ -180,20 +167,124 @@ lower_body = ["left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", 
 ]
 
 [human_pose.sam_3d_body_mhr]
-coco_body_17_joint_names = [
-    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
-    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
-    "left_wrist", "right_wrist", "left_hip", "right_hip",
-    "left_knee", "right_knee", "left_ankle", "right_ankle",
+[human_pose.sam_3d_body_mhr.connections]
+body_joints = [
+    ["left_wrist", "left_elbow", "left_shoulder", "left_hip", "left_knee", "left_ankle"],
+    ["right_wrist", "right_elbow", "right_shoulder", "right_hip", "right_knee", "right_ankle"],
+    ["left_shoulder", "right_shoulder"],
+    ["left_hip", "right_hip"],
+    ["left_shoulder", "left_ear", "left_eye", "nose"],
+    ["right_shoulder", "right_ear", "right_eye", "nose"],
+    ["left_eye", "right_eye"],
+    ["left_ankle", "left_big_toe"],
+    ["left_ankle", "left_small_toe"],
+    ["left_ankle", "left_heel"],
+    ["right_ankle", "right_big_toe"],
+    ["right_ankle", "right_small_toe"],
+    ["right_ankle", "right_heel"],
+    ["neck", "left_shoulder"],
+    ["neck", "right_shoulder"],
 ]
-coco_body_17_mhr70_index = [0, 1, 2, 3, 4, 5, 6, 7, 8, 62, 41, 9, 10, 11, 12, 13, 14]
-mhr_body_vis_edges = [
-    [13, 11], [11, 9], [14, 12], [12, 10], [9, 10],
-    [5, 9], [6, 10], [5, 6], [5, 7], [7, 62], [6, 8], [8, 41],
-    [0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6],
-    [13, 15], [13, 16], [13, 17], [14, 18], [14, 19], [14, 20],
-    [69, 5], [69, 6],
+hand_joints = [
+    ["right_wrist", "right_thumb_third_joint", "right_thumb_second_joint", "right_thumb_first_joint", "right_thumb_tip"],
+    ["right_wrist", "right_index_third_joint", "right_index_second_joint", "right_index_first_joint", "right_index_tip"],
+    ["right_wrist", "right_middle_third_joint", "right_middle_second_joint", "right_middle_first_joint", "right_middle_tip"],
+    ["right_wrist", "right_ring_third_joint", "right_ring_second_joint", "right_ring_first_joint", "right_ring_tip"],
+    ["right_wrist", "right_pinky_third_joint", "right_pinky_second_joint", "right_pinky_first_joint", "right_pinky_tip"],
+    ["right_index_third_joint", "right_middle_third_joint", "right_ring_third_joint", "right_pinky_third_joint"],
+    ["left_wrist", "left_thumb_third_joint", "left_thumb_second_joint", "left_thumb_first_joint", "left_thumb_tip"],
+    ["left_wrist", "left_index_third_joint", "left_index_second_joint", "left_index_first_joint", "left_index_tip"],
+    ["left_wrist", "left_middle_third_joint", "left_middle_second_joint", "left_middle_first_joint", "left_middle_tip"],
+    ["left_wrist", "left_ring_third_joint", "left_ring_second_joint", "left_ring_first_joint", "left_ring_tip"],
+    ["left_wrist", "left_pinky_third_joint", "left_pinky_second_joint", "left_pinky_first_joint", "left_pinky_tip"],
+    ["left_index_third_joint", "left_middle_third_joint", "left_ring_third_joint", "left_pinky_third_joint"],
 ]
+face_landmarks = []
+
+[human_pose.sam_3d_body_mhr.keypoints_index.body]
+"nose" = 0
+"left_eye" = 1
+"right_eye" = 2
+"left_ear" = 3
+"right_ear" = 4
+"left_shoulder" = 5
+"right_shoulder" = 6
+"left_elbow" = 7
+"right_elbow" = 8
+"left_hip" = 9
+"right_hip" = 10
+"left_knee" = 11
+"right_knee" = 12
+"left_ankle" = 13
+"right_ankle" = 14
+"left_wrist" = 62
+"right_wrist" = 41
+
+[human_pose.sam_3d_body_mhr.keypoints_index.foot]
+"left_big_toe" = 15
+"left_small_toe" = 16
+"left_heel" = 17
+"right_big_toe" = 18
+"right_small_toe" = 19
+"right_heel" = 20
+
+[human_pose.sam_3d_body_mhr.keypoints_index.hand]
+"right_thumb_tip" = 21
+"right_thumb_first_joint" = 22
+"right_thumb_second_joint" = 23
+"right_thumb_third_joint" = 24
+"right_index_tip" = 25
+"right_index_first_joint" = 26
+"right_index_second_joint" = 27
+"right_index_third_joint" = 28
+"right_middle_tip" = 29
+"right_middle_first_joint" = 30
+"right_middle_second_joint" = 31
+"right_middle_third_joint" = 32
+"right_ring_tip" = 33
+"right_ring_first_joint" = 34
+"right_ring_second_joint" = 35
+"right_ring_third_joint" = 36
+"right_pinky_tip" = 37
+"right_pinky_first_joint" = 38
+"right_pinky_second_joint" = 39
+"right_pinky_third_joint" = 40
+"right_wrist" = 41
+"left_thumb_tip" = 42
+"left_thumb_first_joint" = 43
+"left_thumb_second_joint" = 44
+"left_thumb_third_joint" = 45
+"left_index_tip" = 46
+"left_index_first_joint" = 47
+"left_index_second_joint" = 48
+"left_index_third_joint" = 49
+"left_middle_tip" = 50
+"left_middle_first_joint" = 51
+"left_middle_second_joint" = 52
+"left_middle_third_joint" = 53
+"left_ring_tip" = 54
+"left_ring_first_joint" = 55
+"left_ring_second_joint" = 56
+"left_ring_third_joint" = 57
+"left_pinky_tip" = 58
+"left_pinky_first_joint" = 59
+"left_pinky_second_joint" = 60
+"left_pinky_third_joint" = 61
+"left_wrist" = 62
+
+[human_pose.sam_3d_body_mhr.keypoints_index.extra]
+"left_olecranon" = 63
+"right_olecranon" = 64
+"left_cubital_fossa" = 65
+"right_cubital_fossa" = 66
+"left_acromion" = 67
+"right_acromion" = 68
+"neck" = 69
+
+[human_pose.sam_3d_body_mhr.bodypart_index]
+"head" = [0, 1, 2, 3, 4]
+"upper_body" = [5, 6, 7, 8, 62, 41]
+"lower_body" = [9, 10, 11, 12, 13, 14]
 
 
 [head_orientation]
@@ -210,32 +301,3 @@ mhr_body_vis_edges = [
 "mouth" = [76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95]
 "iris_right" = [96]
 "iris_left" = [97]
-
-[order]
-keypoints = [
-    "nose", "left_eye", "right_eye", "left_ear", "right_ear", 'neck', 'head', 'head_top',
-    "left_shoulder", "right_shoulder", 'left_clavicle', 'right_clavicle',
-    'spine3', 'spine4', 'spine2', 'spine',
-    "left_elbow", "right_elbow", "left_wrist", "right_wrist", 'left_hand', 'right_hand',
-    "left_hip", "right_hip", 'pelvis', "left_knee", "right_knee",
-    'left_foot', 'right_foot', "left_ankle", "right_ankle", "left_heel", "right_heel",
-    "left_bigtoe", "right_bigtoe", "left_smalltoe", "right_smalltoe"
-    ]
-bones = [
-    "eye_distance", "left_upper_arm", "left_lower_arm", "right_upper_arm", "right_lower_arm",
-    "left_upper_leg", "left_lower_leg", "right_upper_leg", "right_lower_leg"
-    ]
-microactions = [
-    'eyes_eymov', 'eyes_eyga', 'eyes_eybd', 'eyes_eysml', 'eyes_eycry', 'eyes_eyrb', 'eyes_eycl',
-    'lips_lsm', 'lips_lau', 'lips_lpu', 'lips_lbi',
-    'head_hnod', 'head_hshk', 'head_hmov', 'head_htrn', 'head_hup', 'head_hdn', 'head_hsd',
-    'lobo_lgcr', 'lobo_lgucr', 'lobo_fmov',
-    'hands_hrep', 'hands_htfa', 'hands_hthd', 'hands_gest', 'hands_htbd', 'hands_hadj', 'hands_note', 'hands_wipe',
-    'upbo_flean', 'upbo_blean', 'upbo_shrai',
-    'fubo_readj',
-    'eyebrows_ebr', 'eyebrows_efrn'
-]
-
-[microactions.daya]
-'eyes_eymov' = 1
-'eyes_eyga' = 2

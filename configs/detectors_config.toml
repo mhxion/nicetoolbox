@@ -211,5 +211,3 @@ cross_view_consistency = true
 stereo_triangulation_body_joints = true
 triangulation_min_detection_confidence = 0.6
 keypoint_mapping = "sam_3d_body_mhr"
-export_raw_outputs_json = true
-export_raw_outputs_csv = true

@@ -15,7 +15,7 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
-from ....configs.schemas.detectors_algos_configs import Sam3dBodyConfig
+from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime, Sam3dBodyConfig
 from ....configs.schemas.predictions_mapping import Sam3dBodyMhr
 from ....utils import video as vd
 from ....utils.hf_token import effective_hf_hub_token
@@ -214,8 +214,8 @@ def _attach_body_meta(
             "camera_params_bundle": bundle_notes,
             "sam_3d_body_mhr_mapping": {
                 "config_section": "human_pose.sam_3d_body_mhr",
-                "coco_body_17_joint_names": list(mhr_mapping.coco_body_17_joint_names),
-                "coco_body_17_mhr70_index": list(mhr_mapping.coco_body_17_mhr70_index),
+                "coco_body_17_joint_names": list(mhr_mapping.keypoints_index.body.keys()),
+                "coco_body_17_mhr70_index": list(mhr_mapping.keypoints_index.body.values()),
             },
             "cross_view": {
                 "enabled": cross_view,
@@ -243,6 +243,8 @@ def _run_sam3d_post_process(
     *,
     out_body_joints_npz: Path | None,
     out_body_joints_local_npz: Path,
+    out_hand_joints_npz: Path | None,
+    out_hand_joints_local_npz: Path,
     out_body_mesh_npz: Path,
     calibration: dict[str, Any] | None,
     camera_names: list[str],
@@ -331,10 +333,25 @@ def _run_sam3d_post_process(
                     for fi in range(len(per_frame)):
                         per_frame[fi] = [_world_align_packed_frame(p, K, P) for p in per_frame[fi]]
 
+    body_indices = (
+        list(mhr_mapping.keypoints_index.body.values())
+        + list(mhr_mapping.keypoints_index.foot.values())
+        + list(mhr_mapping.keypoints_index.extra.values())
+    )
+    body_names = (
+        list(mhr_mapping.keypoints_index.body.keys())
+        + list(mhr_mapping.keypoints_index.foot.keys())
+        + list(mhr_mapping.keypoints_index.extra.keys())
+    )
+    hand_indices = list(mhr_mapping.keypoints_index.hand.values())
+    hand_names = list(mhr_mapping.keypoints_index.hand.keys())
+
     body_world = None
     if write_body_joints_world:
         body_world = build_body_joints_npz_payload(
             per_frame,
+            joint_indices=body_indices,
+            joint_names=body_names,
             camera_names=camera_names,
             mode=mode,
             subjects_descr=subjects_descr,
@@ -381,6 +398,8 @@ def _run_sam3d_post_process(
 
     body_local = build_body_joints_npz_payload(
         per_frame,
+        joint_indices=body_indices,
+        joint_names=body_names,
         camera_names=camera_names,
         mode=mode,
         subjects_descr=subjects_descr,
@@ -405,10 +424,60 @@ def _run_sam3d_post_process(
         raw=raw,
         export_policy=policy_local,
     )
-
     out_body_joints_local_npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out_body_joints_local_npz, **body_local)
     logging.info("SAM 3D Body wrote body_joints_local export %s", out_body_joints_local_npz)
+
+    for component, indices, names, out_world, out_local, role_local in [
+        ("hand_joints", hand_indices, hand_names, out_hand_joints_npz, out_hand_joints_local_npz, "hand_joints_local"),
+    ]:
+        if write_body_joints_world and out_world is not None:
+            payload_world = build_body_joints_npz_payload(
+                per_frame,
+                joint_indices=indices,
+                joint_names=names,
+                camera_names=camera_names,
+                mode=mode,
+                subjects_descr=subjects_descr,
+                cam_sees_subjects=cam_sees_subjects,
+                video_start_frame_index=video_start_frame_index,
+                three_d_primary="world",
+            )
+            payload_world = _attach_body_meta(
+                payload_world,
+                mhr_mapping=mhr_mapping,
+                bundle_notes=bundle_notes,
+                cross_view=cross_view,
+                cross_view_residuals=cross_view_residuals,
+                raw=raw,
+                export_policy={"npz_role": component, "filename_stem": SAM3D_BODY_OUTPUT_NPZ_STEM},
+            )
+            out_world.parent.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(out_world, **payload_world)
+            logging.info("SAM 3D Body wrote %s export %s", component, out_world)
+        payload_local = build_body_joints_npz_payload(
+            per_frame,
+            joint_indices=indices,
+            joint_names=names,
+            camera_names=camera_names,
+            mode=mode,
+            subjects_descr=subjects_descr,
+            cam_sees_subjects=cam_sees_subjects,
+            video_start_frame_index=video_start_frame_index,
+            three_d_primary="camera",
+        )
+        payload_local = _attach_body_meta(
+            payload_local,
+            mhr_mapping=mhr_mapping,
+            bundle_notes=bundle_notes,
+            cross_view=cross_view,
+            cross_view_residuals=cross_view_residuals,
+            raw=raw,
+            export_policy={"npz_role": role_local, "filename_stem": SAM3D_BODY_LOCAL_NPZ_STEM},
+        )
+        out_local.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(out_local, **payload_local)
+        logging.info("SAM 3D Body wrote %s export %s", role_local, out_local)
 
     mesh_payload = build_body_mesh_npz_payload(
         per_frame,
@@ -428,8 +497,8 @@ def _run_sam3d_post_process(
             "camera_params_bundle": bundle_notes,
             "sam_3d_body_mhr_mapping": {
                 "config_section": "human_pose.sam_3d_body_mhr",
-                "coco_body_17_joint_names": list(mhr_mapping.coco_body_17_joint_names),
-                "coco_body_17_mhr70_index": list(mhr_mapping.coco_body_17_mhr70_index),
+                "coco_body_17_joint_names": list(mhr_mapping.keypoints_index.body.keys()),
+                "coco_body_17_mhr70_index": list(mhr_mapping.keypoints_index.body.values()),
             },
             "export_policy": {
                 "npz_role": "body_mesh",
@@ -555,13 +624,50 @@ def _draw_mhr_on_image(
         cv2.circle(image, tuple(int(x) for x in pt), radius=radius, color=joint_color, thickness=-1)
 
 
+def _draw_component_overlay(
+    image: np.ndarray,
+    kp_2d: np.ndarray,
+    chains: list[list[str]],
+    name_to_pos: dict[str, int],
+    joint_color: tuple[int, int, int],
+    skel_color: tuple[int, int, int],
+    radius: int,
+    thickness: int,
+) -> None:
+    for chain in chains:
+        for a, b in zip(chain[:-1], chain[1:]):
+            pa, pb = name_to_pos.get(a), name_to_pos.get(b)
+            if pa is None or pb is None or pa >= kp_2d.shape[0] or pb >= kp_2d.shape[0]:
+                continue
+            p0, p1 = kp_2d[pa, :2], kp_2d[pb, :2]
+            if np.any(np.isnan(p0)) or np.any(np.isnan(p1)):
+                continue
+            cv2.line(image, tuple(int(x) for x in p0), tuple(int(x) for x in p1), color=skel_color, thickness=thickness)
+    for i in range(kp_2d.shape[0]):
+        pt = kp_2d[i, :2]
+        if np.any(np.isnan(pt)):
+            continue
+        cv2.circle(image, tuple(int(x) for x in pt), radius=radius, color=joint_color, thickness=-1)
+
+
 class Sam3dBody(BaseMethod):
     """SAM 3D Body (Hugging Face). GPU inference in sam_3d_body venv; post-process in main env."""
 
     inference_package_name = "sam_3d_body"
-    components = ["body_joints", "body_joints_local", "body_mesh"]
+    components = [
+        "body_joints",
+        "body_joints_local",
+        "hand_joints",
+        "hand_joints_local",
+        "body_mesh",
+    ]
     algorithm = "sam_3d_body"
     inference_config = Sam3dBodyConfig
+
+    def _initialize_detector(self) -> MethodDetectorRuntime:
+        runtime = super()._initialize_detector()
+        runtime.out_folder = str(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "output"))
+        return runtime
 
     def run(self) -> None:
         if not effective_hf_hub_token(self.sequence_context.machine):
@@ -571,19 +677,10 @@ class Sam3dBody(BaseMethod):
         super().run()
 
     def post_inference(self) -> None:
-        raw_path = Path(self.result_folders["body_joints"]) / RAW_INFERENCE_NPZ_NAME
-        flat_body_joints = Path(self.result_folders["body_joints"])
-        if not raw_path.is_file():
-            stem_npz = flat_body_joints / f"{self.algorithm}.npz"
-            if stem_npz.is_file():
-                try:
-                    z = np.load(stem_npz, allow_pickle=True)
-                    if "per_frame_outputs" in z.files:
-                        raw_path = stem_npz
-                except Exception:
-                    pass
-        if not raw_path.is_file():
-            raw_path = flat_body_joints / RAW_INFERENCE_NPZ_NAME
+        raw_path = (
+            Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "output"))
+            / RAW_INFERENCE_NPZ_NAME
+        )
         if not raw_path.is_file():
             logging.error("SAM 3D Body raw inference result missing: %s", raw_path)
             return
@@ -591,25 +688,18 @@ class Sam3dBody(BaseMethod):
         cfg = self.detector_config
         calib_ok = _calibration_usable_for_world_alignment(self.data.calibration, list(cfg.camera_names))
 
-        dump_out = Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "output"))
-        if cfg.export_raw_outputs_json or cfg.export_raw_outputs_csv:
-            from .sam_3d_body_raw_export import dump_sam3d_raw_exports
-
-            dump_sam3d_raw_exports(
-                raw_path,
-                dump_out,
-                write_jsonl=cfg.export_raw_outputs_json,
-                write_csv=cfg.export_raw_outputs_csv,
-            )
-
         out_body = Path(self.result_folders["body_joints"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz" if calib_ok else None
         out_body_local = Path(self.result_folders["body_joints_local"]) / f"{SAM3D_BODY_LOCAL_NPZ_STEM}.npz"
+        out_hand = Path(self.result_folders["hand_joints"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz" if calib_ok else None
+        out_hand_local = Path(self.result_folders["hand_joints_local"]) / f"{SAM3D_BODY_LOCAL_NPZ_STEM}.npz"
         out_mesh = Path(self.result_folders["body_mesh"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz"
 
         _run_sam3d_post_process(
             raw_path,
             out_body_joints_npz=out_body,
             out_body_joints_local_npz=out_body_local,
+            out_hand_joints_npz=out_hand,
+            out_hand_joints_local_npz=out_hand_local,
             out_body_mesh_npz=out_mesh,
             calibration=self.data.calibration,
             camera_names=list(cfg.camera_names),
@@ -652,7 +742,16 @@ class Sam3dBody(BaseMethod):
             ((230, 200, 200), (180, 100, 100)),
             ((220, 220, 150), (150, 150, 80)),
         ]
-        vis_edges = self.predictions_mapping.human_pose.sam_3d_body_mhr.mhr_body_vis_edges
+        mhr = self.predictions_mapping.human_pose.sam_3d_body_mhr
+        ki = mhr.keypoints_index
+        body_joint_names = list(ki.body.keys()) + list(ki.foot.keys()) + list(ki.extra.keys())
+        name_to_pos = {name: pos for pos, name in enumerate(body_joint_names)}
+        vis_edges: list[tuple[int, int]] = []
+        for chain in mhr.connections.body_joints:
+            for a, b in zip(chain[:-1], chain[1:]):
+                pa, pb = name_to_pos.get(a), name_to_pos.get(b)
+                if pa is not None and pb is not None:
+                    vis_edges.append((pa, pb))
         mesh_colors_bgr = [
             (80, 180, 80),
             (60, 140, 200),
@@ -807,6 +906,43 @@ class Sam3dBody(BaseMethod):
                         fps,
                         start_frame=video_start,
                     )
+
+        mhr = self.predictions_mapping.human_pose.sam_3d_body_mhr
+        for comp, npz_stem, chains in [
+            ("hand_joints_local", SAM3D_BODY_LOCAL_NPZ_STEM, mhr.connections.hand_joints),
+        ]:
+            comp_path = Path(self.result_folders[comp]) / f"{npz_stem}.npz"
+            if not comp_path.is_file():
+                continue
+            comp_npz = np.load(comp_path, allow_pickle=True)
+            kp_data = comp_npz["2d_interpolated"] if "2d_interpolated" in comp_npz.files else comp_npz["2d"]
+            labels: list[str] = list(comp_npz["data_description"].item()["2d_interpolated"]["axis3"])
+            name_to_pos = {name: pos for pos, name in enumerate(labels)}
+            n_sub = kp_data.shape[0]
+            viz_comp_dir = str(Path(self.io.get_detector_output_folder(comp, self.algorithm, "visualization")))
+            os.makedirs(viz_comp_dir, exist_ok=True)
+
+            for camera_name, frames_list in dataloader:
+                if camera_name not in cfg.camera_names:
+                    continue
+                cam_idx = cfg.camera_names.index(camera_name)
+                cam_out = os.path.join(viz_comp_dir, camera_name)
+                os.makedirs(cam_out, exist_ok=True)
+                for frame_idx, image_file in enumerate(frames_list):
+                    if frame_idx >= kp_data.shape[2]:
+                        break
+                    image = cv2.imread(image_file)
+                    if image is None:
+                        continue
+                    viz = image.copy()
+                    for subj in range(n_sub):
+                        jc, sc = person_colors[subj % len(person_colors)]
+                        kp = kp_data[subj, cam_idx, frame_idx].astype(np.float64)
+                        _draw_component_overlay(viz, kp, chains, name_to_pos, jc, sc, radius=1, thickness=1)
+                    cv2.imwrite(os.path.join(cam_out, f"{frame_idx + video_start:09d}.jpg"), viz)
+                vd.frames_to_video(
+                    cam_out, os.path.join(viz_comp_dir, f"{camera_name}.mp4"), fps, start_frame=video_start
+                )
 
         if cfg.visualize_mesh_interactive and mesh_pred.is_file():
             out_inter = Path(self.result_folders["body_mesh"]) / "visualization_3d_interactive"
