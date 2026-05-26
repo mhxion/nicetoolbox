@@ -10,6 +10,7 @@
   - [5. Run the NICE Toolbox](#5-run-the-nice-toolbox)
   - [6. Visualize the results](#6-visualize-the-results)
   - [7. Run the NICE Toolbox Evaluation](#7-run-the-nice-toolbox-evaluation)
+  - [8. Import annotations with NICE Connectors](#8-import-annotations-with-nice-connectors)
 
 <br>
 
@@ -157,4 +158,21 @@ run_evaluation
 
 The outputs will be saved to the folder defined in `./configs/evaluation_config.toml` under `output_folder` (with filled-in placeholders). To monitor the experiment, check the log file at `/path/to/output_folder/evaluation.log`.
 
-Please refer to the tutorial on [NICE Toolbox Evaluation](tutorials/tutorial5_evaluation.md) for more details about metric selection and summary generation. Under the wiki pages there is an [overview](wikis/wiki_evaluation_metrics.md) of the available metrics to select from. For more data driven analysis based on raw metric results, please check out our [evaluation results wrapper](tutorials/tutorial6_results_wrapper.md) for easy querying, aggregation or export and Pandas Dataframe. 
+Please refer to the tutorial on [NICE Toolbox Evaluation](tutorials/tutorial5_evaluation.md) for more details about metric selection and summary generation. Under the wiki pages there is an [overview](wikis/wiki_evaluation_metrics.md) of the available metrics to select from. For more data driven analysis based on raw metric results, please check out our evaluation results wrapper tutorial (coming soon) for easy querying, aggregation or export to Pandas Dataframe.
+
+## 8. Import annotations with NICE Connectors
+
+NICE Connectors let you import human-annotated data from third-party tools into the Toolbox NPZ format, so annotations can be used alongside detector outputs for evaluation or visualization.
+
+| Connector | Subcommand | Input | Output |
+| - | - | - | - |
+| ELAN | `elan_connector import_gaze` | ELAN `.txt` export | `gaze.npz` (gaze_look_at_3d, gaze_mutual_3d) |
+| napari | `napari_connector import_body_joints` | napari `.csv` / `.h5` | `body_joints.npz` |
+
+Each connector reads a run config TOML from `./configs/connectors/` and is invoked from the toolbox root:
+
+```bash
+python -m nicetoolbox elan_connector import_gaze
+```
+
+For a full walkthrough — including ELAN export format, tier naming conventions, and run config structure — see the [ELAN connector tutorial](tutorials/tutorial7_elan_connector.md).
