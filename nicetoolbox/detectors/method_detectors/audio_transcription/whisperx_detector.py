@@ -80,7 +80,7 @@ class WhisperX(BaseMethod):
         folder = self.result_folders["speaker_aligned_transcription"]
         out_dict = {}
         for track_name in self.audio_loader.tracks:
-            json_path = os.path.join(self.out_folder, f"{track_name}.json")
+            json_path = os.path.join(self.out_folders["speaker_aligned_transcription"], f"{track_name}.json")
             if not os.path.exists(json_path):
                 logging.warning(f"No JSON output found for {track_name} in post_inference, skipping.")
                 continue
@@ -130,7 +130,7 @@ class WhisperX(BaseMethod):
 
         for track_name in self.audio_loader.tracks:
             # Find generated SRT in detector_output directory (extra outputs)
-            srt_path = os.path.join(self.out_folder, f"{track_name}.srt")
+            srt_path = os.path.join(self.out_folders["speaker_aligned_transcription"], f"{track_name}.srt")
             if not os.path.exists(srt_path):
                 logging.warning(f"No SRT found for {track_name}, skipping visualization.")
                 continue
@@ -145,8 +145,9 @@ class WhisperX(BaseMethod):
             info = self.audio_loader.get_stream_info(track_name)
             source = info["source_path"]
 
-            os.makedirs(self.viz_folder, exist_ok=True)
-            video_out = os.path.join(self.viz_folder, f"{track_name}.mp4")
+            viz_dir = self.viz_folders["speaker_aligned_transcription"]
+            os.makedirs(viz_dir, exist_ok=True)
+            video_out = os.path.join(viz_dir, f"{track_name}.mp4")
 
             frame_folder = None
             video_recipe = self.data.get_input_recipes().video_input_recipe

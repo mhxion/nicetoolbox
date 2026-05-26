@@ -36,8 +36,8 @@ class BaseFeature(BaseDetector):
         # Some common fields
         self.subjects_descr = self.data.subjects_descr
         self.input_map = self._resolve_input_paths()
-        self.viz_folder = self.compute_viz_folder(self.visualize)
-        self.out_folder = self.compute_output_folder(self.requires_out_folder)
+        self.viz_folders = self.compute_viz_folders(self.visualize)
+        self.out_folders = self.compute_output_folders(self.requires_out_folder)
         self.result_folders = self.compute_result_folders()
 
         # This hook is used to allow detector initialize custom fields
@@ -47,10 +47,17 @@ class BaseFeature(BaseDetector):
         self.runtime = self._build_runtime()
         self.inference_config = flatten_inference_config(self.detector_config, self.runtime)
 
+        # Pre-map legacy single component out_folder and viz_folder for backward compatibility
+        if len(self.components) == 1:
+            comp = self.components[0]
+            self.out_folder = self.out_folders.get(comp)
+            self.viz_folder = self.viz_folders.get(comp)
+
         # Save config for reproducibility
-        folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
-        config_path = os.path.join(str(folder), "run_config.toml")
-        save_config(self.inference_config, config_path)
+        for comp in self.components:
+            folder = self.io.get_detector_output_folder(comp, self.algorithm, "run_config")
+            config_path = os.path.join(str(folder), "run_config.toml")
+            save_config(self.inference_config, config_path)
 
         logging.info(f"Feature detector for component {self.components} and algorithm {self.algorithm} initialized.\n")
 
@@ -63,8 +70,8 @@ class BaseFeature(BaseDetector):
         """
         return FeatureDetectorRuntime(
             result_folders=self.result_folders,
-            out_folder=self.out_folder,
-            viz_folder=self.viz_folder,
+            out_folders=self.out_folders,
+            viz_folders=self.viz_folders,
             algorithm=self.algorithm,
             visualize=self.visualize,
             subjects_descr=self.subjects_descr,
