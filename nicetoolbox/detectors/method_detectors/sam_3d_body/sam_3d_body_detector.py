@@ -665,9 +665,13 @@ class Sam3dBody(BaseMethod):
     inference_config = Sam3dBodyConfig
 
     def _initialize_detector(self) -> MethodDetectorRuntime:
-        runtime = super()._initialize_detector()
-        runtime.out_folder = str(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "output"))
-        return runtime
+        """
+        Initialize the Sam3d method detector.
+        """
+        self.viz_folder = self.viz_folders["body_joints"]
+        self.out_folder = self.out_folders["body_joints_local"]
+
+        return super()._initialize_detector()
 
     def run(self) -> None:
         if not effective_hf_hub_token(self.sequence_context.machine):
@@ -919,7 +923,7 @@ class Sam3dBody(BaseMethod):
             labels: list[str] = list(comp_npz["data_description"].item()["2d_interpolated"]["axis3"])
             name_to_pos = {name: pos for pos, name in enumerate(labels)}
             n_sub = kp_data.shape[0]
-            viz_comp_dir = str(Path(self.io.get_detector_output_folder(comp, self.algorithm, "visualization")))
+            viz_comp_dir = self.viz_folders[comp]
             os.makedirs(viz_comp_dir, exist_ok=True)
 
             for camera_name, frames_list in dataloader:

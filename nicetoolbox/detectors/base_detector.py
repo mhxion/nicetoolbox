@@ -97,17 +97,23 @@ class BaseDetector(ABC):
             comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "result")) for comp in self.components
         }
 
-    def compute_output_folder(self, requires_out_folder: bool) -> Optional[str]:
-        """Compute main output folder."""
+    def compute_output_folders(self, requires_out_folder: bool) -> Dict[str, str]:
+        """Compute extra output folders for all components."""
         if requires_out_folder:
-            return str(self.io.get_detector_output_folder(self.components[0], self.algorithm, "output"))
-        return None
+            return {
+                comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "output"))
+                for comp in self.components
+            }
+        return {}
 
-    def compute_viz_folder(self, visualize: bool) -> Optional[str]:
-        """Compute visualization folder."""
+    def compute_viz_folders(self, visualize: bool) -> Dict[str, str]:
+        """Compute visualization folders for all components."""
         if visualize:
-            return str(self.io.get_detector_output_folder(self.components[0], self.algorithm, "visualization"))
-        return None
+            return {
+                comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "visualization"))
+                for comp in self.components
+            }
+        return {}
 
     def __str__(self) -> str:
         config_name = type(self.inference_config).__name__

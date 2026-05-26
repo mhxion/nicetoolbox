@@ -53,7 +53,6 @@ class MultiviewEthXgaze(BaseMethod):
         self.subjects_descr = self.data.subjects_descr
         self.cam_sees_subjects = self.data.cam_sees_subjects
         self.results_folder = self.result_folders[self.components[0]]
-        self.viz_folder = self.viz_folder
         self.camera_names = self.detector_config.camera_names
         self.filtered = self.detector_config.filtered
         if self.filtered:

@@ -51,10 +51,10 @@ class BaseMethod(BaseDetector):
     # method specific settings
     visualize: bool
     requires_out_folder: bool
-    out_folder: str
+    out_folders: dict[str, str]
     result_folders: dict[str, str]
-    viz_folder: str
-    config_path: Path
+    viz_folders: dict[str, str]
+    config_paths: list[Path]
 
     @final
     def __init__(self, io: SequenceIO, data: SequenceData, sequence_context: SequenceRuntimeConfig) -> None:
@@ -74,16 +74,24 @@ class BaseMethod(BaseDetector):
 
         # (3) Setup method detector (builds runtime, validates, saves config)
         self.requires_out_folder = getattr(self.detector_config, "visualize", False)
-        self.out_folder = self.compute_output_folder(self.requires_out_folder)
+        self.out_folders = self.compute_output_folders(self.requires_out_folder)
         self.result_folders = self.compute_result_folders()
-        self.viz_folder = self.compute_viz_folder(self.visualize)
+        self.viz_folders = self.compute_viz_folders(self.visualize)
 
         self.runtime = self._initialize_detector()  # This will be overloaded by child detectors!
 
         # (4) Flatten config for subprocess
         inference_config = flatten_inference_config(self.detector_config, self.runtime)
 
-        # (5) Save config for subprocess (primary path is components[0]; subprocess uses config_path).
+        # Pre-map single component out_folder and viz_folder for backward compatibility... TODO
+        if len(self.components) == 1:
+            comp = self.components[0]
+            self.out_folder = self.viz_folders[comp]
+            self.viz_folder = self.out_folders[comp]
+            inference_config["out_folder"] = self.out_folder
+            inference_config["viz_folder"] = self.viz_folder
+
+        # (5) Save config for subprocess for each component
         folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
         self.config_path = folder / "run_config.toml"
         save_config(inference_config, self.config_path)
@@ -107,8 +115,8 @@ class BaseMethod(BaseDetector):
         """
         return MethodDetectorRuntime(
             result_folders=self.result_folders,
-            out_folder=self.out_folder,
-            viz_folder=self.viz_folder,
+            out_folders=self.out_folders,
+            viz_folders=self.viz_folders,
             algorithm=self.algorithm,
             visualize=self.visualize,
             subjects_descr=self.data.subjects_descr,

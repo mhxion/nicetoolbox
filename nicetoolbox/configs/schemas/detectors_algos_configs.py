@@ -33,8 +33,8 @@ class BaseDetectorRuntime(BaseModel):
 
     # Output paths
     result_folders: Dict[str, str]
-    out_folder: Optional[str] = None
-    viz_folder: Optional[str] = None
+    out_folders: Dict[str, str] = Field(default_factory=dict)
+    viz_folders: Dict[str, str] = Field(default_factory=dict)
 
     # Algorithm identity
     algorithm: str

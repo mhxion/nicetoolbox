@@ -36,7 +36,7 @@ def whisperx_inference(config: dict) -> None:
     algo_name = config["algorithm"]
     subjects_description = config["subjects_descr"]
     res_folders = config["result_folders"]  # top level json (npz) results
-    extra_detector_output_folder = config["out_folder"]  # additional detector results (e.g. SRT files)
+    extra_detector_output_folder = config["out_folders"]["speaker_aligned_transcription"]  # additional detector results
 
     cache_raw = config.get("hf_weights_cache_dir")
     if not cache_raw:
