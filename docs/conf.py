@@ -8,6 +8,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+import datetime
 import os
 import sys
 
@@ -18,10 +19,10 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+year = datetime.date.today().year
 project = "NICE Toolbox"
-copyright = "2025, oslab"
-author = "oslab"
-release = "0.0.1"
+copyright = f"{year}, Max Planck Society / Optics and Sensing Laboratory - Max Planck Institute for Intelligent Systems"
+author = "Max Planck Society / Optics and Sensing Laboratory - Max Planck Institute for Intelligent Systems"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

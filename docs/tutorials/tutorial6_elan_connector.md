@@ -2,21 +2,9 @@
 
 This tutorial shows how to import human-annotated gaze data from [ELAN](https://archive.mpi.nl/tla/elan) to use as ground truth for evaluating NICE Toolbox detector outputs.
 
-<br>
-
-1. [What is ELAN?](#1-what-is-elan)
-2. [Prerequisites](#2-prerequisites)
-3. [Prepare and export your annotations](#3-prepare-and-export-your-annotations)
-    - [Tier naming and labels](#tier-naming-and-labels)
-    - [Export as tab-delimited text](#export-as-tab-delimited-text)
-4. [Configure the connector](#4-configure-the-connector)
-    - [Top-level settings](#top-level-settings)
-    - [Sequence settings](#sequence-settings)
-    - [Subject mapping](#subject-mapping)
-5. [Run the connector](#5-run-the-connector)
-6. [Use the output for evaluation](#6-use-the-output-for-evaluation)
-
-<br>
+```{contents} Contents
+:depth: 3
+```
 
 
 ## 1. What is ELAN?

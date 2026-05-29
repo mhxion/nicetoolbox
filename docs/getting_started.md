@@ -1,18 +1,8 @@
 # Getting started
 
-<br>
-
-- [Getting started](#getting-started)
-  - [1. Machine-specific and project configs](#1-machine-specific-and-project-configs)
-  - [2. Example dataset](#2-example-dataset)
-  - [3. Check the dataset's properties](#3-check-the-datasets-properties)
-  - [4. Add an experiment to run](#4-add-an-experiment-to-run)
-  - [5. Run the NICE Toolbox](#5-run-the-nice-toolbox)
-  - [6. Visualize the results](#6-visualize-the-results)
-  - [7. Run the NICE Toolbox Evaluation](#7-run-the-nice-toolbox-evaluation)
-  - [8. Import annotations with NICE Connectors](#8-import-annotations-with-nice-connectors)
-
-<br>
+```{contents} Contents
+:depth: 2
+```
 
 ## 1. Machine-specific and project configs
 
@@ -23,7 +13,10 @@ Configuration is split across two files: one machine-specific and one project-sp
 ```toml
 # Where to find your conda (miniconda or anaconda) installation as absolute path (str)
 conda_path = 'path/to/your/conda'
+
+hugging_face_token = ''
 ```
+Hugging Face token is empty by default. It's required for some of the gated models. Check [installation instructions](installation.md#hugging-face-access-token) for more info.
 
 **`nice_project.toml`** — lives in your project folder, contains project-level paths. It is generated with `make create_project`:
 
@@ -50,18 +43,19 @@ Ensure that `./configs/dataset_properties.toml` contains the following dictionar
 
 ```toml
 [communication_multiview]
-session_IDs = ["session_xyz"]
-sequence_IDs = ['']
-cam_front = 'view_center'
-cam_top = 'view_top'
-cam_face1 = 'view_left'
-cam_face2 = 'view_right'
-subjects_descr = ["person_left", "person_right"]
-cam_sees_subjects = {view_center = [0, 1], view_top = [0, 1], view_left = [0], view_right = [1]}
-path_to_calibrations = "<datasets_folder_path>/communication_multiview/calibrations.npz"
-data_input_folder = "<datasets_folder_path>/communication_multiview/<cur_session_ID>/"
-start_frame_index = 0
-fps = 30
+session_IDs = [""] 
+sequence_IDs = ["sequence_xyz"]
+cam_front = "view_center"                         
+cam_top = "view_top" 
+cam_face1 = "view_left" 
+cam_face2 = "view_right"         
+subjects_descr = ["person_left", "person_right"]   
+cam_sees_subjects = {view_center = [0, 1], view_top = [0, 1], view_left = [0], view_right = [1]} 
+
+path_to_calibrations = "<datasets_folder_path>/communication_multiview/calibrations.npz" 
+data_input_folder = "<datasets_folder_path>/communication_multiview/<cur_sequence_ID>" 
+start_frame_index = 0 
+fps = 30 
 ```
 
 A detailed description of this file can be found in the wiki page on config files under [dataset properties](wikis/wiki_config_files.md#dataset-properties).
@@ -71,9 +65,10 @@ A detailed description of this file can be found in the wiki page on config file
 To run the NICE toolbox on the dataset, we need to specify what exactly we want to run in our experiment. Open `./configs/detectors_run_file.toml` and ensure that the `[run]` dictionary includes the following:
 
 ```toml
+algorithms = ["hrnetw48", "vitpose_huge", "velocity_body"]
+
 [run]
 [run.communication_multiview]
-components = ["body_joints", "gaze_individual", "gaze_interaction", "kinematics", "proximity", "leaning", "emotion_individual", "head_orientation"]
 videos = [
    {session_ID = "session_xyz", sequence_ID='', video_start = 0, video_length = 99},
 ]
@@ -101,7 +96,7 @@ run_detectors
 ```
 
 The outputs will be saved in the folder defined in `./configs/detectors_run_file.toml` under `io.out_folder` (with filled-in placeholders).
-To monitor the experiment, check the log file at `/path/to/<out_folder>/nicetoolbox.log`. The tool is expected to take approximately 6 minutes for this experiment.
+To monitor the experiment, check the log file at `/path/to/<out_folder>/nicetoolbox.log`.
 
 ## 6. Visualize the results
 
@@ -111,13 +106,14 @@ To do so, open `./configs/visualizer_config.toml` and update the entries `io.exp
 
 ```toml
 [io]
-dataset_folder = "<datasets_folder_path>"                                 # main dataset folder
-dataset_name = 'communication_multiview'                                  # dataset of the video
-video_name = 'communication_multiview_session_xyz_s0_l99'                 # name of video result folder
+dataset_folder = "<datasets_folder_path>" 
+dataset_name = 'communication_multiview' 
+video_name = 'communication_multiview__sequence_xyz_s0_l-1'
 nice_tool_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
-experiment_folder = "<output_folder_path>/experiments/..."                 # NICE Toolbox experiment output folder
+nice_tool_output_folder = "<output_folder_path>/experiments"
+experiment_folder = "<output_folder_path>/experiments/<yyyymmdd>"
 experiment_video_folder = "<experiment_folder>/<video_name>"
-experiment_video_component = "<experiment_video_folder>/<component_name>"
+experiment_video_component = "<experiment_video_folder>/<cur_component_name>"
 ```
 
 A detailed description of visualizer configuration can be found in the wiki page on config files under [visualizer config](wikis/wiki_config_files.md#visualizer-config).
@@ -164,15 +160,10 @@ Please refer to the tutorial on [NICE Toolbox Evaluation](tutorials/tutorial5_ev
 
 NICE Connectors let you import human-annotated data from third-party tools into the Toolbox NPZ format, so annotations can be used alongside detector outputs for evaluation or visualization.
 
-| Connector | Subcommand | Input | Output |
-| - | - | - | - |
-| ELAN | `elan_connector import_gaze` | ELAN `.txt` export | `gaze.npz` (gaze_look_at_3d, gaze_mutual_3d) |
-| napari | `napari_connector import_body_joints` | napari `.csv` / `.h5` | `body_joints.npz` |
-
 Each connector reads a run config TOML from `./configs/connectors/` and is invoked from the toolbox root:
 
 ```bash
-python -m nicetoolbox elan_connector import_gaze
+elan_connector import_gaze
 ```
 
-For a full walkthrough — including ELAN export format, tier naming conventions, and run config structure — see the [ELAN connector tutorial](tutorials/tutorial7_elan_connector.md).
+For a full walkthrough - including ELAN export format, tier naming conventions, and run config structure - see the [ELAN connector tutorial](tutorials/tutorial7_elan_connector.md).

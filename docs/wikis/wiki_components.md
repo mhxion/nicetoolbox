@@ -1,6 +1,6 @@
 # Components
 
-NICE Toolbox incorporates a growing set of Computer Vision algorithms to track and identify important visual components of nonverbal communication. The initial release encompasses whole-body pose estimation (body joints, hand joints, and face landmarks), gaze tracking, movement dynamics calculation (kinematics), and emotion detection for each individual. In addition, it features gaze interaction monitoring (mutual gaze) and the measurement of physical body distance (proximity) between dyads. 
+NICE Toolbox incorporates a growing set of Computer Vision algorithms to track and identify important visual components of nonverbal communication.
 
 This document first introduces the toolbox's output files and then details the detected components.
 
@@ -20,17 +20,15 @@ Per component, each `<algorithm>.npz` file contains several numpy arrays plus a 
 
 | component | contained numpy arrays |
 | - | - |
-| body_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d (from MMPose triangulation); **SAM 3D Body** writes **`sam_3d_body.npz`** only under **`body_joints/sam_3d_body/`** when calibration has intrinsics + projection matrix—world-primary **`3d`** via **K,P alignment** (not multi-view triangulation); optional **`3d_camera`** / **`3d_world`** |
-| body_joints_local | **SAM 3D Body**: **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** — camera-native **`3d`** primary; optional **`3d_world`** after alignment. **MotionBERT**: **`motionbert.npz`** — root-relative **H36M-order** **`3d`** (see **`body_joints_local/motionbert.npz`** layout). |
-| body_mesh | **`sam_3d_body.npz`** under **`body_mesh/sam_3d_body/`**: faces, vertices (optional vertices_world), data_description |
-| *(run key)* | Register **`sam_3d_body`** under **`body_joints`**, **`body_joints_local`**, **`body_mesh`**. Raw inference **`_sam_3d_body_inference_raw.npz`** lives next to **`run_config`** under **`body_joints/sam_3d_body/`** (not inside **`detector_output/`**). |
+| body_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
+| body_joints_local | 3d (camera-native or root-relative, depending on algorithm) |
+| body_mesh | faces, vertices |
 | hand_joints | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | face_landmarks | 2d, 2d_filtered, 2d_interpolated, bbox_2d, 3d |
 | gaze_individual | landmarks_2d, 3d |
 | gaze_multiview | gaze_2d, gaze_2d_filtered, gaze_fused, gaze_fused_filtered |
-| gaze_interaction | distance_gaze_3d, gaze_look_at_3d, gaze_mutual_3d |
+| gaze_interaction | distance_gaze_2d/3d, gaze_look_at_2d/3d, gaze_mutual_2d/3d |
 | kinematics | displacement_vector_body_2d, velocity_body_2d, displacement_vector_body_3d, velocity_body_3d |
-| leaning | body_angle_2d, body_angle_3d |
 | proximity | body_distance_2d, body_distance_3d |
 | emotion_individual | faceboxes, aus, emotions, poses |
 
@@ -73,10 +71,8 @@ Per component, the `<algorithm_name>.json` file contains the output of the audio
 }
 ```
 
-...
-
 ### Data description
-The `data_description` dictionary details the entries of all numpy files within on component's algorithm `.npz` file. `axis0` contains the subject descriptions, `axis1` the camera names or '3d', and `axis2` the frame numbers as a string of 5 digits. The remaining axis may take the following data:
+The `data_description` dictionary details the entries of all numpy files within on component's algorithm `.npz` file. `axis0` contains the subject descriptions, `axis1` the camera names or '3d', and `axis2` the frame numbers as a zero-padded 9-digit string. The remaining axis may take the following data:
 
 | array name | `axis3` | `axis4` |
 | - | - | - |
@@ -148,20 +144,6 @@ Joint estimations with a confidence score below 0.60 are marked as missing becau
 With calibrated stereo cameras, the 3D positions (x, y, and z coordinates) of the body joints are computed via the triangulation method (see `..._3d.csv` or `3d.npy` file). Since 3D estimation is performed after interpolation of the 2D estimations, any missing 2D joint point will also be missing in the 3D results.
 If the user has more than two camera views, the first two camera views listed in the `frameworks.mmpose.camera_names` parameter in the [`./configs/detectors_config.toml`](../../configs/detectors_config.toml) file will be used for triangulation.
 
-## Body joints local
-
-**SAM 3D Body** exports **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** (camera-native **`3d`** primary; optional **`3d_world`** when calibration alignment ran—see **`data_description.sam_3d_body.export_policy`**).
-
-**MotionBERT** exports **`motionbert.npz`** under **`body_joints_local/`** (same tensor layout as before; root-relative **Human3.6M-order** **`3d`**). It lifts precomputed **2D** **`body_joints`** NPZs (see **`input_detector_names`**). See the [Algorithms wiki](wiki_algorithms.md#motionbert-3d-body-pose-lifting).
-
-## SAM 3D Body (`sam_3d_body`)
-
-The **`sam_3d_body`** algorithm (code under **`method_detectors/sam_3d_body`**) runs **SAM 3D Body** (MHR). Inference writes **`_sam_3d_body_inference_raw.npz`** under **`body_joints/sam_3d_body/`** (alongside **`run_config`**); optional raw **JSON/CSV** dumps go under **`detector_output/`**. **Post-processing** converts that into **`sam_3d_body_camera.npz`** under **`body_joints_local/sam_3d_body/`** always, **`sam_3d_body.npz`** under **`body_joints/sam_3d_body/`** only when usable calibration is present (otherwise **`body_joints`** NPZ is skipped), and **`sam_3d_body.npz`** under **`body_mesh/sam_3d_body/`**. **`export_policy`** in **`data_description`** records alignment vs triangulation expectations.
-
-With **`visualize = true`**, 2D skeleton JPEGs and per-camera MP4s are under **`body_joints/sam_3d_body/visualization/<camera_name>/`**. When **`visualize_mesh`** and **`save_vertices`** are enabled, mesh overlays and their MP4s are under **`body_mesh/sam_3d_body/visualization_3d/<camera_name>/`** (not under **body_joints**).
-
-Configuration is **`[algorithms.sam_3d_body]`** in [`./configs/detectors_config.toml`](../../configs/detectors_config.toml). In [`detectors_run_file.toml`](../../configs/detectors_run_file.toml), add **`sam_3d_body`** to **`[component_algorithm_mapping]`** for **`body_joints`**, **`body_joints_local`**, and **`body_mesh`**. For a minimal SAM 3D run, include **`"body_joints"`**, **`"body_mesh"`**, and (optionally) **`"body_joints_local"`** in the dataset’s **`components`** list; duplicate algorithm names are deduplicated to a single run.
-
 ## Hand joints
 Tracks the positions of hand joints to analyze hand movements and gestures. Available algorithm is *HRNet-w48*. The figure below represents the identified hand joints.
 
@@ -218,14 +200,13 @@ For each camera view, the algorithm computes this distance based on the 2D posit
 
 ## Emotion Detection
 
-Utilizes **Py-Feat**, an open-source facial expression analysis tool, to detect **facial landmarks, Action Units (AUs), and emotions** from images. This module detects **seven fundamental emotions**: **Anger, Disgust, Fear, Happiness, Sadness, Surprise, Neutral**. By default, the **Detector** object in Py-Feat utilizes **CUDA acceleration** when available, ensuring faster **face detection, feature extraction, and emotion classification**. If a GPU is not available, processing falls back to the **CPU**.
+Utilizes **Py-Feat**, an open-source facial expression analysis tool, to detect facial landmarks, Action Units (AUs), and emotions from images. This module detects seven fundamental emotions: Anger, Disgust, Fear, Happiness, Sadness, Surprise, Neutral. By default, the Detector object in Py-Feat utilizes CUDA acceleration when available, ensuring faster face detection, feature extraction, and emotion classification. If a GPU is not available, processing falls back to the CPU.
 
-Results are stored in `.npz` files under `<output_folder>/emotion_individual/<algorithm_name>.npz`. The output includes **Face bounding boxes** (`faceboxes`), **Action Units (AUs)** (`aus`), **Emotion scores** (`emotions`), and **Head pose estimation** (`poses`)  
+Results are stored in `.npz` files under `<output_folder>/emotion_individual/<algorithm_name>.npz`. The output includes face bounding boxes (`faceboxes`), Action Units (AUs) (`aus`), emotion scores (`emotions`), and head pose estimation (`poses`).
 
 ### Detector Configuration
-- **Batch Size (`batch_size`)**: Determines the number of images processed in each inference batch. A **higher value improves efficiency** but requires more RAM.  
-- **Max Cores (`max_cores`)**: Controls the number of CPU cores used for **multiprocessing** during inference. Set to **-1** to use all available cores for maximum performance.
----
+- **Batch Size (`batch_size`)**: Determines the number of images processed in each inference batch. A higher value improves efficiency but requires more RAM.
+- **Max Cores (`max_cores`)**: Controls the number of CPU cores used for multiprocessing during inference. Set to `-1` to use all available cores for maximum performance.
 
 ## Head Orientation
 

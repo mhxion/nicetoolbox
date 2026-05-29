@@ -4,19 +4,9 @@ This tutorial explains how to run the NICE Toolbox on your own dataset. It cover
 
 If you are running the NICE Toolbox for the first time, please note that there is quick start guide as well - the [getting started](../getting_started.md) page explains how to run the NICE Toolbox on an example dataset.
 
-<br>
-
-
-1. [Create your config files](#1-create-your-config-files)
-2. [Prepare the dataset](#2-prepare-the-dataset)
-    - [Folder structure](#folder-structure)
-    - [Dataset properties](#dataset-properties)
-    - [Example](#example)
-3. [Create a calibration file](#3-create-a-calibration-file)
-    - [Calibration toml file](#calibration-toml-file)
-    - [Toml to npz file](#toml-to-npz-file)
-4. [Define the experiment to run](#4-define-the-experiment-to-run)
-5. [Run the toolbox](#5-run-the-toolbox)
+```{contents} Contents
+:depth: 3
+```
 
 <br>
 
@@ -204,8 +194,9 @@ The main config file to run a specific experiment is `./configs/detectors_run_fi
 visualize = false               # save image/video visualizations of detectors
 ...
 
+algorithms = ["hrnetw48", "eth_xgaze", "gaze_fusion", "gaze_distance", "velocity_body", "body_distance"]
+
 [run.dataset_name]              # change 'dataset_name' to your dataset
-components = ["body_joints", "gaze_individual", "gaze_interaction", "kinematics", "proximity", "leaning"]
 videos = [
     {                           # define which data to run on
     session_ID = "",            # select the session_ID (str)

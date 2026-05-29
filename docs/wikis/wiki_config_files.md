@@ -3,38 +3,16 @@
 
 The configuration files are Python dictionaries saved in `.toml` - files that contain details about the machine on which the toolbox is running, the experiment that runs, the data the toolbox runs on, the detectors and algorithms it is using, a mapping between different data identifiers, as well as the visualization that shows the toolbox's results. Most of these configuration dictionaries may contain placeholders which are explained first.
 
-<br>
-
-- [Understanding the config files](#understanding-the-config-files)
-  - [Placeholders](#placeholders)
-  - [Machine specifics](#machine-specifics)
-  - [Project config](#project-config)
-  - [Run file](#run-file)
-    - [General properties](#general-properties)
-    - [Choosing algorithms per component](#choosing-algorithms-per-component)
-    - [Defining the experiments](#defining-the-experiments)
-    - [Input and output files](#input-and-output-files)
-  - [Dataset properties](#dataset-properties)
-  - [Detectors config](#detectors-config)
-    - [Method detectors](#method-detectors)
-    - [Feature detectors](#feature-detectors)
-  - [Predictions mapping](#predictions-mapping)
-  - [Visualizer Config](#visualizer-config)
-    - [Configuring Component Data Display in Rerun Windows](#configuring-component-data-display-in-rerun-windows)
-    - [Configuring Rerun Viewer and Blueprint in Rerun](#configuring-rerun-viewer-and-blueprint-in-rerun)
-
-<br>
-
-
-
-
+```{contents} Contents
+:depth: 3
+```
 
 
 ## Placeholders
 
 Placeholders can be put into strings and are filled automatically during run-time. All configs support the use of placeholders, where reasonable.
 Placeholders are indicated by enclosing characters `<` and `>` and may take the following values:
-1. All keys in `./machine_specific_paths.toml` and `./nice_project.toml`,
+1. All keys in `./machine_specific_paths.toml` and `./nice_project.toml`, as well as `<project_folder_path>` (the absolute path to the project folder passed via `--project_folder_path`),
 2. All keys from `io` as defined in `./configs/detectors_run_file.toml`,
 3. The keys `<cur_dataset_name>`, `<cur_component_name>`, `<cur_algorithm_name>`, `<cur_session_ID>`, `<cur_sequence_ID>`, `<cur_camera_name>`, `<cur_video_start>`, and `<cur_video_length>` that define the current experiment run are filled during program execution based on the specifications in the run file `./configs/detectors_run_file.toml`,
 4. The options `<git_hash>`, `<me>`, `<today>`, `<yyyymmdd>`, `<time>`, and `<pwd>`.
@@ -94,56 +72,42 @@ Properties that apply to all experiments.
 ```toml
 visualize = true
 save_csv = true
+
+error_level = "DETECTOR"
+log_level = "INFO"
+
+check_missing_detectors_dependencies = true
 ```
 - `visualize` enables saving of intermediate results per detector (bool). Disable for a faster run time, enable for test runs of smaller data subsets and debugging.
 - `save_csv` enables saving all results to 2d tables in csv-files (bool).
+- `error_level` controls how strictly errors abort processing (str). Options: `"DETECTOR"` (skip failed detectors), `"SEQUENCE"` (skip failed sequences), `"STRICT"` (halt on any error).
+- `log_level` sets the logging verbosity (str). Options: `"CRITICAL"`, `"ERROR"`, `"WARNING"`, `"INFO"`, `"DEBUG"`.
+- `check_missing_detectors_dependencies` when true, verifies that all selected detectors have their input dependencies enabled before running (bool).
 
 
-### Choosing algorithms per component
+### Choosing algorithms to run
 
-Each component can be assigned to and run with multiple different algorithms. When choosing a component to run, as described in [defining the experiment](#defining-the-experiments), this dictionary maps to the corresponding algorithm(s) that will run to predict the specific component.
+The `algorithms` field lists which algorithm instances (defined in `detectors_config.toml`) to run. All listed algorithms are applied to every dataset in the `[run]` section.
 
 ```toml
-[component_algorithm_mapping]
-gaze_individual = ['multiview_eth_xgaze']
-gaze_interaction = ['gaze_distance']
-body_joints = ['hrnetw48', 'vitpose_huge', 'rtmpose_l_wholebody', 'rtmpose_m_mpii', 'sam_3d_body']
-body_joints_local = ['sam_3d_body', 'motionbert']
-body_mesh = ['sam_3d_body']
-hand_joints = ['hrnetw48']
-face_landmarks = ['hrnetw48']
-kinematics = ['velocity_body']
-proximity = ['body_distance']
-leaning = ['body_angle']
-emotion_individual = ['py_feat']
-head_orientation = ['spiga']
-audio_transcription = ['whisperx']
-audio_diarization = ['whisperx']
-speaker_aligned_transcription = ['whisperx']
+algorithms = ["hrnetw48", "vitpose_huge", "eth_xgaze", "gaze_fusion", "gaze_distance"]
 ```
-- The dictionary keys are all implemented component names (str).
-- Per component, the value (list of str) lists which algorithms should run for its prediction. Note: One algorithm may predict multiple components and multiple algorithms may be chosen per component.
-- **SAM 3D Body** uses the algorithm key **`sam_3d_body`** only (no separate output component). Register it under **`body_joints`**, **`body_joints_local`**, and **`body_mesh`**. Outputs live under **`…/<component>/sam_3d_body/`** next to **`run_config`** (raw **`_sam_3d_body_inference_raw.npz`** is **not** inside **`detector_output/`**). **`body_joints`** receives **`sam_3d_body.npz`** only when calibration includes intrinsics + projection matrix for each configured camera; **`body_joints_local`** always receives **`sam_3d_body_camera.npz`**. **MotionBERT** uses **`body_joints_local`** as **`motionbert.npz`** (root-relative 3D).
-
 
 ### Defining the experiments
 
-NICE Toolbox supports running multiple experiments with different components and datasets sequentially from a single program call.
-Hereby, experiments on multiple datasets as well as multiple experiments per dataset are possible.
-Each experiment uses detectors to predict a set of diverse components.
+NICE Toolbox supports running multiple datasets sequentially from a single program call.
 
-`[run]` is the dictionary defining these experiments. Each key is a dataset's name, the values specify the experiments to run with this dataset. This is how it looks:
+`[run]` defines which data to process. Each key is a dataset name; the value specifies which video segments to run on:
 
 ```toml
 [run.dataset_name]
-components = ["body_joints", "gaze_individual", "gaze_interaction", "kinematics", "proximity", "leaning", "emotion_individual", "head_orientation"]
-data_selections = [
+videos = [
     {session_ID = "", sequence_ID = "", video_start = 0, video_length = 100},
     ...
 ]
 ```
-- `components` lists the components that are predicted for this dataset (list of str).
-- `data_selections` defines which data of the chosen dataset to run on (list of dict). Each dictionary of the form `{session_ID = "", ...}` selects one video snippet to run and defines a new experiment. Multiple such dictionaries, or experiments, in this list will run sequentially.
+- `videos` defines which data of the chosen dataset to run on (list of dict). Each dictionary of the form `{session_ID = "", ...}` selects one video snippet. Multiple entries run sequentially.
+
     - `session_ID` select the dataset's session (str), must match a session_ID defined in the [dataset's properties](#dataset-properties).
     - `sequence_ID` select the dataset's sequence, if applicable, may be an empty string (str, optional), must match a sequence_ID defined in the [dataset's properties](#dataset-properties).
     - `video_start` - starting point of the video (int or timestamp).
@@ -178,30 +142,34 @@ The last part of the run file specifies where inputs can be found and any output
 [io]
 experiment_name = "<yyyymmdd>"
 out_folder = "<output_folder_path>/experiments/<experiment_name>"
-out_sub_folder = "<out_folder>/<cur_dataset_name>_<cur_session_ID>_s<cur_video_start>_l<cur_video_length>"
+out_sub_folder_name = "<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>_s<cur_video_start>_l<cur_video_length>"
+out_sub_folder = "<out_folder>/<out_sub_folder_name>"
+csv_out_folder = "<out_sub_folder>/_csv_files"
+nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
+code_folder = "<pwd>"
+assets = "<code_folder>/nicetoolbox/detectors/assets"
+asset_manifest = "<code_folder>/configs/asset_manifest.toml"
 dataset_properties = "<configs_folder_path>/dataset_properties.toml"
 detectors_config = "<configs_folder_path>/detectors_config.toml"
-assets = "<code_folder>/nicetoolbox/detectors/assets"
-
-nicetoolbox_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>"
-detector_out_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/detector_output"
-detector_visualization_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/visualization"
-detector_additional_output_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>/additional_output"
-detector_run_config_path = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>"
+predictions_mapping = "<configs_folder_path>/predictions_mapping.toml"
+detector_folder = "<out_sub_folder>/<cur_component_name>/<cur_algorithm_name>"
+detector_out_folder = "<detector_folder>/detector_output"
+detector_visualization_folder = "<detector_folder>/visualization"
+detector_additional_output_folder = "<detector_folder>/additional_output"
+detector_run_config_path = "<detector_folder>"
 detector_final_result_folder = "<out_sub_folder>/<cur_component_name>"
-csv_out_folder = "<out_folder>/csv_files"
-code_folder = "<pwd>"
-conda_path = "<conda_path>"
 ```
-- `experiment_name` define the name under which all experiments are run (str), defaults to today's date (in format YYYMMDD).
+- `experiment_name` defines the name under which all experiments are run (str), defaults to today's date (in format YYYYMMDD).
 - `out_folder` is the top level directory where the results of all experiments are saved (str).
-- `out_sub_folder` is the output directory for a single experiment run (str).
-- `dataset_properties` and `detectors_config` store where to find the config files [dataset properties](#dataset-properties) and [detectors config](#detectors-config) (str). Both default to the project's `<configs_folder_path>`.
-- `assets` stores the folder path of additional assets, like model checkpoints and weights (str). See [download assets](../installation.md#2-download-assets) in the installation instructions.
-- `nicetoolbox_input_folder` is the path to the directory in which pre-processed input data gets stored during run time (str). As different algorithms require different file formats and folder structures as input, the NICE Toolbox prepares the given data accordingly. This pre-processed data is stored/cashed for faster run times when repeating runs over the same data.
-- `detector_out_folder`, `detector_visualization_folder`, `detector_additional_output_folder`, `detector_run_config_path`, and `detector_final_result_folder` define where each detector stores (possible) intermediate outputs (str). Depending on the components and algorithms run per detector and the [visualization settings](#general-properties), different intermediate outputs are produced. The final results of all components and algorithms per detector are saved under `detector_final_result_folder`.
-- `code_folder` names the machine's folder path to the nicetoolbox repo (str), by default, it is filled automatically.
-- `conda_path` names the folder path to the machine's conda installation (str), by default, it is filled automatically.
+- `out_sub_folder_name` is the name template for a single experiment run (str).
+- `out_sub_folder` is the full output directory path for a single experiment run (str).
+- `csv_out_folder` is where CSV result files are saved (str).
+- `nicetoolbox_input_folder` is the path to the directory in which pre-processed input data gets stored during run time (str). As different algorithms require different file formats and folder structures as input, the NICE Toolbox prepares the given data accordingly. This pre-processed data is cached for faster run times when repeating runs over the same data.
+- `code_folder` names the machine's folder path to the nicetoolbox repo (str), filled automatically.
+- `assets` stores the folder path of additional assets, like model checkpoints and weights (str).
+- `asset_manifest` is the path to the asset manifest config that tracks downloadable model weights (str).
+- `dataset_properties`, `detectors_config`, and `predictions_mapping` store where to find those config files (str). All default to the project's `<configs_folder_path>`.
+- `detector_folder`, `detector_out_folder`, `detector_visualization_folder`, `detector_additional_output_folder`, `detector_run_config_path`, and `detector_final_result_folder` define where each detector stores intermediate and final outputs (str). The final results of all components and algorithms per detector are saved under `detector_final_result_folder`.
 
 
 
@@ -243,64 +211,112 @@ fps = 30
 - `start_frame_index` details how the dataset indexes its data (int). Typically, frame indices start with 0 or 1.
 - `fps` is the frame rate of the video data (int).
 
+Optionally, an `annotation` section maps component names to ground-truth annotation files used by the evaluation pipeline:
 
+```toml
+[dataset_name.annotation.components.component_name]
+path = "<datasets_folder_path>/annotations/component_name.csv"
+```
 
+Optionally, an `audio` section defines audio tracks for audio-based detectors. Each named track is either embedded in a camera's video file or provided as a standalone audio file:
 
-
-
-
-
-
+```toml
+[dataset_name.audio.tracks.track_name]
+camera = "<cur_cam_front>"   # extract audio from this camera's video; mutually exclusive with 'path'
+# path = "/path/to/audio.wav"  # alternative: standalone audio file
+stream = 0                   # audio stream index (0-based)
+hears_subjects = [0, 1]      # indices into subjects_descr
+```
 
 ## Detectors config
 
-Internally, there are two types of detectors: method and feature detectors. For both, the configurations are defined inside the `./configs/detectors_config.toml` file.
+Algorithm instances are configured in `./configs/detectors_config.toml`. Each `[algorithms.<name>]` block declares one named instance that can be referenced from the run file's `algorithms` list.
 
-
-### Method detectors
-
-For method detectors, the required properties are:
 ```toml
-[algorithms.algorithm_name]
-input_data_format = "frames"
-camera_names = [""]
-env_name = "env_type:env_id"
+[algorithms.vitpose_huge]
+algorithm_type = "mmpose_2d"
+components = ["body_joints"]
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
+env_name = "conda:openmmlab"
+device = "cuda:0"
+pose_config = "td-hm_ViTPose-huge_8xb64-210e_coco-256x192"
+...
+
+[algorithms.eth_xgaze]
+algorithm_type = "eth_xgaze"
+camera_names = ["<cur_cam_face1>", "<cur_cam_face2>"]
+env_name = "venv:eth_xgaze"
+...
+
+[algorithms.gaze_fusion]
+algorithm_type = "gaze_fusion"
+input_detector_names = [["gaze_individual", "eth_xgaze"]]
+...
 ```
-- `input_data_format` describes which input type the algorithm expects (str). The currently supported option is "frames".
-- `camera_names` lists the camera views (as placeholders) of which the algorithm takes input data (list of str). Current options are "<cur_cam_front>", "<cur_cam_top>", "<cur_cam_face1>", "<cur_cam_face2>".
-- `env_name` defines the python or conda environment for running the algorithm (str). Options are "venv:env_id" for a python environment and "conda:env_id" for a conda environment, in both cases "env_id" is to replaced by the environment's name.
 
-**SAM 3D Body** is configured as a **standalone algorithm** in **`[algorithms.sam_3d_body]`** only (no **`[frameworks.sam_3d_body]`** and no **`framework =`** key). That block includes `camera_names`, **`env_name`** (default **`venv:sam_3d_body`**; create with **`make install_sam3d_body`**), `device`, `visualize`, `hf_repo_id`, **`sam3d_repo_path`** (optional; empty = default checkout **`submodules/sam-3d-body`** from the git submodule), `save_vertices` (needed for **mesh** output and **`body_mesh/…/visualization_3d`**), `visualize_mesh`, **`keypoint_mapping`** (for kinematics/proximity on SAM outputs), and optional flags for smoothing, world alignment, and cross-view diagnostics. Post-process writes **`sam_3d_body.npz`** into **`body_joints`**, **`body_joints_local`**, and **`body_mesh`** result folders. See [`wiki_algorithms.md`](../wikis/wiki_algorithms.md#sam-3d-body) and [`wiki_components.md`](../wikis/wiki_components.md).
+`algorithm_type` selects the detector class to use (str). Multiple instances can share the same `algorithm_type` with different parameters.
 
+### Templates
 
+Templates define shared field sets that algorithm instances can inherit from, avoiding repetition. They are declared under `[templates.<name>]` and referenced via `template = "<name>"`.
 
-### Feature detectors
-
-Feature detectors require the properties
 ```toml
-[algorithms.algorithm_name]
-input_detector_names = [["component_name", "algorithm_name"]]
+[templates.mmpose_2d_template]
+algorithm_type = "mmpose_2d"
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
+env_name = "conda:openmmlab"
+device = "cuda:0"
+...
+
+[algorithms.hrnetw48]
+template = "mmpose_2d_template"
+components = ["body_joints", "hand_joints", "face_landmarks"]
+pose_config = "td-hm_hrnet-w48_8xb32-210e_coco-wholebody-384x288"
 ```
-- `input_detector_names` (list of list of str)
 
+Algorithm fields always override template fields. For example, `device = "cpu"` below overrides the `device = "cuda:0"` from the template:
 
+```toml
+[templates.mmpose_2d_template]
+algorithm_type = "mmpose_2d"
+device = "cuda:0"
+...
 
+[algorithms.hrnetw48_cpu]
+template = "mmpose_2d_template"
+device = "cpu"           # overrides template's cuda:0
+components = ["body_joints"]
+...
+```
 
+Templates can themselves inherit from other templates:
 
+```toml
+[templates.mmpose_2d_template]
+algorithm_type = "mmpose_2d"
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
+env_name = "conda:openmmlab"
+device = "cuda:0"
+...
 
+[templates.hrnetw48_template]
+template = "mmpose_2d_template"
+components = ["body_joints", "hand_joints", "face_landmarks"]
+pose_config = "td-hm_hrnet-w48_8xb32-210e_coco-wholebody-384x288"
 
+[algorithms.hrnetw48_low_conf]
+template = "hrnetw48_template"
+min_detection_confidence = 0.3
+
+[algorithms.hrnetw48_high_conf]
+template = "hrnetw48_template"
+min_detection_confidence = 0.8
+```
 
 
 ## Predictions mapping
 
-The config file `./configs/predictions_mapping.toml` contains information about mappings between different data identifiers. These are, for example, different conventions for selecting and naming human body joints, also called keypoints. The mappings are primarily used for internal purposes. The section **`[human_pose.sam_3d_body_mhr]`** defines the **COCO body-17 ↔ MHR70** index pairs and MHR skeleton edges used by the **`sam_3d_body`** algorithm for optional comparison to **body_joints** and for 2D visualization overlays.
-
-
-
-
-
-
-
+The config file `./configs/predictions_mapping.toml` contains information about mappings between different data identifiers. These are, for example, different conventions for selecting and naming human body joints, also called keypoints. The mappings are primarily used for internal purposes.
 
 
 ## Visualizer Config
@@ -310,13 +326,16 @@ Defined in `./configs/visualizer_config.toml`.
 Visualizer Config consists of three main part io, media, and component specifications.
 
 ```toml
+spawn_viewer = true                                                        # if true, will spawn window with GUI
+
 [io]
 dataset_folder = "<datasets_folder_path>"                                 # main dataset folder
 dataset_name = 'communication_multiview'                                  # dataset of the video
-video_name = 'communication_multiview_session_xyz_s0_l99'                 # name of video result folder
-nice_tool_input_folder = "<output_folder_path>/raw_processed/isa_tool_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>" # raw_processed input data
-experiment_folder = "<output_folder_path>/experiments/20240906_mm"        # NICE Toolbox experiment output
-experiment_video_folder = "<experiment_folder>/<video_name>"              # NICE Toolbox output folder for the specific video.
+video_name = 'communication_multiview__sequence_xyz_s0_l-1'              # name of video result folder
+nice_tool_input_folder = "<output_folder_path>/nicetoolbox_input/<cur_dataset_name>_<cur_session_ID>_<cur_sequence_ID>" # pre-processed input data
+nice_tool_output_folder = "<output_folder_path>/experiments"              # NICE Toolbox experiment output
+experiment_folder = "<output_folder_path>/experiments/<yyyymmdd>"         # select single NICE Toolbox experiment output folder
+experiment_video_folder = "<experiment_folder>/<video_name>"              # NICE Toolbox output folder for the specific video
 experiment_video_component = "<experiment_video_folder>/<cur_component_name>" # NICE Toolbox output folder for the specific component
 
 [media]                                # each Media session shows one video results.
@@ -329,22 +348,22 @@ end_frame = -1                         # end frame for the visualization, -1 mea
 visualize_interval = 1                 # 1 means visualize every frame; change the parameter accordingly if you want to visualize every x frames
 ```
 ### Configuring Component Data Display in Rerun Windows
-You can control which data will be shown in specific rerun windows by adjusting the 'media.component.canvas' items
-The keys (like '3d' or '2d_interpolated') represent different type of data provided by that component.
+You can control which data will be shown in specific rerun windows by adjusting the `media.component.canvas` items
+The keys (like `3d` or `2d_interpolated`) represent different type of data provided by that component.
 The value lists define which canvases (rerun windows) will show the data
-1. '3D_Canvas': This shows data in the 3D canvas. It is only for multi-view datasets. (Do not change the canvas name).
+1. `3D_Canvas`: This shows data in the 3D canvas. It is only for multi-view datasets. (Do not change the canvas name).
 2. Cameras: Data will be visualized on that specific camera image. The camera name must match the camera placeholder names in dataset_properties.toml
 3. Metrics - The displays the data as plots.
 4. Empty list: If you don't want the data to be visualized, leave the list empty.
 
 **Configuring Algorithm Display**
-Under 'media.component', the algorithms parameter let you choose which algorithms to display.
+Under `media.component`, the algorithms parameter let you choose which algorithms to display.
 For example, if you have multiple algorithms (e.g., hrnetw48 and vitpose in the body_joints component),
 you can specify which algorithm’s results to show.
 If you want to see results from both algorithms, list both names.
 
 **Configuring Appearance**
-Under 'media.component.appearance', you can configure the color and radii (the size of the dots and lines).
+Under `media.component.appearance`, you can configure the color and radii (the size of the dots and lines).
 
 ```toml
 # Component: gaze individual - An example for 3D_Canvas and Camera Canvases
@@ -377,9 +396,9 @@ You can manually change this by dragging the windows or adding new ones using th
 
 ![../graphics/rerun_blueprint.png](../graphics/rerun_blueprint.png)
 
-This Blueprint can be saved using the 'Save blueprint...' menu option and reopened later using the
-'Open' option. Once you configure the Rerun viewer, it will use the same blueprint for future sessions.
-You can reset the layout by clicking 'Reset Blueprint.'
+This Blueprint can be saved using the `Save blueprint...` menu option and reopened later using the
+`Open` option. Once you configure the Rerun viewer, it will use the same blueprint for future sessions.
+You can reset the layout by clicking `Reset Blueprint.`
 
 ![../graphics/rerun_viewer.png](../graphics/rerun_viewer.png)
 

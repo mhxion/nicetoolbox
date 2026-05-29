@@ -4,14 +4,9 @@ This tutorial explains how to use [rerun](rerun.io) for an interactive visualiza
 
 
 
-- [Starting rerun](#starting-rerun)
-- [Visualizer config](#visualizer-config)
-- [Configuring component data display in rerun windows](#configuring-component-data-display-in-rerun-windows)
-    - [Configuring algorithm display](#configuring-algorithm-display)
-    - [Configuring appearance](#configuring-appearance)
-- [Configuring rerun viewer and blueprint in rerun](#configuring-rerun-viewer-and-blueprint-in-rerun)
-
-<br>
+```{contents} Contents
+:depth: 3
+```
 
 
 ## Starting rerun
@@ -89,7 +84,7 @@ Under 'media.component.appearance', you can configure the color and radii (the s
 ```toml
 # Component: gaze individual - An example for 3D_Canvas and Camera Canvases
 [media.gaze_individual]
-algorithms = ['multiview_eth_xgaze']            # list of algorithms
+algorithms = ['eth_xgaze']            # list of algorithms
 [media.gaze_individual.canvas]
 3d_filtered = ["3D_Canvas", "<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"] ## key options 3d, 3d_filtered ## value options: [3D_Canvas], [3D_Canvas, camera names], [camera names], []
                                                                                       ## Note: Delete '3D_Canvas' if you don't have a multi-view setup.
