@@ -143,15 +143,7 @@ class Configuration(ProjectConfigHandler):
         # add properties of the dataset
         self.visualizer_config["dataset_properties"] = self.dataset_properties[self.dataset_name]
 
-        algorithms_list = list(
-            set(
-                [
-                    alg
-                    for alg_list in self.experiment_run_config["component_algorithm_mapping"].values()
-                    for alg in alg_list
-                ]
-            )
-        )
+        algorithms_list = list(set(self.experiment_run_config["algorithms"]))
         self.visualizer_config["algorithms_properties"] = {
             alg: alg_config
             for alg, alg_config in self.experiment_detector_config["algorithms"].items()
@@ -210,7 +202,6 @@ class Configuration(ProjectConfigHandler):
 
     def check_config(self, calibration_file):
         self._check_start_stop_frames()
-        self._check_component_name()
         self._check_algorithms()
         self._check_camera_position(calibration_file)
 
@@ -246,26 +237,16 @@ class Configuration(ProjectConfigHandler):
                 f"than the video length. \nVideo length: {video_length} frames."
             )
 
-    def _check_component_name(self):
-        component_algorithm_mapping = self.experiment_run_config["component_algorithm_mapping"]
-        for component in self.visualizer_config["media"]["visualize"]["components"]:
-            if component not in component_algorithm_mapping:
-                raise ValueError(
-                    f"Component {component} is not found in run file.\n"
-                    f"Delete or correct {component} from "
-                    "Visualizer_config[media.visualize.components]"
-                )
-
     def _check_algorithms(self):
-        component_algorithm_mapping = self.experiment_run_config["component_algorithm_mapping"]
+        known_algorithms = set(self.experiment_detector_config["algorithms"].keys())
         for component in self.visualizer_config["media"]["visualize"]["components"]:
             algorithms = self.visualizer_config["media"][component]["algorithms"]
             for alg in algorithms:
-                if alg not in component_algorithm_mapping[component]:
+                if alg not in known_algorithms:
                     raise ValueError(
-                        f"Algorithm {alg} is not found in {component} run file."
+                        f"Algorithm {alg} is not found in detectors config."
                         f"Delete or correct {alg} from Visualizer_config[media."
-                        f"{component} algorithms"
+                        f"{component}] algorithms"
                     )
 
     def _check_camera_position(self, calibration_file) -> None:

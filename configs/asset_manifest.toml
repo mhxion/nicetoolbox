@@ -1,16 +1,16 @@
 # nicetoolbox/configs/asset_manifest.toml
 
-# --- Multiview Eth XGaze ---
-["multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"]
+# --- Eth XGaze ---
+["eth_xgaze/shape_predictor_68_face_landmarks.dat"]
 url = "https://keeper.mpdl.mpg.de/f/cd7dfd31a27e47ab986e/?dl=1"
 
-["multiview_eth_xgaze/face_model.txt"]
+["eth_xgaze/face_model.txt"]
 url = "https://keeper.mpdl.mpg.de/f/21b9bf8bb4064564b215/?dl=1"
 
-["multiview_eth_xgaze/epoch_24_ckpt.pth.tar"]
+["eth_xgaze/epoch_24_ckpt.pth.tar"]
 url = "https://keeper.mpdl.mpg.de/f/cf93d03b37ba4b50a002/?dl=1"
 
-["multiview_eth_xgaze/mmod_human_face_detector.dat"]
+["eth_xgaze/mmod_human_face_detector.dat"]
 url = "https://keeper.mpdl.mpg.de/f/aae1a60f13394f099048/?dl=1"
 
 # --- MMPose Framework (HRNet, ViTPose, RTMPose, MotionBERT) ---

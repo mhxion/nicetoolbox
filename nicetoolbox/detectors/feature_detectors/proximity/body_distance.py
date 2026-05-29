@@ -21,7 +21,7 @@ class BodyDistance(BaseFeature):
     """
 
     components = ["proximity"]
-    algorithm = "body_distance"
+    algorithm_type = "body_distance"
 
     def _initialize_detector(self) -> None:
         """Initialize Movement class.
@@ -118,7 +118,7 @@ class BodyDistance(BaseFeature):
             out_dict["data_description"].update({f"body_distance_{dim}": dict(**data_description, axis3="distance")})
 
         # save results
-        save_file_path = os.path.join(self.result_folders["proximity"], f"{self.algorithm}.npz")
+        save_file_path = os.path.join(self.result_folders["proximity"], f"{self.algorithm_instance}.npz")
         np.savez_compressed(save_file_path, **out_dict)
 
         logging.info(f"Computation of feature detector for {self.components} completed.")

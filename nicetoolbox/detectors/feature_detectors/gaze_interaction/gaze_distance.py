@@ -27,7 +27,7 @@ class GazeDistance(BaseFeature):
     """
 
     components = ["gaze_interaction"]
-    algorithm = "gaze_distance"
+    algorithm_type = "gaze_distance"
 
     def _get_input(self, component: str) -> np.ndarray:
         """
@@ -140,7 +140,7 @@ class GazeDistance(BaseFeature):
                 ),
             },
         }
-        filepath = os.path.join(self.result_folders["gaze_interaction"], f"{self.algorithm}.npz")
+        filepath = os.path.join(self.result_folders["gaze_interaction"], f"{self.algorithm_instance}.npz")
         np.savez_compressed(filepath, **out_dict)
 
         logging.info(f"Computation of feature detector for {self.components} completed.")

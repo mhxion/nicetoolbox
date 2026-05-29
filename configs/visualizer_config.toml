@@ -39,7 +39,7 @@ visualize_interval = 1                                     # 1 means visualize e
 
 # Component: gaze individual
 [media.gaze_individual]
-algorithms = ['multiview_eth_xgaze']            # list of algorithms
+algorithms = ['eth_xgaze']            # list of algorithms
 
 [media.gaze_individual.canvas]
 3d_filtered = ["3D_Canvas", "<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"] ## key options 3d, 3d_filtered ## value options: [3D_Canvas], [3D_Canvas, camera names], [camera names], []

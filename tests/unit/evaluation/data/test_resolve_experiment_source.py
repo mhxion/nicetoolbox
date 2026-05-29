@@ -20,7 +20,7 @@ from tests.unit.evaluation.data.conftest import (
 
 class TestHappyPath:
     def test_single_entry(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, SINGLE_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks")
 
@@ -38,7 +38,7 @@ class TestHappyPath:
         assert len(result) == 2
 
     def test_two_datasets(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, MULTI_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks")
 
@@ -48,7 +48,7 @@ class TestHappyPath:
         assert len(result) == 2
 
     def test_multiple_subsequences(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, MULTI_VIDEO, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks")
 
@@ -62,7 +62,6 @@ class TestHappyPath:
         datasets = {
             "ds1": {
                 "fps": 30,
-                "components": ["body_joints"],
                 "videos": [
                     {
                         "session_ID": "s01",
@@ -73,7 +72,7 @@ class TestHappyPath:
                 ],
             },
         }
-        cfg = make_experiment_config(tmp_path, datasets, {"body_joints": ["algo_a"]})
+        cfg = make_experiment_config(tmp_path, datasets, {"algo_a": ["body_joints"]})
         block = ExperimentInput(component="body_joints", npz_key="landmarks")
 
         result = _resolve_experiment_source(block, cfg)
@@ -86,11 +85,10 @@ class TestHappyPath:
         datasets = {
             "ds1": {
                 "fps": 60,
-                "components": ["body_joints"],
                 "videos": [{"session_ID": "s01", "sequence_ID": "seq01"}],
             },
         }
-        cfg = make_experiment_config(tmp_path, datasets, {"body_joints": ["algo_a"]})
+        cfg = make_experiment_config(tmp_path, datasets, {"algo_a": ["body_joints"]})
         block = ExperimentInput(component="body_joints", npz_key="landmarks")
 
         result = _resolve_experiment_source(block, cfg)
@@ -105,7 +103,7 @@ class TestHappyPath:
 
 class TestFiltering:
     def test_filter_by_dataset(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, MULTI_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", dataset="ds1")
 
@@ -124,7 +122,7 @@ class TestFiltering:
         assert result[0].algorithm == "algo_b"
 
     def test_filter_by_session(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, MULTI_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", session="s01")
 
@@ -134,7 +132,7 @@ class TestFiltering:
         assert result[0].session == "s01"
 
     def test_filter_by_subsequence_index(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, MULTI_VIDEO, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", subsequence=1)
 
@@ -152,7 +150,7 @@ class TestFiltering:
         assert len(result) == 4  # 2 datasets x 2 algorithms
 
     def test_filter_by_dataset_list(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, THREE_DATASETS, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", dataset=["ds1", "ds3"])
 
@@ -171,7 +169,7 @@ class TestFiltering:
         assert {m.algorithm for m in result} == {"algo_a", "algo_c"}
 
     def test_filter_by_session_list(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, THREE_DATASETS, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", session=["s01", "s02"])
 
@@ -181,11 +179,10 @@ class TestFiltering:
         assert {m.session for m in result} == {"s01", "s02"}
 
     def test_filter_by_subsequence_list(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         three_videos = {
             "ds1": {
                 "fps": 30,
-                "components": ["body_joints"],
                 "videos": [
                     {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 0, "video_length": 100},
                     {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 100, "video_length": 100},
@@ -202,7 +199,7 @@ class TestFiltering:
         assert {m.subsequence.subsequence_index for m in result} == {0, 2}
 
     def test_filter_list_no_match_returns_empty(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, SINGLE_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", dataset=["x", "y"])
 
@@ -211,7 +208,7 @@ class TestFiltering:
         assert result == []
 
     def test_filter_no_match_returns_empty(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, SINGLE_DATASET, mapping)
         block = ExperimentInput(component="body_joints", npz_key="landmarks", dataset="nonexistent")
 
@@ -227,7 +224,7 @@ class TestFiltering:
 
 class TestErrors:
     def test_missing_npz_raises(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, SINGLE_DATASET, mapping)
         # Delete the npz file that was created by the factory
         npz = tmp_path / "ds1" / "s01" / "seq01" / "body_joints" / "algo_a.npz"
@@ -239,7 +236,7 @@ class TestErrors:
             _resolve_experiment_source(block, cfg)
 
     def test_dataset_missing_from_properties_raises(self, tmp_path):
-        mapping = {"body_joints": ["algo_a"]}
+        mapping = {"algo_a": ["body_joints"]}
         cfg = make_experiment_config(tmp_path, SINGLE_DATASET, mapping)
         # Remove dataset from dataset_config but leave it in run_config
         del cfg.dataset_config["ds1"]

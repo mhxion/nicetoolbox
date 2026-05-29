@@ -14,14 +14,14 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
-from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
+from ....configs.schemas.detectors_instances_configs import MethodDetectorRuntime
 from ....utils import video as vd
 from ....utils import visual_utils as vis_ut
 from ..base_method import BaseMethod
 from ..filters import SGFilter
 
 
-class MultiviewEthXgaze(BaseMethod):
+class EthXgaze(BaseMethod):
     """
     The XGaze3cams class is a method detector that computes the gaze_individual
     component.
@@ -41,7 +41,7 @@ class MultiviewEthXgaze(BaseMethod):
     """
 
     components = ["gaze_individual"]
-    algorithm = "multiview_eth_xgaze"
+    algorithm_type = "eth_xgaze"
 
     def _initialize_detector(self) -> MethodDetectorRuntime:
         """
@@ -73,7 +73,7 @@ class MultiviewEthXgaze(BaseMethod):
         This method is called after the inference step and is used for any
         post-processing tasks that need to be performed.
         """
-        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm_instance}.npz")
         try:
             prediction = np.load(prediction_file, allow_pickle=True)
             predictions_dict = {key: prediction[key] for key in prediction.files}
@@ -164,7 +164,7 @@ class MultiviewEthXgaze(BaseMethod):
         """
         n_subj = len(self.subjects_descr)
 
-        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm_instance}.npz")
         try:
             predictions = np.load(prediction_file, allow_pickle=True)
         except FileNotFoundError:

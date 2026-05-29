@@ -1,19 +1,34 @@
 # collection of all method and feature detectors configurations
 # new detectors should be added and registered here
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from nicetoolbox_core.input_recipes import InputRecipes
 
 from ..models.models_registry import ModelsRegistry
 
-# registries for detectors and frameworks
+# registry for detectors
 DETECTORS_REGISTRY = ModelsRegistry()
-FRAMEWORKS_REGISTRY = ModelsRegistry()
 detector_config = DETECTORS_REGISTRY.register
-framework_config = FRAMEWORKS_REGISTRY.register
+
+
+# =============================================================================
+# Base Algorithm Instance Config
+# =============================================================================
+
+
+class BaseAlgorithmConfig(BaseModel):
+    """
+    Shared base for every algorithm config. The TOML key under [algorithms.*]
+    is a user-defined instance name (stored in `_instance_name`); the schema
+    class is selected via the `algorithm_type` field.
+    """
+
+    algorithm_type: str
+    template: Optional[str] = None
+    _instance_name: str = PrivateAttr()
 
 
 # =============================================================================
@@ -36,7 +51,7 @@ class BaseDetectorRuntime(BaseModel):
     out_folders: Dict[str, str] = Field(default_factory=dict)
     viz_folders: Dict[str, str] = Field(default_factory=dict)
 
-    # Algorithm identity
+    # Algorithm identity (the user-defined instance name from TOML)
     algorithm: str
 
     # Run config flag
@@ -80,8 +95,16 @@ class FeatureDetectorRuntime(BaseDetectorRuntime):
 # ================================================
 
 
-@framework_config("mmpose")
-class FrameworksMMPoseConfig(BaseModel):
+@detector_config("mmpose_2d")
+class MMPoseAlgorithmConfig(BaseAlgorithmConfig):
+    """
+    Static config for MMPose 2D pose estimators.
+    Previously six stacked decorators (hrnetw48, vitpose, vitpose_huge,
+    rtmpose_l_aic, rtmpose_l_wholebody, rtmpose_m_mpii) — now a single
+    schema; the specific model is picked by `pose_config` + `keypoint_mapping`,
+    and the produced components are declared via `components`.
+    """
+
     camera_names: List[str]
     env_name: str
     save_detector_images: bool
@@ -90,21 +113,14 @@ class FrameworksMMPoseConfig(BaseModel):
     filtered: bool
     window_length: int
     polyorder: int
-    # python identifier cannot start with a number (using alias)
     visualize: bool
 
-
-@detector_config("hrnetw48")
-@detector_config("vitpose")
-@detector_config("vitpose_huge")
-@detector_config("rtmpose_l_aic")
-@detector_config("rtmpose_l_wholebody")
-@detector_config("rtmpose_m_mpii")
-class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
-    framework: str
     pose_config: str
     keypoint_mapping: str
     min_detection_confidence: float
+    # Which components this instance produces (e.g. ["body_joints", "hand_joints", "face_landmarks"]
+    # for wholebody, ["body_joints"] for body-only models).
+    components: List[str]
     required_assets: Dict[str, str] = Field(default_factory=dict)
     # Optional dependency edges for topological sort (same shape as feature detectors).
     input_detector_names: Optional[List[List[str]]] = None
@@ -122,10 +138,19 @@ class MMPoseAlgorithmConfig(FrameworksMMPoseConfig):
 
 
 @detector_config("motionbert")
-class MotionbertAlgorithmConfig(FrameworksMMPoseConfig):
+class MotionbertAlgorithmConfig(BaseAlgorithmConfig):
     """Static config for MotionBERT 3D lifting (2D NPZ input); kept separate from 2D MMPose algorithms."""
 
-    framework: str
+    camera_names: List[str]
+    env_name: str
+    save_detector_images: bool
+    save_detector_predictions: bool
+    device: str
+    filtered: bool
+    window_length: int
+    polyorder: int
+    visualize: bool
+
     keypoint_mapping: str
     min_detection_confidence: float
     # 3D lifter weights only; 2D detector assets are merged from input_detector_names at init.
@@ -135,21 +160,6 @@ class MotionbertAlgorithmConfig(FrameworksMMPoseConfig):
     # Optional MMPose 3D frame-export layout (serialized to run_config; read with strict keys in subprocess).
     mmpose_3d_nice_multi_layout: bool = True
     pelvis_sep_scale: float = 1.0
-
-    @model_validator(mode="after")
-    def _validate_body_joints_upstream(self) -> "MotionbertAlgorithmConfig":
-        algs = [e[1] for e in self.input_detector_names if len(e) == 2 and e[0] == "body_joints"]
-        if not algs:
-            raise ValueError(
-                "motionbert requires input_detector_names to include "
-                "['body_joints', '<upstream_2d_algorithm>'], e.g. [['body_joints', 'vitpose_huge']]."
-            )
-        if len(set(algs)) != 1:
-            raise ValueError(f"motionbert expects a single body_joints upstream algorithm; got {sorted(set(algs))!r}.")
-        for key in ("pose3d_config_file", "pose3d_checkpoint"):
-            if key not in self.required_assets:
-                raise ValueError(f"motionbert.required_assets must include {key!r}")
-        return self
 
     class RuntimeConfig(MMPoseAlgorithmConfig.RuntimeConfig):
         """Runtime fields for MotionBERT (NPZ path, merged 2D+3D assets, derived 2D lifter inputs)."""
@@ -162,9 +172,9 @@ class MotionbertAlgorithmConfig(FrameworksMMPoseConfig):
 
 
 @detector_config("spiga")
-class SpigaConfig(BaseModel):
-    camera_names: List[str]
+class SpigaConfig(BaseAlgorithmConfig):
     env_name: str
+    camera_names: List[str]
     log_frame_idx_interval: int
     batch_size: int
     visualize: bool
@@ -179,7 +189,7 @@ class SpigaConfig(BaseModel):
 
 
 @detector_config("py_feat")
-class PyFeatConfig(BaseModel):
+class PyFeatConfig(BaseAlgorithmConfig):
     camera_names: List[str]
     env_name: str
     log_frame_idx_interval: int
@@ -188,8 +198,8 @@ class PyFeatConfig(BaseModel):
     required_assets: Dict[str, str] = Field(default_factory=dict)
 
 
-@detector_config("multiview_eth_xgaze")
-class MultiViewETHXGazeConfig(BaseModel):
+@detector_config("eth_xgaze")
+class EthXGazeConfig(BaseAlgorithmConfig):
     camera_names: List[str]
     env_name: str
     log_frame_idx_interval: int
@@ -201,7 +211,7 @@ class MultiViewETHXGazeConfig(BaseModel):
 
 
 @detector_config("whisperx")
-class WhisperXConfig(BaseModel):
+class WhisperXConfig(BaseAlgorithmConfig):
     env_name: str
     visualize: bool
     track_names: List[str]
@@ -225,7 +235,7 @@ class WhisperXConfig(BaseModel):
 
 
 @detector_config("sam_3d_body")
-class Sam3dBodyConfig(BaseModel):
+class Sam3dBodyConfig(BaseAlgorithmConfig):
     """SAM 3D Body (Hugging Face weights; set hugging_face_token in machine_specific_paths.toml)."""
 
     camera_names: List[str]
@@ -272,7 +282,7 @@ class Sam3dBodyConfig(BaseModel):
 
 
 @detector_config("gaze_distance")
-class GazeDistanceConfig(BaseModel):
+class GazeDistanceConfig(BaseAlgorithmConfig):
     input_detector_names: List[List[str]]
     keypoint_mapping: str
     threshold_look_at: float
@@ -280,27 +290,27 @@ class GazeDistanceConfig(BaseModel):
 
 
 @detector_config("velocity_body")
-class VelocityConfig(BaseModel):
+class VelocityConfig(BaseAlgorithmConfig):
     input_detector_names: List[List[str]]
     visualize: bool
 
 
 @detector_config("body_angle")
-class BodyAngleConfig(BaseModel):
+class BodyAngleConfig(BaseAlgorithmConfig):
     input_detector_names: List[List[str]]
     used_keypoints: List[List[str]]
     visualize: bool
 
 
 @detector_config("body_distance")
-class BodyDistanceConfig(BaseModel):
+class BodyDistanceConfig(BaseAlgorithmConfig):
     input_detector_names: List[List[str]]
     used_keypoints: List[str]
     visualize: bool
 
 
 @detector_config("gaze_fusion")
-class GazeFusionConfig(BaseModel):
+class GazeFusionConfig(BaseAlgorithmConfig):
     input_detector_names: List[List[str]]
     fusion_method: str
     filtered: bool
@@ -311,22 +321,3 @@ class GazeFusionConfig(BaseModel):
 
 
 # === Add Feature detectors HERE ===
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
-def get_runtime_config_class(static_config: BaseModel) -> Type[MethodDetectorRuntime]:
-    """
-    Get the RuntimeConfig class for a detector's static config.
-
-    Returns the nested RuntimeConfig if defined, otherwise MethodDetectorRuntime.
-    """
-    return getattr(static_config.__class__, "RuntimeConfig", MethodDetectorRuntime)
-
-
-def has_extended_runtime(static_config: BaseModel) -> bool:
-    """Check if detector has extended runtime fields."""
-    return hasattr(static_config.__class__, "RuntimeConfig")

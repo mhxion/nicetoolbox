@@ -18,6 +18,7 @@ from ...configs.schemas.evaluation_input_block import (
 )
 from ...configs.schemas.experiment_config import DetectorsExperimentConfig
 from ...configs.utils import dict_to_model, get_latest_experiment_config_path, load_raw_config
+from ...detectors.main import get_algo_components
 from ...utils.logging_utils import abbrev_list
 
 # =============================================================================
@@ -260,12 +261,12 @@ def _resolve_experiment_source(
             if not matches_filter(subsequence_idx, input_block.subsequence):
                 continue
 
-            for component_name in run_ds.components:
-                # Filter component and algorithms
-                if not matches_filter(component_name, input_block.component):
-                    continue
-                algorithms = run_file.component_algorithm_mapping.get(component_name, [])
-                for algorithm_name in algorithms:
+            for algorithm_name in run_file.algorithms:
+                algo_cfg = exp_cfg.detector_config.algorithms[algorithm_name]
+                for component_name in get_algo_components(algo_cfg):
+                    # Filter component and algorithms
+                    if not matches_filter(component_name, input_block.component):
+                        continue
                     if not matches_filter(algorithm_name, input_block.algorithm):
                         continue
 

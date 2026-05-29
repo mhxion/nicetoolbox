@@ -1,43 +1,77 @@
 from copy import deepcopy
+from typing import Any, Dict
 
 from pydantic import BaseModel, model_validator
 
-from .detectors_algos_configs import DETECTORS_REGISTRY, FRAMEWORKS_REGISTRY
+from ...utils.graph import topological_sort
+from .detectors_instances_configs import DETECTORS_REGISTRY, BaseAlgorithmConfig
+
+
+def _resolve_template_inheritance(templates: Dict[str, Any]) -> Dict[str, Any]:
+    """Resolve template-to-template inheritance using topological sort (parents first)."""
+    graph = {name: ([tmpl["template"]] if "template" in tmpl else []) for name, tmpl in templates.items()}
+    try:
+        order = topological_sort(graph)
+    except ValueError as e:
+        raise ValueError(f"Circular template inheritance detected: {e.args[0]}") from None
+
+    resolved: Dict[str, Any] = {}
+    for name in order:
+        tmpl = dict(templates[name])
+        parent_name = tmpl.pop("template", None)
+        if parent_name:
+            tmpl = {**resolved[parent_name], **tmpl}
+        resolved[name] = tmpl
+    return resolved
+
+
+def _resolve_templates(algos: Dict[str, Any], templates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    For each algorithm entry that has a `template` key, merge the named template
+    dict with the algorithm dict (algorithm fields take precedence). The `template`
+    key itself is consumed and not forwarded to the schema.
+    """
+    resolved_templates = _resolve_template_inheritance(templates)
+    resolved = {}
+    for instance_name, algo_dict in algos.items():
+        if isinstance(algo_dict, BaseAlgorithmConfig):
+            resolved[instance_name] = algo_dict
+            continue
+        template_name = algo_dict.get("template")
+        if template_name is None:
+            resolved[instance_name] = algo_dict
+            continue
+        if template_name not in resolved_templates:
+            raise ValueError(f"Algorithm '{instance_name}' references unknown template '{template_name}'.")
+        merged = {**resolved_templates[template_name], **algo_dict}
+        resolved[instance_name] = merged
+    return resolved
 
 
 # Top-level config in detectors_config.toml
 class DetectorsConfig(BaseModel):
     """
-    Contains all detector and framework configurations.
+    Contains all detector configurations. The TOML key under [algorithms.*]
+    is a user-defined instance name; the schema class is selected via the
+    `algorithm_type` field (mirrors EvaluationConfig.metrics).
+
+    Optional [template.*] sections define shared field sets that algorithm
+    entries can inherit via `template = "<name>"`. Algorithm fields override
+    template fields.
     """
 
-    algorithms: dict[str, BaseModel]
-    frameworks: dict[str, BaseModel]
-
-    @staticmethod
-    def __resolve_frameworks_inheritance(frms, algos):
-        for name, alg in algos.items():
-            if "framework" not in alg:
-                continue
-            frm = alg["framework"]
-            if frm not in frms:
-                raise ValueError(f"Invalid framework {frm} for algorithm {name}.")
-            alg.update(frms[frm])
+    algorithms: dict[str, BaseAlgorithmConfig] = {}
+    templates: dict[str, Any] = {}
 
     @model_validator(mode="before")
     @classmethod
-    def parse_frameworks_and_algos(cls, values):
-        # because we will modify the input dict
-        # it is safer to deepcopy it first
+    def parse_algorithms(cls, values):
         values = deepcopy(values)
-        # first we parse frameworks
-        frms = values.get("frameworks", {})
-        values["frameworks"] = FRAMEWORKS_REGISTRY.parse_dict(frms)
-        # next we "patch" algorithms with framework information
-        # we need to this now because algorithms may inherit from frameworks
+        templates = values.get("templates", {})
         algos = values.get("algorithms", {})
-        cls.__resolve_frameworks_inheritance(frms, algos)
-        # now we parse algorithms
-        values["algorithms"] = DETECTORS_REGISTRY.parse_dict(algos)
-
+        algos = _resolve_templates(algos, templates)
+        parsed = DETECTORS_REGISTRY.parse_dict_by_type(algos, type_field_name="algorithm_type")
+        for instance_name, cfg in parsed.items():
+            cfg._instance_name = instance_name
+        values["algorithms"] = parsed
         return values

@@ -3,6 +3,7 @@ Base class for Method Detectors.
 Method detectors run external inference scripts in separate virtual environments.
 """
 
+import inspect
 import json
 import logging
 import os
@@ -13,7 +14,7 @@ from typing import final
 
 from nicetoolbox_core.entrypoint import SubprocessError
 
-from ...configs.schemas.detectors_algos_configs import MethodDetectorRuntime
+from ...configs.schemas.detectors_instances_configs import MethodDetectorRuntime
 from ...configs.video_runtime_config import SequenceRuntimeConfig
 from ...utils.base_detectors import flatten_inference_config
 from ...utils.config import save_config
@@ -29,11 +30,6 @@ class BaseMethod(BaseDetector):
     Abstract base class for method detectors.
 
     Method detectors run inference in external virtual environments via subprocess.
-
-    Subclasses may set inference_package_name to the subdirectory under
-    method_detectors/ that contains {framework}_inference.py when it
-    differs from components[0] (e.g. algorithm sam_3d_body writes to
-    body_joints / body_mesh but runs sam_3d_body_inference.py).
     """
 
     # If set, used for get_inference_path instead of components[0].
@@ -57,15 +53,21 @@ class BaseMethod(BaseDetector):
     config_paths: list[Path]
 
     @final
-    def __init__(self, io: SequenceIO, data: SequenceData, sequence_context: SequenceRuntimeConfig) -> None:
+    def __init__(
+        self,
+        io: SequenceIO,
+        data: SequenceData,
+        sequence_context: SequenceRuntimeConfig,
+        algorithm_instance: str,
+    ) -> None:
         """
         Initialize base method detector with references.
         """
         # (1) Call BaseDetector __init__()
-        super().__init__(io, data, sequence_context)
+        super().__init__(io, data, sequence_context, algorithm_instance)
 
         logging.info(
-            f"Initializing method detector {self.__class__.__name__} with algorithm '{self.algorithm}' "
+            f"Initializing method detector {self.__class__.__name__} with instance '{self.algorithm_instance}' "
             f"and component(s) {self.components}."
         )
 
@@ -92,11 +94,11 @@ class BaseMethod(BaseDetector):
             inference_config["viz_folder"] = self.viz_folder
 
         # (5) Save config for subprocess for each component
-        folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "run_config")
+        folder = self.io.get_detector_output_folder(self.components[0], self.algorithm_instance, "run_config")
         self.config_path = folder / "run_config.toml"
         save_config(inference_config, self.config_path)
         for comp in self.components[1:]:
-            dup = self.io.get_detector_output_folder(comp, self.algorithm, "run_config") / "run_config.toml"
+            dup = self.io.get_detector_output_folder(comp, self.algorithm_instance, "run_config") / "run_config.toml"
             save_config(inference_config, dup)
 
         logging.info("Inference preparation completed.\n")
@@ -117,7 +119,7 @@ class BaseMethod(BaseDetector):
             result_folders=self.result_folders,
             out_folders=self.out_folders,
             viz_folders=self.viz_folders,
-            algorithm=self.algorithm,
+            algorithm=self.algorithm_instance,
             visualize=self.visualize,
             subjects_descr=self.data.subjects_descr,
             log_file=str(self.sequence_context.log_file),
@@ -127,6 +129,18 @@ class BaseMethod(BaseDetector):
             input_recipes=self.data.get_input_recipes(),
         )
 
+    def _resolve_inference_script(self) -> Path:
+        """
+        Resolve the inference script path relative to the concrete subclass's file.
+        Convention: <same_folder_as_class>/<algorithm_type>_inference.py
+        """
+        class_file = Path(inspect.getfile(type(self)))
+        script = class_file.parent / f"{self.detector_config.algorithm_type}_inference.py"
+        if not script.exists():
+            logging.error(f"Detector inference file {script} does not exist!")
+            raise FileNotFoundError(script)
+        return script
+
     def _setup_subprocess_settings(self) -> None:
         """Setup OS-specific subprocess execution settings."""
         self.os_type = detect_os_type()
@@ -135,12 +149,10 @@ class BaseMethod(BaseDetector):
         env_name = getattr(self.detector_config, "env_name", "venv:nicetoolbox")  # Default to nicetoolbox env
         self.venv, self.env_name = env_name.split(":")
 
-        framework = getattr(self.detector_config, "framework", self.algorithm)
-        inference_pkg = getattr(type(self), "inference_package_name", None) or self.components[0]
-        self.script_path = self.io.get_inference_path(inference_pkg, framework)
+        self.script_path = self._resolve_inference_script()
 
         if self.venv == "venv":
-            self.venv_path = self.io.get_venv_path(framework, self.env_name)
+            self.venv_path = self.io.get_venv_path(self.detector_config.algorithm_type, self.env_name)
 
     def _subprocess_env(self) -> dict:
         """Copy os.environ and set HF_TOKEN from machine_specific_paths.toml when configured."""
@@ -164,7 +176,7 @@ class BaseMethod(BaseDetector):
 
     def _run_inference(self) -> None:
         """Run the inference subprocess."""
-        logging.info(f"INFERENCE: Launching {self.algorithm} subprocess...")
+        logging.info(f"INFERENCE: Launching {self.algorithm_instance} subprocess...")
 
         command = self._create_command()
 
@@ -183,11 +195,11 @@ class BaseMethod(BaseDetector):
             )
 
         if cmd_result.returncode == 0:
-            logging.info(f"INFERENCE: {self.algorithm} finished successfully (Exit 0).")
+            logging.info(f"INFERENCE: {self.algorithm_instance} finished successfully (Exit 0).")
             self.post_inference()
             return
 
-        logging.error(f"INFERENCE: {self.algorithm} subprocess failed (Exit 1).")
+        logging.error(f"INFERENCE: {self.algorithm_instance} subprocess failed (Exit 1).")
         self._handle_subprocess_error(cmd_result)
 
     def _create_command(self) -> str:

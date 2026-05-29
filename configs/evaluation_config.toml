@@ -49,7 +49,7 @@ summary_aggr = ["median", "std"]  # we can customize aggregation function
 metric_type = "bone_length"
 # we can declare input block with dot notation
 predictions.component = "body_joints_local"
-predictions.camera = "view_center"  # we take only view center prediction for motion bert
+predictions.camera = "view_center"  # we take only view center predictions
 predictions.npz_key = "3d"
 # the rest of fields as normal
 summary_group_by = ["subject", "sequence", "label"]

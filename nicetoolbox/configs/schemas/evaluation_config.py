@@ -46,21 +46,10 @@ class EvaluationConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def parse_metrics(cls, values):
-        # because we will modify the input dict, it is safer to deepcopy first
         values = deepcopy(values)
         metrics_raw = values.get("metrics", {})
-
-        # validate metrics schemas based on their type
-        # TODO: make this general for registry?
-        parsed_metrics = {}
-        for name, metric_dict in metrics_raw.items():
-            if "metric_type" not in metric_dict:
-                raise ValueError(f"Metric '{name}' is missing required 'metric' field.")
-            metric_type = metric_dict["metric_type"]
-
-            cfg = METRICS_REGISTRY.parse(metric_type, metric_dict)
+        parsed_metrics = METRICS_REGISTRY.parse_dict_by_type(metrics_raw, type_field_name="metric_type")
+        for name, cfg in parsed_metrics.items():
             cfg._metric_name = name
-            parsed_metrics[name] = cfg
-
         values["metrics"] = parsed_metrics
         return values

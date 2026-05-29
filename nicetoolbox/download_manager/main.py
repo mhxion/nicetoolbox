@@ -37,7 +37,7 @@ def entry_point():
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--components", nargs="+", help="Download assets for specific components (e.g., gaze_individual body_joints)"
+        "--algorithms", nargs="+", help="Download assets for specific algorithms (e.g., eth_xgaze hrnetw48)"
     )
     group.add_argument("--all", action="store_true", help="Download all available assets in the manifest")
 
@@ -60,21 +60,14 @@ def entry_point():
     if args.all:
         manager.verify_and_download(list(manager.manifest.keys()))
 
-    elif args.components:
-        # Filter logic using parsed dicts
-        mapping = config.run_config.component_algorithm_mapping
-        active_algos = []
-        for comp in args.components:
-            if comp in mapping:
-                active_algos.extend(mapping[comp])
-            else:
-                logging.warning(f"Component '{comp}' not found in component_algorithm_mapping.")
-
+    elif args.algorithms:
         required_assets = []
         algos_dict = config.detectors_config.algorithms
-        for algo in set(active_algos):
+        for algo in set(args.algorithms):
             if algo in algos_dict and hasattr(algos_dict[algo], "required_assets"):
                 required_assets.extend(algos_dict[algo].required_assets.values())
+            else:
+                logging.warning(f"Algorithm '{algo}' not found in detectors config.")
 
         manager.verify_and_download(required_assets)
 

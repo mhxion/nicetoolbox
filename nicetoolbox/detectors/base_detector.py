@@ -6,8 +6,7 @@ Provides common interface and shared functionality.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
-
+from ..configs.schemas.detectors_instances_configs import BaseAlgorithmConfig
 from ..configs.video_runtime_config import SequenceRuntimeConfig
 from .data import SequenceData
 from .in_out import SequenceIO
@@ -21,21 +20,35 @@ class BaseDetector(ABC):
     This enables a unified detector loop in main.py.
     """
 
+    # Each detector should have an unique algorithm type
+    algorithm_type: str
+
     # Instance attributes set during initialization
     data: SequenceData
     io: SequenceIO
     sequence_context: SequenceRuntimeConfig
-    detector_config: BaseModel
+    detector_config: BaseAlgorithmConfig
+
+    # User-defined instance name from TOML key (set in __init__)
+    algorithm_instance: str
 
     # Class attributes to be defined by subclasses
     inference_config: Any
     components: List[str]
-    algorithm: str
+    # Class-level discriminator that matches an entry in ALL_DETECTORS and the
+    # registry key in DETECTORS_REGISTRY (e.g. "mmpose_2d", "gaze_distance").
+    algorithm_type: str
 
     # Additional attributes
     visualize: bool
 
-    def __init__(self, io: SequenceIO, data: SequenceData, sequence_context: SequenceRuntimeConfig) -> None:
+    def __init__(
+        self,
+        io: SequenceIO,
+        data: SequenceData,
+        sequence_context: SequenceRuntimeConfig,
+        algorithm_instance: str,
+    ) -> None:
         """
         Initialize base detector with references.
 
@@ -44,8 +57,14 @@ class BaseDetector(ABC):
         self.io = io
         self.data = data
         self.sequence_context = sequence_context
-        self.detector_config = sequence_context.get_detector_config(self.algorithm)
+        self.algorithm_instance = algorithm_instance
+        self.detector_config = sequence_context.get_detector_config(algorithm_instance)
         self.visualize = getattr(self.detector_config, "visualize", False)
+        # Allow detector configs (e.g. MMPose 2D) to declare components per-instance.
+        # Falls back to the subclass's class-level `components` attribute.
+        config_components = getattr(self.detector_config, "components", None)
+        if config_components:
+            self.components = list(config_components)
 
     @abstractmethod
     def run(self) -> Optional[Any]:
@@ -70,18 +89,6 @@ class BaseDetector(ABC):
         """
         pass
 
-    @property
-    @abstractmethod
-    def components(self) -> List[str]:
-        """Components this detector produces."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def algorithm(self) -> str:
-        """Algorithm name for this detector."""
-        raise NotImplementedError
-
     # -------------------------------------------------------------------------
     # Shared Helper Methods
     # -------------------------------------------------------------------------
@@ -94,14 +101,15 @@ class BaseDetector(ABC):
     def compute_result_folders(self) -> Dict[str, str]:
         """Compute result folders for all components."""
         return {
-            comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "result")) for comp in self.components
+            comp: str(self.io.get_detector_output_folder(comp, self.algorithm_instance, "result"))
+            for comp in self.components
         }
 
     def compute_output_folders(self, requires_out_folder: bool) -> Dict[str, str]:
         """Compute extra output folders for all components."""
         if requires_out_folder:
             return {
-                comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "output"))
+                comp: str(self.io.get_detector_output_folder(comp, self.algorithm_instance, "output"))
                 for comp in self.components
             }
         return {}
@@ -110,11 +118,11 @@ class BaseDetector(ABC):
         """Compute visualization folders for all components."""
         if visualize:
             return {
-                comp: str(self.io.get_detector_output_folder(comp, self.algorithm, "visualization"))
+                comp: str(self.io.get_detector_output_folder(comp, self.algorithm_instance, "visualization"))
                 for comp in self.components
             }
         return {}
 
     def __str__(self) -> str:
         config_name = type(self.inference_config).__name__
-        return f"Detector: {self.algorithm}\n  Components: {self.components}\n  Config: {config_name}\n"
+        return f"Detector: {self.algorithm_instance}\n  Components: {self.components}\n  Config: {config_name}\n"

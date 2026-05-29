@@ -123,17 +123,7 @@ class AssetManager:
         """
         required_assets = []
 
-        # find all active components across all dataset runs
-        active_components = set()
-        for _ds_name, run_cfg in config.run_config.run.items():
-            active_components.update(run_cfg.components)
-
-        # map components to algorithms
-        mapping = config.run_config.component_algorithm_mapping
-        active_algos = set()
-        for comp in active_components:
-            if comp in mapping:
-                active_algos.update(mapping[comp])
+        active_algos = set(config.run_config.algorithms)
 
         # required_assets for those specific algorithms
         algos_dict = config.detectors_config.algorithms

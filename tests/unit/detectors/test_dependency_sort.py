@@ -29,14 +29,14 @@ def test_current_bipartite_structure():
     """Methods before features, matching current behavior."""
     graph = {
         "velocity_body": ["hrnetw48"],
-        "gaze_distance": ["multiview_eth_xgaze", "hrnetw48"],
+        "gaze_distance": ["eth_xgaze", "hrnetw48"],
         "hrnetw48": [],
-        "multiview_eth_xgaze": [],
+        "eth_xgaze": [],
     }
     result = topological_sort(graph)
     assert result.index("hrnetw48") < result.index("velocity_body")
     assert result.index("hrnetw48") < result.index("gaze_distance")
-    assert result.index("multiview_eth_xgaze") < result.index("gaze_distance")
+    assert result.index("eth_xgaze") < result.index("gaze_distance")
 
 
 def test_deterministic_order():
