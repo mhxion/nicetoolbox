@@ -1,13 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
-- **MotionBERT** moved from component **`body_joints_lifted`** to **`body_joints_local`** (output still **`body_joints_local/motionbert.npz`**). Update **`[component_algorithm_mapping]`** and any evaluation blocks that referenced **`body_joints_lifted`**.
-- **SAM 3D Body** (`sam_3d_body`): processed outputs are under **`…/<component>/sam_3d_body/`** (next to **`run_config`**). Raw inference is **`_sam_3d_body_inference_raw.npz`** (not under **`detector_output/`**). **`body_joints_local`** always gets **`sam_3d_body_camera.npz`** (camera-native **`3d`**). **`body_joints`** gets **`sam_3d_body.npz`** when every configured camera has **intrinsic + projection** in the sequence calibration. With **multi-view** and **`stereo_triangulation_body_joints`** (default **true**), primary **`3d`** uses **two-view** **`cv2.triangulatePoints`** on undistorted SAM **2d** keypoints from the **first two** **`camera_names`** (same convention as **vitpose_huge**; not N-view fusion). When stereo is disabled or not applicable, primary **`3d`** remains world-broadcast from calibration alignment when world coords exist. **`3d_world`** / **`3d_camera`** are still written when available. Without calibration, the **`body_joints`** NPZ is skipped. **`data_description.sam_3d_body.export_policy`** documents the policy. Optional JSON/CSV raw dumps go under **`body_joints_local/sam_3d_body/detector_output/`**. 2D skeleton visualization is written under **`body_joints/sam_3d_body/visualization/`** and duplicated under **`body_joints_local/sam_3d_body/visualization/`**; mesh wireframes only under **`body_mesh/sam_3d_body/visualization_3d/`**.
-- **predictions_mapping**: optional schema **`[human_pose.sam_3d_body_mhr_evaluation]`** (same fields as **`sam_3d_body_mhr`**) for evaluation-specific MHR mapping.
-- **WhisperX**: **`hf_weights_cache_dir`** in **`detectors_config.toml`** (default **`<assets>/whisperx`**) is the Hugging Face / WhisperX cache directory (created at inference). No fake **`asset_manifest.toml`** entry is required.
+- [SAM 3D Body](https://github.com/facebookresearch/sam-3d-body) (`sam_3d_body`) - 3D whole-body pose estimation. Supports single- and multi-view setups.
+- [WhisperX](https://github.com/m-bain/whisperX) (`whisperx`) - audio transcription and speaker diarization.
+- [MotionBERT](https://github.com/Walter0807/MotionBERT) (`motionbert`) - 3D body pose lifting from precomputed 2D body joint detections.
+- New MMPose algorithms: `vitpose_huge`, `rtmpose_l_aic`, `rtmpose_l_wholebody`, and `rtmpose_m_mpii`.
+- New [ELAN](https://archive.mpi.nl/tla/elan) connector: export outputs to ELAN annotation format for manual labeling workflows.
+- New [napari-deeplabcut](https://github.com/DeepLabCut/napari-deeplabcut) connector: export body joint detections to DeepLabCut format.
+- Updated **evaluation pipeline**: new ground-truth-based metrics, improved configuration schema, and flexible group-by and aggregation options.
+- New asset **download manager**: model weights are now downloaded automatically during setup or first run.
+- New **project config**: a central config file per project that holds paths to your dataset and detector configs, decoupling project settings from the NICE Toolbox installation folder.
+- **Algorithms Instances** support, allows to create multiple configurations of the same algorithms with different parameters.
+- Sequences time ranges `video_start` and `video_stop` now accept timestamps (e.g. `"00:01:30"`) in addition to frame numbers.
 
-- **MotionBERT** (`motionbert`): MMPose-based **3D body pose lifting** from a precomputed **`body_joints`** NPZ (default 2D source **`vitpose_huge`**). Lifting uses stored 2D keypoints/boxes from the NICE 2D pipeline, not a second 2D inferencer pass; optional **`Pose3DInferencer`** is for visualization only. Post-processing keeps **root-relative** `3d` (PnP / `2d_projected` / `3d_pnp_world` removed).
+**Breaking changes:**
+- `detectors_run_file.toml` has changed. `component_algorithm_mapping` and per sequence `components` lists are deprecated. Use `algorithms` list for all desired algorithms instances.
+- `evaluation_config.toml` was redesigned, please update it based on the provided example.
+- Separate evaluation summaries are currently deprecated and now a part of metrics.
+- `EvaluationWrapper` for exporting evaluation results to pandas is deprecated.
+- `frameworks` in `detectors_config.toml` are deprecated. There are more general use `templates` now. Please update your config.
 
 ## 0.2.2
 - Refactoring of data preprocessing and inference for all detectors.

@@ -4,19 +4,9 @@ This tutorial shows how to run the evaluation pipeline on your detector outputs.
 
 For a full reference of all available metrics and their parameters, see the [Evaluation Metrics wiki](../wikis/wiki_evaluation_metrics.md).
 
-<br>
-
-1. [Prerequisites](#1-prerequisites)
-2. [Configure the evaluation](#2-configure-the-evaluation)
-    - [Top-level settings](#top-level-settings)
-    - [Defining metrics](#defining-metrics)
-    - [Example: no ground truth](#example-no-ground-truth)
-    - [Example: with ground truth annotations](#example-with-ground-truth-annotations)
-    - [Grouping and aggregation](#grouping-and-aggregation)
-3. [Run the evaluation](#3-run-the-evaluation)
-4. [Read the results](#4-read-the-results)
-
-<br>
+```{contents} Contents
+:depth: 3
+```
 
 
 ## 1. Prerequisites

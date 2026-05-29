@@ -4,16 +4,9 @@ This tutorial extends the previous tutorial on [including a dataset with a singl
 
 Probably, the main difference to the single camera case is that a multi-view capture setup requires time-synchronized and calibrated cameras. While we assume that synchronization and calibration of the cameras have been completed beforehand, we provide a calibration conversion tool for the NICE Toolbox. Instructions can be found in step [3. Create a multi-view calibration file](#3-create-a-multi-view-calibration-file).
 
-<br>
-
-1. [Create your config files](#1-create-your-config-files)
-2. [Prepare the multi-view dataset](#2-prepare-the-multi-view-dataset)
-    - [Update the dataset properties](#2-update-the-dataset-properties)
-    - [Example](#example)
-3. [Create a multi-view calibration file](#3-create-a-multi-view-calibration-file)
-4. [Define the experiments and run the toolbox](#4-define-the-experiments-and-run-the-toolbox)
-
-<br>
+```{contents} Contents
+:depth: 3
+```
 
 
 ## 1. Create your config files
