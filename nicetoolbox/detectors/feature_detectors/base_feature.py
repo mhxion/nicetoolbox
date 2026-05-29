@@ -9,7 +9,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Tuple, final
 
-from ...configs.schemas.detectors_algos_configs import FeatureDetectorRuntime
+from ...configs.schemas.detectors_instances_configs import FeatureDetectorRuntime
 from ...utils.base_detectors import flatten_inference_config, input_map_to_string_keys
 from ...utils.config import save_config
 from ..base_detector import BaseDetector
@@ -26,10 +26,10 @@ class BaseFeature(BaseDetector):
     requires_out_folder: bool = False
 
     @final
-    def __init__(self, io, data, sequence_context):
-        super().__init__(io, data, sequence_context)
+    def __init__(self, io, data, sequence_context, algorithm_instance: str):
+        super().__init__(io, data, sequence_context, algorithm_instance)
         logging.info(
-            f"Initializing feature detector {self.__class__.__name__} for '{self.algorithm}' "
+            f"Initializing feature detector {self.__class__.__name__} for instance '{self.algorithm_instance}' "
             f"and components {self.components}."
         )
 
@@ -55,11 +55,13 @@ class BaseFeature(BaseDetector):
 
         # Save config for reproducibility
         for comp in self.components:
-            folder = self.io.get_detector_output_folder(comp, self.algorithm, "run_config")
+            folder = self.io.get_detector_output_folder(comp, self.algorithm_instance, "run_config")
             config_path = os.path.join(str(folder), "run_config.toml")
             save_config(self.inference_config, config_path)
 
-        logging.info(f"Feature detector for component {self.components} and algorithm {self.algorithm} initialized.\n")
+        logging.info(
+            f"Feature detector for component {self.components} and instance {self.algorithm_instance} initialized.\n"
+        )
 
     def _build_runtime(self) -> FeatureDetectorRuntime:
         """
@@ -72,7 +74,7 @@ class BaseFeature(BaseDetector):
             result_folders=self.result_folders,
             out_folders=self.out_folders,
             viz_folders=self.viz_folders,
-            algorithm=self.algorithm,
+            algorithm=self.algorithm_instance,
             visualize=self.visualize,
             subjects_descr=self.subjects_descr,
             input_map=input_map_to_string_keys(self.input_map),

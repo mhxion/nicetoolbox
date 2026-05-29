@@ -60,10 +60,9 @@ class RunConfigVideo(BaseModel):
 class DetectorsRunConfig(BaseModel):
     """
     Single dataset config in detectors pipeline.
-    Contains settings for videos and components to run.
+    Contains settings for videos to run.
     """
 
-    components: List[str]
     videos: List[RunConfigVideo]
 
     # Runtime fields
@@ -85,7 +84,7 @@ class DetectorsRunFile(BaseModel):
 
     check_missing_detectors_dependencies: bool
 
-    component_algorithm_mapping: dict[str, list[str]]
+    algorithms: list[str]
     run: dict[str, DetectorsRunConfig]
     io: DetectorsRunIO
 

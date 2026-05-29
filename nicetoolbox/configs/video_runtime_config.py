@@ -4,7 +4,7 @@ Created by Configuration factory, discarded after video processing.
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -48,9 +48,8 @@ class SequenceRuntimeConfig(BaseModel):
     detectors_config: DetectorsConfig
     predictions_mapping: PredictionsMappingConfig
 
-    # Component/algorithm selection for this video
-    components: List[str]
-    component_mapping: Dict[str, List[str]]
+    # Algorithm selection for this video
+    algorithms: List[str]
 
     # Pre-referenced cameras required for current video (based on upstream dependencies too)
     all_camera_names: List[str]
@@ -91,14 +90,6 @@ class SequenceRuntimeConfig(BaseModel):
     @property
     def data_source_folder(self) -> Path:
         return Path(self.dataset_properties.data_input_folder)
-
-    @property
-    def all_selected_algorithms(self) -> List[str]:
-        """Flat list of all algorithms to run for this video."""
-        algorithms = []
-        for algo_list in self.component_mapping.values():
-            algorithms.extend(algo_list)
-        return list(set(algorithms))
 
     # -------------------------------------------------------------------------
     # Config Access (no resolution needed - already resolved)

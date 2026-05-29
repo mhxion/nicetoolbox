@@ -39,5 +39,18 @@ class ModelsRegistry:
     def parse_dict(self, data: Dict[str, Any]) -> Dict[str, BaseModel]:
         return {k: self.parse(k, v) for k, v in data.items()}
 
+    def parse_dict_by_type(self, data: Dict[str, Any], type_field_name: str) -> Dict[str, BaseModel]:
+        parsed: Dict[str, BaseModel] = {}
+        for instance_name, item in data.items():
+            # Already a parsed model (e.g. on a re-validation pass) — pass through.
+            if isinstance(item, BaseModel):
+                parsed[instance_name] = item
+                continue
+            if type_field_name not in item:
+                raise ValueError(f"'{instance_name}' is missing required '{type_field_name}' field.")
+            type_value = item[type_field_name]
+            parsed[instance_name] = self.parse(type_value, item)
+        return parsed
+
     def get_model(self, name: str) -> Optional[Type[BaseModel]]:
         return self._models.get(name, self._default_model)

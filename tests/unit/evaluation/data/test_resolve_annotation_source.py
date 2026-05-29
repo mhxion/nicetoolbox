@@ -62,7 +62,6 @@ class TestHappyPath:
         multi_video = {
             "ds1": {
                 "fps": 30,
-                "components": ["body_joints"],
                 "videos": [
                     {"session_ID": "s01", "sequence_ID": "seq01"},
                     {"session_ID": "s01", "sequence_ID": "seq02"},
@@ -84,7 +83,6 @@ class TestHappyPath:
         same_sequence = {
             "ds1": {
                 "fps": 30,
-                "components": ["body_joints"],
                 "videos": [
                     {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 0, "video_length": 100},
                     {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 100, "video_length": 100},

@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from ..body_joints import pose_utils
+from ..mmpose import pose_utils
 
 
 def frame_person_list(frame_bundle: Any, cam: str, cam_idx: int, mode: str) -> list[dict[str, Any]]:

@@ -8,14 +8,14 @@ import os
 
 from nicetoolbox_core.audio_loaders import AudioStreamLoader
 
-from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime, WhisperXConfig
+from ....configs.schemas.detectors_instances_configs import MethodDetectorRuntime, WhisperXConfig
 from ....utils.hf_token import effective_hf_hub_token
 from ....utils.video import video_with_subtitles_from_frames
 from ..base_method import BaseMethod
 
 
 class WhisperX(BaseMethod):
-    algorithm = "whisperx"
+    algorithm_type = "whisperx"
     components = ["audio_transcription", "audio_diarization", "speaker_aligned_transcription"]
 
     def _initialize_detector(self) -> MethodDetectorRuntime:
@@ -110,7 +110,7 @@ class WhisperX(BaseMethod):
                 "language": track_data["language"],
             }
 
-        with open(os.path.join(folder, f"{self.algorithm}.json"), "w") as f:
+        with open(os.path.join(folder, f"{self.algorithm_instance}.json"), "w") as f:
             json.dump(out_dict, f, indent=4)
 
         logging.info("WhisperX post-inference processing complete. Speaker aligned transcription results collected.")

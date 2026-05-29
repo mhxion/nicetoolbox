@@ -12,9 +12,8 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
-from ....configs.schemas.detectors_algos_configs import MMPoseAlgorithmConfig
+from ....configs.schemas.detectors_instances_configs import MMPoseAlgorithmConfig
 from ....utils import video as vd
-from ....utils.system import detect_os_type
 from ..base_method import BaseMethod
 
 
@@ -25,22 +24,10 @@ class BaseMMPose(BaseMethod):
     subclasses.
     """
 
-    def _setup_subprocess_settings(self) -> None:
-        """Same as BaseMethod but force the 2D subprocess entry script path.
-
-        TOML keeps framework = "mmpose" for merged defaults; 2D vs 3D script choice
-        is handled here (and MMPose3D overrides for the 3D lifter).
-        """
-        self.os_type = detect_os_type()
-        self.conda_path = self.io.get_conda_path()
-
-        env_name = getattr(self.detector_config, "env_name", "venv:nicetoolbox")
-        self.venv, self.env_name = env_name.split(":")
-
-        fw = getattr(self.detector_config, "framework", self.algorithm)
-
-        if self.venv == "venv":
-            self.venv_path = self.io.get_venv_path(fw, self.env_name)
+    # Inference scripts live under body_joints/ regardless of the produced component
+    # (e.g. MotionBERT declares components=["body_joints_local"] but its script is
+    # body_joints/mmpose_3d_inference.py).
+    inference_package_name = "body_joints"
 
     def _initialize_detector(self) -> MMPoseAlgorithmConfig.RuntimeConfig:
         """
@@ -122,7 +109,7 @@ class BaseMMPose(BaseMethod):
         Structure: detector_output/predictions/<camera_name>/
         """
         folders = {}
-        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "output")
+        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm_instance, "output")
         for camera in self.camera_names:
             folder = os.path.join(base_output_folder, "predictions", camera)
             if make_dirs:
@@ -141,7 +128,7 @@ class BaseMMPose(BaseMethod):
         visualization/ folder via self.viz_folder.
         """
         folders = {}
-        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm, "output")
+        base_output_folder = self.io.get_detector_output_folder(self.components[0], self.algorithm_instance, "output")
         for camera in self.camera_names:
             folder = os.path.join(base_output_folder, "images", camera)
             if make_dirs:
@@ -167,15 +154,15 @@ class BaseMMPose(BaseMethod):
             specific format (`%09d.jpg`), where each frame's name is a zero-padded
             five-digit number representing its sequence in the video.
         """
-        logging.info(f"VISUALIZING the method detector output of {self.components} " f"and {self.algorithm}.")
+        logging.info(f"VISUALIZING the method detector output of {self.components} " f"and {self.algorithm_instance}.")
 
         # Input data loader from nicetoolbox-core shared code is created.
         dataloader = ImagePathsByCameraLoader(config=self.data.get_input_recipes(), expected_cameras=self.camera_names)
 
         for _component, result_folder in self.result_folders.items():
-            viz_dir = os.path.join(result_folder, self.algorithm, "visualization")
+            viz_dir = os.path.join(result_folder, self.algorithm_instance, "visualization")
             os.makedirs(viz_dir, exist_ok=True)
-            prediction_file = os.path.join(result_folder, f"{self.algorithm}.npz")
+            prediction_file = os.path.join(result_folder, f"{self.algorithm_instance}.npz")
             prediction = np.load(prediction_file, allow_pickle=True)
 
             data = self._get_2d_array_for_visualization(prediction)

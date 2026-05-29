@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Generator, List
+from typing import Any, Generator, List
 
 from ..configs.project_config_handler import ProjectConfigHandler
 from ..configs.schemas.dataset_properties import DatasetProperties
@@ -97,11 +97,6 @@ class Configuration(ProjectConfigHandler):
             SequenceRuntimeConfig for each video defined in the run configuration
         """
         for dataset_name, videos_run_config in self.run_config.run.items():
-            # Build component -> algorithms mapping (Filtered via selection in run_config file)
-            component_mapping = {
-                comp: self.run_config.component_algorithm_mapping[comp] for comp in videos_run_config.components
-            }
-
             # Get dataset properties
             dataset_props = self.dataset_properties[dataset_name]
 
@@ -110,8 +105,7 @@ class Configuration(ProjectConfigHandler):
                     dataset_name=str(dataset_name),
                     video=video,
                     dataset_props=dataset_props,
-                    components=videos_run_config.components,
-                    component_mapping=component_mapping,
+                    algorithms=self.run_config.algorithms,
                 )
 
     def _create_video_runtime_config(
@@ -119,8 +113,7 @@ class Configuration(ProjectConfigHandler):
         dataset_name: str,
         video,
         dataset_props,
-        components: List[str],
-        component_mapping: Dict[str, List[str]],
+        algorithms: List[str],
     ) -> SequenceRuntimeConfig:
         """
         Create a fully resolved, frozen SequenceRuntimeConfig.
@@ -149,8 +142,7 @@ class Configuration(ProjectConfigHandler):
             machine=self.machine_specific_config,
             detectors_config=self.detectors_config,
             predictions_mapping=self.predictions_mapping,
-            components=components,
-            component_mapping=component_mapping,
+            algorithms=algorithms,
             all_camera_names=all_camera_names,
         )
         # Build runtime context for this video

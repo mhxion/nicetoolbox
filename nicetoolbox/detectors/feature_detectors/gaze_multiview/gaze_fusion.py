@@ -35,7 +35,7 @@ class GazeFusion(BaseFeature):
     """
 
     components = ["gaze_multiview"]
-    algorithm = "gaze_fusion"
+    algorithm_type = "gaze_fusion"
     requires_out_folder: bool = True
 
     def _initialize_detector(self) -> None:
@@ -130,7 +130,7 @@ class GazeFusion(BaseFeature):
         fused_3d, fused_3d_filtered = self._process_single_input(vectors, conf_scores)
 
         # Save and collect
-        filename = f"{self.algorithm}"
+        filename = f"{self.algorithm_instance}"
         out_dict = self._save_fused_result(fused_3d, fused_3d_filtered, filename)
         return out_dict
 
@@ -319,7 +319,7 @@ class GazeFusion(BaseFeature):
 
         landmarks_2d = landmarks_2d[..., :2]  # Use only (u, v)
         face_centers = np.nanmean(landmarks_2d, axis=-2)  # (S, C, F, 2)
-        logging.info(f"Visualizing: {self.algorithm}")
+        logging.info(f"Visualizing: {self.algorithm_instance}")
 
         dataloader = ImagePathsByFrameIndexLoader(self.dataloader_config, expected_cameras=self.camera_names)
 

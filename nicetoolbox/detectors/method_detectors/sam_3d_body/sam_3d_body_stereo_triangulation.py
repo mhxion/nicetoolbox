@@ -7,7 +7,7 @@ import numpy as np
 
 from ....utils import check_and_exception as check
 from ....utils import triangulation as tri
-from ..body_joints import pose_utils
+from ..mmpose import pose_utils
 
 
 def calibration_usable_for_stereo_triangulation(calibration: dict[str, Any] | None, camera_names: list[str]) -> bool:

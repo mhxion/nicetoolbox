@@ -1,5 +1,11 @@
 """
-MMPose 2D frameworks and specific algorithm definitions.
+MMPose 2D framework — single consolidated detector class.
+
+Previously this file held six subclasses (HRNetw48, VitPose, VitPoseHuge,
+RTMPoseLAIC, RTMPoseWHolebody, RTMPoseMPII) that differed only in their
+class-level `components` list and `get_per_component_keypoint_mapping()`.
+They are now a single `MMPose2D` class whose components are declared in TOML
+config and whose keypoint mapping logic dispatches on the requested components.
 """
 
 import logging
@@ -21,55 +27,61 @@ class MMPose2D(BaseMMPose):
     framework.
 
     Its post_inference method computes 3D points via multi-view stereo triangulation.
+    `components` is set per-instance from the TOML config (e.g. body-only models
+    declare `components = ["body_joints"]`, wholebody models declare
+    `["body_joints", "hand_joints", "face_landmarks"]`).
     """
 
-    def _setup_subprocess_settings(self) -> None:
-        super()._setup_subprocess_settings()
-        self.script_path = self.io.get_inference_path("body_joints", "mmpose_2d")  # TODO: fix me
+    algorithm_type = "mmpose_2d"
+
+    def get_per_component_keypoint_mapping(self, keypoints_indices):
+        """
+        Build per-component keypoint index/description maps based on the
+        components this instance was configured to produce.
+
+        - body_joints: when components include hand_joints or face_landmarks we
+          treat the model as wholebody and union body + foot keypoints; otherwise
+          we use the body block only.
+        - hand_joints / face_landmarks: straightforward 1:1 mapping.
+        """
+        has_hand = "hand_joints" in self.components
+        has_face = "face_landmarks" in self.components
+        is_wholebody = has_hand or has_face
+
+        indices = {}
+        description = {}
+
+        if "body_joints" in self.components:
+            if is_wholebody:
+                indices["body_joints"] = confh.flatten_list(
+                    list(keypoints_indices.body.values()) + list(keypoints_indices.foot.values())
+                )
+                description["body_joints"] = confh.flatten_list(
+                    extract_key_per_value(keypoints_indices.body) + extract_key_per_value(keypoints_indices.foot)
+                )
+            else:
+                indices["body_joints"] = confh.flatten_list(list(keypoints_indices.body.values()))
+                description["body_joints"] = confh.flatten_list(extract_key_per_value(keypoints_indices.body))
+
+        if has_hand:
+            indices["hand_joints"] = confh.flatten_list(list(keypoints_indices.hand.values()))
+            description["hand_joints"] = confh.flatten_list(extract_key_per_value(keypoints_indices.hand))
+
+        if has_face:
+            indices["face_landmarks"] = confh.flatten_list(list(keypoints_indices.face.values()))
+            description["face_landmarks"] = confh.flatten_list(extract_key_per_value(keypoints_indices.face))
+
+        return indices, description
 
     def post_inference(self):
         """
         Post-inference processing for pose estimation components such as body_joints,
         hand_joints, and face_landmarks.
 
-        This method takes the raw 2D pose estimation results and applies a series of
-        processing steps. They include optional filtering to smooth the results,
-        interpolation to fill in missing values, undistortion using camera calibration
-        parameters, and 3D triangulation from multiple camera views. The final processed
-        results are saved for further analysis and visualization for each of the
-        components.
-
-        Steps:
-        1. Filtering: Applies a smoothing filter to the 2D pose estimation results
-            if filtering is enabled. This step reduces noise and improves the
-            consistency of the pose data over time.
-        2. Interpolation: Fills in missing values in the 2D pose estimation results.
-            This is crucial for maintaining the integrity of the pose data, especially
-            in cases where occlusion or poor lighting conditions may lead to incomplete
-            detections.
-        3. Undistortion: Corrects the 2D pose estimation results for lens distortion
-            using the camera's calibration parameters.
-        4. 3D Triangulation: Uses the undistorted 2D pose estimation results from
-            at least two camera views to reconstruct the 3D positions of the pose
-            keypoints.
-        5. Saving Results: The processed 3D pose data is saved to a .npz file with
-            the following structure:
-                - '2d': A numpy array containing the 2D pose estimation results.
-                - '2d_filtered': A numpy array containing the filtered 2D pose
-                    estimation results.
-                - '2d_interpolated': A numpy array containing the interpolated 2D pose
-                    estimation results.
-                - 'bbox_2d': A numpy array containing the 2D bounding box coordinates.
-                - '3d': A numpy array containing the 3D pose estimation results.
-                - 'data_description': A dictionary containing the data description for
-                    the above output numpy arrays. See the documentation of the output
-                    for more details.
-
-        Returns:
-            None. The processed results are saved to the output folder (See step 5).
+        See module docstring for the full description of steps and outputs.
         """
         for _component, result_folder in self.result_folders.items():
-            prediction_file = os.path.join(result_folder, f"{self.algorithm}.npz")
+            prediction_file = os.path.join(result_folder, f"{self.algorithm_instance}.npz")
             prediction = np.load(prediction_file, allow_pickle=True)
             data_description = prediction["data_description"].item()
             results_2d = prediction["2d"]
@@ -278,170 +290,3 @@ class MMPose2D(BaseMMPose):
                         "data_description": data_description,
                     }
                     np.savez_compressed(prediction_file, **results_dict)
-
-
-# =============================================================================
-# 2D Algorithm Implementations
-# =============================================================================
-
-
-class HRNetw48(MMPose2D):
-    """
-    HRNetw48 is a subclass of MMPose specialized for pose estimation using the HRNetw48
-    model.
-
-    Components: body_joints, hand_joints, face_landmarks
-    """
-
-    components = ["body_joints", "hand_joints", "face_landmarks"]
-    algorithm = "hrnetw48"
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        """
-        Extracts and returns the indices and descriptions of keypoints for each
-        component.
-
-        Args:
-            keypoints_indices (dict): A dictionary containing the indices of keypoints
-                for each component. The keys of the dictionary are the component names
-                ('body_joints', 'hand_joints', 'face_landmarks'), and the values are
-                dictionaries containing the indices of keypoints for each keypoint.
-
-        Returns:
-            tuple: A tuple containing two dictionaries.
-                - The first dictionary contains the indices of keypoints for each
-                    component.
-                - The second dictionary contains the descriptions of keypoints for
-                    each component.
-        """
-        indices = dict(
-            body_joints=confh.flatten_list(
-                list(keypoints_indices.body.values()) + list(keypoints_indices.foot.values())
-            ),
-            hand_joints=confh.flatten_list(list(keypoints_indices.hand.values())),
-            face_landmarks=confh.flatten_list(list(keypoints_indices.face.values())),
-        )
-        description = dict(
-            body_joints=confh.flatten_list(
-                extract_key_per_value(keypoints_indices.body) + extract_key_per_value(keypoints_indices.foot)
-            ),
-            hand_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.hand)),
-            face_landmarks=confh.flatten_list(extract_key_per_value(keypoints_indices.face)),
-        )
-        return indices, description
-
-
-class VitPose(MMPose2D):
-    """
-    VitPose is a subclass of MMPose specialized for pose estimation using the Vision
-    Transformer (ViT) model.
-
-    Component: body_joints
-    """
-
-    components = ["body_joints"]
-    algorithm = "vitpose"
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        """
-        Extracts and returns the indices and descriptions of keypoints for each
-        component.
-
-        Args:
-            keypoints_indices (dict): A dictionary containing the indices of keypoints
-                for each component. The keys of the dictionary are the component names
-                ('body_joints', 'hand_joints', 'face_landmarks'), and the values are
-                dictionaries containing the indices of keypoints for each keypoint.
-                Note: This algorithm only supports the 'body_joints' component.
-
-        Returns:
-            tuple: A tuple containing two dictionaries.
-                - The first dictionary contains the indices of keypoints for each
-                    component.
-                - The second dictionary contains the descriptions of keypoints for each
-                    component.
-
-        """
-        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
-        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
-        return indices, description
-
-
-class VitPoseHuge(MMPose2D):
-    """
-    VitPoseHuge is a subclass for the Huge variant of ViT.
-    """
-
-    algorithm = "vitpose_huge"
-    components = ["body_joints"]
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
-        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
-        return indices, description
-
-
-class RTMPoseLAIC(MMPose2D):
-    """
-    RTMPoseLAIC is a subclass of MMPose for the RTMPose-L model.
-    (Pre-trained on AIC, fine-tuned on COCO: Outputs 17 Body Keypoints).
-    """
-
-    algorithm = "rtmpose_l_aic"
-    components = ["body_joints"]
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
-        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
-        return indices, description
-
-
-class RTMPoseWHolebody(MMPose2D):
-    r"""
-    Handler for RTMPose models trained on COCO-Wholebody \(133 keypoints).
-    Outputs in one pass: Body, Feer, Face, and Hands.
-    """
-
-    algorithm = "rtmpose_l_wholebody"
-    components = ["body_joints", "hand_joints", "face_landmarks"]
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        def extract_keys(d):
-            if all(isinstance(v, int) for v in d.values()):
-                return list(d.keys())
-            res = []
-            for k, v in d.items():
-                if isinstance(v, list):
-                    res.extend([f"{k}_{i}" for i in range(len(v))])
-                elif isinstance(v, int):
-                    res.append(v)
-            return res
-
-        indices = dict(
-            body_joints=confh.flatten_list(
-                list(keypoints_indices.body.values()) + list(keypoints_indices.foot.values())
-            ),
-            hand_joints=confh.flatten_list(list(keypoints_indices.hand.values())),
-            face_landmarks=confh.flatten_list(list(keypoints_indices.face.values())),
-        )
-
-        description = dict(
-            body_joints=confh.flatten_list(extract_keys(keypoints_indices.body) + extract_keys(keypoints_indices.foot)),
-            hand_joints=confh.flatten_list(extract_keys(keypoints_indices.hand)),
-            face_landmarks=confh.flatten_list(extract_keys(keypoints_indices.face)),
-        )
-        return indices, description
-
-
-class RTMPoseMPII(MMPose2D):
-    """
-    Handler for RTMPose models trained on MPII (16 Keypoints).
-    """
-
-    algorithm = "rtmpose_m_mpii"
-    components = ["body_joints"]
-
-    def get_per_component_keypoint_mapping(self, keypoints_indices):
-        indices = dict(body_joints=confh.flatten_list(list(keypoints_indices.body.values())))
-        description = dict(body_joints=confh.flatten_list(extract_key_per_value(keypoints_indices.body)))
-        return indices, description

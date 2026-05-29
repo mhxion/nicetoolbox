@@ -10,7 +10,7 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
-from ....configs.schemas.detectors_algos_configs import SpigaConfig
+from ....configs.schemas.detectors_instances_configs import SpigaConfig
 from ....utils import video as vd
 from ... import config_handler as confh
 from ..base_method import BaseMethod
@@ -75,7 +75,7 @@ class Spiga(BaseMethod):
     """
 
     components = ["head_orientation"]
-    algorithm = "spiga"
+    algorithm_type = "spiga"
 
     def _initialize_detector(self) -> SpigaConfig.RuntimeConfig:
         """
@@ -115,7 +115,7 @@ class Spiga(BaseMethod):
         n_frames = len(self.dataloader)
         spiga_vectors = np.zeros((n_subjects, n_cams, n_frames, 8))
 
-        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm_instance}.npz")
         prediction = np.load(prediction_file, allow_pickle=True)
         predictions_dict = {key: prediction[key] for key in prediction.files}
         data_description = predictions_dict["data_description"].item()
@@ -195,7 +195,7 @@ class Spiga(BaseMethod):
 
         n_subj = len(self.subjects_descr)
 
-        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm_instance}.npz")
         predictions = np.load(prediction_file, allow_pickle=True)
         head_data = predictions["head_orientation_2d"]
 

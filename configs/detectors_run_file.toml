@@ -12,34 +12,22 @@ log_level = "INFO"            # Options: "CRITICAL", "ERROR", "WARNING", "INFO",
 # checks that all detectors have their input dependencies enabled
 check_missing_detectors_dependencies = true 
 
-# each component can be assigned to / run with multiple different algorithms
-[component_algorithm_mapping]
-gaze_individual = ['multiview_eth_xgaze']
-gaze_multiview = ['gaze_fusion']
-gaze_interaction = ['gaze_distance']
-body_joints = ['hrnetw48', 'vitpose_huge', 'rtmpose_l_wholebody', 'rtmpose_m_mpii', 'sam_3d_body']
-body_joints_local = ['sam_3d_body', 'motionbert']
-body_mesh = ['sam_3d_body']
-hand_joints = ['hrnetw48', 'rtmpose_l_wholebody', 'sam_3d_body']
-hand_joints_local = ['sam_3d_body']
-face_landmarks = ['hrnetw48', 'rtmpose_l_wholebody']
-kinematics = ['velocity_body']
-proximity = ['body_distance']
-emotion_individual = ['py_feat']
-head_orientation = ['spiga']
-audio_transcription = ['whisperx']
-audio_diarization = ['whisperx']
-speaker_aligned_transcription = ['whisperx']
+# algorithms to run on the data
+algorithms = [
+   "hrnetw48", "vitpose_huge",                        # body keypoints (multi-camera 2d => 3d)
+   "motionbert",                                      # lifted keypoints (single camera 2d => 3d)
+   "velocity_body",                                   # body velocity
+   "body_distance",                                   # distance between subjects
+   "sam_3d_body",                                     # 3d body mesh 
+   "eth_xgaze", "gaze_fusion", "gaze_distance",       # gaze detection
+   "spiga",                                           # head orientation
+   "py_feat",                                         # emotions detection
+   "whisperx",                                        # audio transcription
+]
 
 # define which data to run on
 [run]
 [run.communication_multiview]
-components = [
-   "audio_transcription", "audio_diarization", "speaker_aligned_transcription",
-   "body_joints", "body_joints_local", "body_mesh",
-   "gaze_individual", "gaze_multiview", "gaze_interaction", 
-   "kinematics", "proximity", "emotion_individual", "head_orientation"
-]
 videos = [
    {session_ID = "", sequence_ID="sequence_xyz", video_start = 0, video_length = -1}  # Note: -1 for full video length
 ]

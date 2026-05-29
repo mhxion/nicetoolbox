@@ -123,7 +123,7 @@ class ImagePathsByFrameIndexLoader(VideoDataLoader):
 
     Usage:
         Ideal for detectors that process one time-step across all views simultaneously
-        (e.g., SPIGA, Multiview-XGaze).
+        (e.g., SPIGA, ETH-XGaze).
     """
 
     def __iter__(self) -> Iterator[IMAGE_PATHS_BY_FRAMES_INDEX]:

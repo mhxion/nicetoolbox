@@ -10,7 +10,7 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
-from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime
+from ....configs.schemas.detectors_instances_configs import MethodDetectorRuntime
 from ....utils import video as vd
 from ..base_method import BaseMethod
 
@@ -22,7 +22,7 @@ class PyFeat(BaseMethod):
     """
 
     components = ["emotion_individual"]
-    algorithm = "py_feat"
+    algorithm_type = "py_feat"
 
     def _initialize_detector(self) -> MethodDetectorRuntime:
         """
@@ -54,7 +54,7 @@ class PyFeat(BaseMethod):
         """
         n_subj = len(self.subjects_descr)
 
-        prediction_file = os.path.join(self.results_folder, f"{self.algorithm}.npz")
+        prediction_file = os.path.join(self.results_folder, f"{self.algorithm_instance}.npz")
         predictions = np.load(prediction_file, allow_pickle=True)
 
         algorithm_labels = predictions["data_description"].item()["emotions"]["axis3"]

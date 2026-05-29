@@ -19,10 +19,10 @@ from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 @run_inference_entrypoint
 def eth_xgaze_inference(config, debug=False):
     """
-    Run multiview-eth-xgaze gaze detection on the provided data.
+    Run eth-xgaze gaze detection on the provided data.
     code Code
 
-    The function uses the 'multiview-eth-xgaze gaze' library to estimate gaze vectors
+    The function uses the 'eth-xgaze gaze' library to estimate gaze vectors
     for each camera. The estimated gaze vectors are converted to pitch and yaw angles
     using a simple linear transformation. The resulting angles are saved in a .npz
     file with the following structure:
@@ -36,7 +36,7 @@ def eth_xgaze_inference(config, debug=False):
             Defaults to False.
     """
 
-    logging.info("RUNNING gaze detection 'Multiview ETH-Xgaze'!")
+    logging.info("RUNNING gaze detection 'ETH-Xgaze'!")
 
     # (1) Access config parameters
     camera_names = config["camera_names"]
@@ -236,4 +236,4 @@ def eth_xgaze_inference(config, debug=False):
     save_file_name = os.path.join(config["result_folders"]["gaze_individual"], f"{config['algorithm']}.npz")
     np.savez_compressed(save_file_name, **out_dict)
 
-    logging.info("Gaze detection 'Multiview ETH-XGaze' COMPLETED!\n")
+    logging.info("Gaze detection 'ETH-XGaze' COMPLETED!\n")

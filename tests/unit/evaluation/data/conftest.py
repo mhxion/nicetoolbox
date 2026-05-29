@@ -84,7 +84,6 @@ def make_npz(
 SINGLE_DATASET = {
     "ds1": {
         "fps": 30,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s01", "sequence_ID": "seq01"}],
     },
 }
@@ -92,12 +91,10 @@ SINGLE_DATASET = {
 MULTI_DATASET = {
     "ds1": {
         "fps": 30,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s01", "sequence_ID": "seq01"}],
     },
     "ds2": {
         "fps": 60,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s02", "sequence_ID": "seq02"}],
     },
 }
@@ -105,17 +102,14 @@ MULTI_DATASET = {
 THREE_DATASETS = {
     "ds1": {
         "fps": 30,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s01", "sequence_ID": "seq01"}],
     },
     "ds2": {
         "fps": 60,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s02", "sequence_ID": "seq02"}],
     },
     "ds3": {
         "fps": 25,
-        "components": ["body_joints"],
         "videos": [{"session_ID": "s03", "sequence_ID": "seq03"}],
     },
 }
@@ -123,7 +117,6 @@ THREE_DATASETS = {
 MULTI_VIDEO = {
     "ds1": {
         "fps": 30,
-        "components": ["body_joints"],
         "videos": [
             {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 0, "video_length": 100},
             {"session_ID": "s01", "sequence_ID": "seq01", "video_start": 100, "video_length": 100},
@@ -131,8 +124,9 @@ MULTI_VIDEO = {
     },
 }
 
-TWO_ALGORITHMS = {"body_joints": ["algo_a", "algo_b"]}
-THREE_ALGORITHMS = {"body_joints": ["algo_a", "algo_b", "algo_c"]}
+# Maps algo_name → [component_names] (reverse of the old comp_algo_mapping)
+TWO_ALGORITHMS = {"algo_a": ["body_joints"], "algo_b": ["body_joints"]}
+THREE_ALGORITHMS = {"algo_a": ["body_joints"], "algo_b": ["body_joints"], "algo_c": ["body_joints"]}
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +144,6 @@ class FakeVideo:
 
 @dataclass
 class FakeRunDataset:
-    components: list[str]
     videos: list[FakeVideo]
 
 
@@ -180,7 +173,7 @@ class FakeRunIO:
 @dataclass
 class FakeRunFile:
     run: dict[str, FakeRunDataset] = field(default_factory=dict)
-    component_algorithm_mapping: dict[str, list[str]] = field(default_factory=dict)
+    algorithms: list[str] = field(default_factory=list)
     io: FakeRunIO = field(default_factory=FakeRunIO)
 
 
@@ -189,11 +182,14 @@ class FakeRunFile:
 # ---------------------------------------------------------------------------
 
 
-def make_experiment_config(tmp_path: Path, datasets: dict, comp_algo_mapping: dict[str, list[str]]) -> MagicMock:
+def make_experiment_config(tmp_path: Path, datasets: dict, algo_component_mapping: dict[str, list[str]]) -> MagicMock:
     """Build a mock DetectorsExperimentConfig for resolver tests.
 
+    Args:
+        algo_component_mapping: maps algorithm_name → list of component names it belongs to.
+
     Each dataset entry supports:
-    - ``fps``, ``components``, ``videos`` — for experiment source
+    - ``fps``, ``videos`` — for experiment source
     - ``annotation_components`` — optional dict of ``{comp_name: path_with_placeholders}``
       for annotation source. Paths may contain ``<cur_dataset_name>``,
       ``<cur_session_ID>``, ``<cur_sequence_ID>`` placeholders.
@@ -206,10 +202,7 @@ def make_experiment_config(tmp_path: Path, datasets: dict, comp_algo_mapping: di
 
     for ds_name, ds_spec in datasets.items():
         videos = [FakeVideo(**v) for v in ds_spec["videos"]]
-        run_datasets[ds_name] = FakeRunDataset(
-            components=ds_spec["components"],
-            videos=videos,
-        )
+        run_datasets[ds_name] = FakeRunDataset(videos=videos)
 
         # Build annotation components
         annotation_components: dict[str, FakeAnnotationComponent] = {}
@@ -235,21 +228,30 @@ def make_experiment_config(tmp_path: Path, datasets: dict, comp_algo_mapping: di
 
         # Create experiment .npz files on disk
         for video in videos:
-            for comp in ds_spec["components"]:
-                for algo in comp_algo_mapping.get(comp, []):
+            for algo, components in algo_component_mapping.items():
+                for comp in components:
                     npz_dir = tmp_path / ds_name / video.session_ID / video.sequence_ID / comp
                     npz_dir.mkdir(parents=True, exist_ok=True)
                     (npz_dir / f"{algo}.npz").touch()
 
+    # Build fake detector config: each algo has a config with .components set
+    fake_detector_algorithms = {}
+    for algo_name, components in algo_component_mapping.items():
+        fake_algo_cfg = MagicMock()
+        fake_algo_cfg.components = components
+        fake_detector_algorithms[algo_name] = fake_algo_cfg
+
     run_file = FakeRunFile(
         run=run_datasets,
-        component_algorithm_mapping=comp_algo_mapping,
+        algorithms=list(algo_component_mapping.keys()),
         io=FakeRunIO(detector_final_result_folder=result_template),
     )
 
     cfg = MagicMock()
     cfg.run_config = run_file
     cfg.dataset_config = dataset_configs
+    cfg.detector_config = MagicMock()
+    cfg.detector_config.algorithms = fake_detector_algorithms
     return cfg
 
 
@@ -261,7 +263,7 @@ def make_experiment_config(tmp_path: Path, datasets: dict, comp_algo_mapping: di
 def expected_experiment_metas(
     tmp_path: Path,
     datasets: dict,
-    comp_algo_mapping: dict[str, list[str]],
+    algo_component_mapping: dict[str, list[str]],
     npz_key: str,
 ) -> list[ExperimentMeta]:
     """Build the expected ExperimentMeta list matching make_experiment_config output."""
@@ -271,8 +273,8 @@ def expected_experiment_metas(
         for subseq_idx, v in enumerate(ds_spec["videos"]):
             video_start = v.get("video_start", 0)
             video_length = v.get("video_length", 100)
-            for comp in ds_spec["components"]:
-                for algo in comp_algo_mapping.get(comp, []):
+            for algo, components in algo_component_mapping.items():
+                for comp in components:
                     out.append(
                         ExperimentMeta(
                             dataset=ds_name,

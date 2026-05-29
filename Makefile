@@ -17,9 +17,9 @@ PROJECT_CONFIG = nice_project.toml
 ifeq ($(OS), Windows_NT)
 	PYTHON_EXE = python
 	CONDA_DIR := $(shell conda info --base | tr '\\\\' '/')
-	MMPOSE = ./nicetoolbox/detectors/method_detectors/body_joints/install_openmmlab_conda.bat
+	MMPOSE = ./nicetoolbox/detectors/method_detectors/mmpose/install_openmmlab_conda.bat
 	VENV_EXE_DIR = $(VENV_DIR)/Scripts
-	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/Scripts
+	ETH_XGAZE_EXE_DIR = ./envs/eth_xgaze/Scripts
 	PYFEAT_EXE_DIR = ./envs/py_feat/Scripts
 	SPIGA_EXE_DIR = ./envs/spiga/Scripts
 	WHISPERX_EXE_DIR = ./envs/whisperx/Scripts
@@ -27,9 +27,9 @@ ifeq ($(OS), Windows_NT)
 else
 	PYTHON_EXE = python3.10
 	CONDA_DIR := $(shell conda info --base)
-	MMPOSE = ./nicetoolbox/detectors/method_detectors/body_joints/install_openmmlab_conda.sh
+	MMPOSE = ./nicetoolbox/detectors/method_detectors/mmpose/install_openmmlab_conda.sh
 	VENV_EXE_DIR = $(VENV_DIR)/bin
-	MULTIVIEW_XGAZE_EXE_DIR = ./envs/multiview_eth_xgaze/bin
+	ETH_XGAZE_EXE_DIR = ./envs/eth_xgaze/bin
 	PYFEAT_EXE_DIR = ./envs/py_feat/bin
 	SPIGA_EXE_DIR = ./envs/spiga/bin
 	WHISPERX_EXE_DIR = ./envs/whisperx/bin
@@ -187,8 +187,8 @@ endif
 install: $(VENV_EXE_DIR)/activate
 
 #	Install xgaze if not already installed
-ifeq ("$(wildcard $(MULTIVIEW_XGAZE_EXE_DIR)/activate)","")
-	@make install_multiview_eth_xgaze
+ifeq ("$(wildcard $(ETH_XGAZE_EXE_DIR)/activate)","")
+	@make install_eth_xgaze
 endif
 
 #	Install pyfeat if not already installed
@@ -250,20 +250,20 @@ endif
 	@echo "$(TOOL_NAME) installed in $(VENV_DIR) successfully."
 
 
-# Install the venv for multiview-xgaze
-.PHONY: install_multiview_eth_xgaze
-install_multiview_eth_xgaze:
+# Install the venv for eth-xgaze
+.PHONY: install_eth_xgaze
+install_eth_xgaze:
 	@make create_separator
-	@echo "Creating virtual environment for submodule 'Multiview ETH-XGaze'..."
-	@$(PYTHON_EXE) -m venv ./envs/multiview_eth_xgaze
-	@echo "Virtual environment created in ./envs/multiview_eth_xgaze"
+	@echo "Creating virtual environment for submodule 'ETH-XGaze'..."
+	@$(PYTHON_EXE) -m venv ./envs/eth_xgaze
+	@echo "Virtual environment created in ./envs/eth_xgaze"
 
-	@echo "Installing requirements for 'Multiview ETH-XGaze'..."
-	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
-	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install submodules/multiview_eth_xgaze -c submodules/multiview_eth_xgaze/constraints.txt
-	@$(MULTIVIEW_XGAZE_EXE_DIR)/pip install -e ./nicetoolbox_core
+	@echo "Installing requirements for 'ETH-XGaze'..."
+	@$(ETH_XGAZE_EXE_DIR)/pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
+	@$(ETH_XGAZE_EXE_DIR)/pip install submodules/eth_xgaze -c submodules/eth_xgaze/constraints.txt
+	@$(ETH_XGAZE_EXE_DIR)/pip install -e ./nicetoolbox_core
 
-	@echo "Multiview ETH-XGaze' environment setup completed successfully."
+	@echo "ETH-XGaze' environment setup completed successfully."
 
 # Install the venv for pyfeat
 .PHONY: install_pyfeat
@@ -277,7 +277,7 @@ install_pyfeat:
 
 	@echo "Installing requirements for 'Py-Feat'..."
 	@$(PYFEAT_EXE_DIR)/pip install torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu118
-	@$(PYFEAT_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/emotion_individual/py_feat_requirements.txt
+	@$(PYFEAT_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/py_feat/py_feat_requirements.txt
 	@$(PYFEAT_EXE_DIR)/pip install submodules/py-feat
 	@$(PYFEAT_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'Py-Feat' environment setup completed successfully."
@@ -293,7 +293,7 @@ install_spiga:
 
 	@echo "Installing requirements for 'SPIGA'..."
 	@$(SPIGA_EXE_DIR)/pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
-	@$(SPIGA_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/head_orientation/spiga_requirements.txt
+	@$(SPIGA_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/spiga/spiga_requirements.txt
 	@$(SPIGA_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'SPIGA' environment setup completed successfully."
 
@@ -311,7 +311,7 @@ install_whisperx:
 	@echo "Installing requirements for 'WhisperX'..."
 	@$(WHISPERX_EXE_DIR)/pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126 --extra-index-url https://pypi.org/simple
 	@$(WHISPERX_EXE_DIR)/pip install submodules/whisperX
-	@$(WHISPERX_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/audio_transcription/whisperx_requirements.txt
+	@$(WHISPERX_EXE_DIR)/pip install -r ./nicetoolbox/detectors/method_detectors/whisperx/whisperx_requirements.txt
 	@$(WHISPERX_EXE_DIR)/pip install -e ./nicetoolbox_core
 	@echo "'WhisperX' environment setup completed successfully."
 

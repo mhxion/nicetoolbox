@@ -10,7 +10,9 @@ from pathlib import Path
 
 from nicetoolbox_core.errors import ErrorLevel
 
+from ..configs.schemas.detectors_instances_configs import BaseAlgorithmConfig
 from ..configs.schemas.detectors_run_file import LoggingLevelEnum
+from ..detectors.base_detector import BaseDetector
 from ..download_manager.manager import AssetManager
 from ..utils import logging_utils as log_ut
 from ..utils import to_csv as csv
@@ -24,41 +26,42 @@ from .feature_detectors.gaze_multiview.gaze_fusion import GazeFusion
 from .feature_detectors.kinematics.velocity_body import VelocityBody
 from .feature_detectors.proximity.body_distance import BodyDistance
 from .in_out import SequenceIO
-from .method_detectors.audio_transcription.whisperx_detector import WhisperX
-from .method_detectors.body_joints.mmpose_framework_2d import (
-    HRNetw48,
-    RTMPoseLAIC,
-    RTMPoseMPII,
-    RTMPoseWHolebody,
-    VitPose,
-    VitPoseHuge,
-)
-from .method_detectors.body_joints.mmpose_framework_3d import MotionBERT
-from .method_detectors.emotion_individual.py_feat import PyFeat
-from .method_detectors.gaze_individual.Multiview_Eth_XGaze import MultiviewEthXgaze
-from .method_detectors.head_orientation.spiga_detector import Spiga
+from .method_detectors.eth_xgaze.eth_xgaze_detector import EthXgaze
+from .method_detectors.mmpose.mmpose_framework_2d import MMPose2D
+from .method_detectors.mmpose.mmpose_framework_3d import MotionBERT
+from .method_detectors.py_feat.py_feat import PyFeat
 from .method_detectors.sam_3d_body.sam_3d_body_detector import Sam3dBody
+from .method_detectors.spiga.spiga_detector import Spiga
+from .method_detectors.whisperx.whisperx_detector import WhisperX
 
-ALL_DETECTORS = dict(
-    # method detectors
-    multiview_eth_xgaze=MultiviewEthXgaze,
-    hrnetw48=HRNetw48,
-    vitpose=VitPose,
-    vitpose_huge=VitPoseHuge,
-    rtmpose_l_aic=RTMPoseLAIC,
-    rtmpose_l_wholebody=RTMPoseWHolebody,
-    rtmpose_m_mpii=RTMPoseMPII,
-    motionbert=MotionBERT,
-    py_feat=PyFeat,
-    spiga=Spiga,
-    whisperx=WhisperX,
-    sam_3d_body=Sam3dBody,
-    # feature detectors
-    velocity_body=VelocityBody,
-    body_distance=BodyDistance,
-    gaze_distance=GazeDistance,
-    gaze_fusion=GazeFusion,
-)
+# set of all detectors implemented by NICE Toolbox
+# put your detector class here to register it
+DETECTOR_CLASSES: set[BaseDetector] = {
+    MMPose2D,
+    MotionBERT,
+    EthXgaze,
+    PyFeat,
+    Spiga,
+    WhisperX,
+    Sam3dBody,
+    VelocityBody,
+    BodyDistance,
+    GazeDistance,
+    GazeFusion,
+}
+ALL_DETECTORS = {cls.algorithm_type: cls for cls in DETECTOR_CLASSES}
+
+
+def get_algo_components(algo_cfg: BaseAlgorithmConfig) -> list[str]:
+    """Return the component list for an algorithm config.
+
+    For configs that declare components per instance, reads from the config.
+    For all other detectors, falls back to the class-level components attribute.
+    """
+    components = getattr(algo_cfg, "components", None)
+    if not components:
+        components = list(ALL_DETECTORS[algo_cfg.algorithm_type].components)
+    return components
 
 
 def main(project_folder_path: Path, machine_specifics_file: Path, run_config_file: Path):
@@ -114,7 +117,7 @@ def main(project_folder_path: Path, machine_specifics_file: Path, run_config_fil
             config.save_video_config(sequence_context.video_config, io.get_output_folder("output"))
 
             # Algorithms based on user-selected components, topologically sorted
-            selected_algorithms = sequence_context.all_selected_algorithms
+            selected_algorithms = sequence_context.algorithms
             ordered_detectors = sort_detectors_order(
                 sequence_context.detectors_config, selected_algorithms, config.check_missing_detectors_dependencies
             )
@@ -122,20 +125,21 @@ def main(project_folder_path: Path, machine_specifics_file: Path, run_config_fil
             # ======================
             # PHASE 3: RUN DETECTORS
             # ======================
-            for detector_name in ordered_detectors:  # for each detector
-                with manage_error_scope(error_level, ErrorLevel.DETECTOR, detector_name):
-                    log_ut.log_with_underscore(f"STARTING '{detector_name}'.")
+            for algorithm_instance in ordered_detectors:  # for each detector instance
+                with manage_error_scope(error_level, ErrorLevel.DETECTOR, algorithm_instance):
+                    log_ut.log_with_underscore(f"STARTING '{algorithm_instance}'.")
                     start_time = time.time()
 
-                    detector_class = ALL_DETECTORS[detector_name]
-                    detector = detector_class(io, data, sequence_context)
+                    cfg = sequence_context.detectors_config.algorithms[algorithm_instance]
+                    detector_class = ALL_DETECTORS[cfg.algorithm_type]
+                    detector = detector_class(io, data, sequence_context, algorithm_instance)
 
                     result_data = detector.run()
 
                     if config.visualize and detector.visualize:
                         detector.visualization(result_data)
 
-                    logging.info(f"FINISHED '{detector_name}' in {time.time() - start_time}s.\n\n")
+                    logging.info(f"FINISHED '{algorithm_instance}' in {time.time() - start_time}s.\n\n")
 
             # Convert results to .csv
             if config.save_csv:

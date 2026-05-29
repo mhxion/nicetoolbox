@@ -15,7 +15,7 @@ import numpy as np
 
 from nicetoolbox_core.video_loaders import ImagePathsByCameraLoader
 
-from ....configs.schemas.detectors_algos_configs import MethodDetectorRuntime, Sam3dBodyConfig
+from ....configs.schemas.detectors_instances_configs import MethodDetectorRuntime, Sam3dBodyConfig
 from ....configs.schemas.predictions_mapping import Sam3dBodyMhr
 from ....utils import video as vd
 from ....utils.hf_token import effective_hf_hub_token
@@ -661,7 +661,7 @@ class Sam3dBody(BaseMethod):
         "hand_joints_local",
         "body_mesh",
     ]
-    algorithm = "sam_3d_body"
+    algorithm_type = "sam_3d_body"
     inference_config = Sam3dBodyConfig
 
     def _initialize_detector(self) -> MethodDetectorRuntime:
@@ -682,7 +682,7 @@ class Sam3dBody(BaseMethod):
 
     def post_inference(self) -> None:
         raw_path = (
-            Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "output"))
+            Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm_instance, "output"))
             / RAW_INFERENCE_NPZ_NAME
         )
         if not raw_path.is_file():
@@ -727,7 +727,7 @@ class Sam3dBody(BaseMethod):
         logging.info(
             "VISUALIZING the method detector output of %s and %s.",
             self.components,
-            self.algorithm,
+            self.algorithm_instance,
         )
         cfg = self.detector_config
         fps = int(self.data.fps)
@@ -774,7 +774,7 @@ class Sam3dBody(BaseMethod):
             os.makedirs(viz_3d_dir, exist_ok=True)
 
         viz_dir_local = str(
-            Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm, "visualization"))
+            Path(self.io.get_detector_output_folder("body_joints_local", self.algorithm_instance, "visualization"))
         )
         os.makedirs(viz_dir_local, exist_ok=True)
 

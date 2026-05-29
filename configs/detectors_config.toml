@@ -1,196 +1,177 @@
 # This config supports the use of placeholders.
 # options are, e.g., all keys from your local 'machine_specific_paths.toml'
+#
+# Each [algorithms.<instance_name>] block declares a named algorithm instance.
+# The `algorithm_type` field selects the detector class; the TOML key is a
+# user-defined instance name. The same algorithm_type can appear under
+# multiple instance names (with different parameters) within one run.
 
-# gaze_individual
-[algorithms.multiview_eth_xgaze]
-camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
-env_name = "venv:multiview_eth_xgaze"
-log_frame_idx_interval = 200
+# ======================================================================
+#                           MMPose Body Joints
+# ======================================================================
+
+# generic templage for all 2d mmpose body joints algorithms 
+# detects 2d points => triangulates 3d points from multiple cameras => post-processing
+[templates.mmpose_2d_template]
+algorithm_type = "mmpose_2d"  # name of the detector
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]  # cameras used in inference
+keypoint_mapping = "coco_wholebody"  # default body joitns mapping format
+env_name = "conda:openmmlab"
+device = "cuda:0"
+# SGF filtering
 filtered = true
 window_length = 11
 polyorder = 2
+min_detection_confidence = 0.5
+# visualization
 visualize = true
-
-[algorithms.multiview_eth_xgaze.required_assets]
-shape_predictor_filename = "<assets>/multiview_eth_xgaze/shape_predictor_68_face_landmarks.dat"
-face_model_filename = "<assets>/multiview_eth_xgaze/face_model.txt"
-pretrained_model_filename = "<assets>/multiview_eth_xgaze/epoch_24_ckpt.pth.tar"
-face_detector_filename = "<assets>/multiview_eth_xgaze/mmod_human_face_detector.dat"
-
-# body_joints, hand_joints, face_landmarks
-[frameworks.mmpose]
-camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
-env_name = "conda:openmmlab"
 save_detector_images = true
 save_detector_predictions = true
-device = "cuda:0"
-filtered = true
-window_length = 11
-polyorder = 2
-visualize = true
 
+# HRNetW48 full body model
 [algorithms.hrnetw48]
-framework = "mmpose"
+template = "mmpose_2d_template" 
+components = ["body_joints", "hand_joints", "face_landmarks"]
 pose_config = "td-hm_hrnet-w48_8xb32-210e_coco-wholebody-384x288"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
-
 [algorithms.hrnetw48.required_assets]
 pose_checkpoint = "<assets>/mmpose/configs/hrnet_w48_coco_wholebody_384x288_dark-f5726563_20200918.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.vitpose]
-framework = "mmpose"
+# ViTPose large
+[algorithms.vitpose_large]
+template = "mmpose_2d_template"
+components = ["body_joints"] 
 pose_config = "td-hm_ViTPose-large_8xb64-210e_coco-256x192"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
-
-[algorithms.vitpose.required_assets]
+[algorithms.vitpose_large.required_assets]
 pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-large_8xb64-210e_coco-256x192-53609f55_20230314.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.rtmpose_l_aic]
-framework = "mmpose"
-pose_config = "rtmpose-l_8xb256-420e_aic-coco-384x288"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
+# ViTPose huge (biggest model)
+[algorithms.vitpose_huge]
+template = "mmpose_2d_template"
+components = ["body_joints"] 
+pose_config = "td-hm_ViTPose-huge_8xb64-210e_coco-256x192"
+[algorithms.vitpose_huge.required_assets]
+pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-huge_8xb64-210e_coco-256x192-e32adcd4_20230314.pth"
+detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
+detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.rtmpose_l_aic.required_assets]
+# RTMPose basic
+# You can use multi-level inheritance for templates
+[templates.rtmpose_l_aic_template]
+template = "mmpose_2d_template"
+components = ["body_joints"] 
+pose_config = "rtmpose-l_8xb256-420e_aic-coco-384x288"
+[templates.rtmpose_l_aic_template.required_assets]
 pose_config_file = "<assets>/mmpose/configs/rtmpose-l_8xb256-420e_aic-coco-384x288.py"
 pose_checkpoint = "<assets>/mmpose/configs/rtmpose-l_simcc-aic-coco_pt-aic-coco_420e-384x288-97d6cb0f_20230228.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.rtmpose_l_wholebody]
-framework = "mmpose"
-pose_config = "rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288"
-keypoint_mapping = "coco_wholebody"
+[algorithms.rtmpose_l_aic_low_conf]
+template = "rtmpose_l_aic_template"
+min_detection_confidence = 0.1
+
+[algorithms.rtmpose_l_aic_high_conf]
+template = "rtmpose_l_aic_template"
 min_detection_confidence = 0.5
 
+# RTMPose full body
+[algorithms.rtmpose_l_wholebody]
+template = "mmpose_2d_template"
+components = ["body_joints", "hand_joints", "face_landmarks"]
+pose_config = "rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288"
 [algorithms.rtmpose_l_wholebody.required_assets]
 pose_config_file = "<assets>/mmpose/configs/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py"
 pose_checkpoint = "<assets>/mmpose/configs/rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-384x288-eaeb96c8_20230125.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.vitpose_huge]
-framework = "mmpose"
-pose_config = "td-hm_ViTPose-huge_8xb64-210e_coco-256x192"
-keypoint_mapping = "coco_wholebody"
-min_detection_confidence = 0.5
-
-[algorithms.vitpose_huge.required_assets]
-pose_checkpoint = "<assets>/mmpose/configs/td-hm_ViTPose-huge_8xb64-210e_coco-256x192-e32adcd4_20230314.pth"
-detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
-detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
-
-
+# RTMPose MPII keypoints
 [algorithms.rtmpose_m_mpii]
-framework = "mmpose"
+template = "mmpose_2d_template"
+components = ["body_joints"]
 pose_config = "rtmpose-m_8xb64-210e_mpii-256x256"
 keypoint_mapping = "mpii"
-min_detection_confidence = 0.5
-
 [algorithms.rtmpose_m_mpii.required_assets]
 pose_config_file = "<assets>/mmpose/configs/rtmpose-m_8xb64-210e_mpii-256x256.py"
 pose_checkpoint = "<assets>/mmpose/configs/rtmpose-m_simcc-mpii_pt-aic-coco_210e-256x256-ec4dbec8_20230206.pth"
 detection_config = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_coco.py"
 detection_checkpoint = "<assets>/mmpose/configs/faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth"
 
-[algorithms.motionbert]
-framework = "mmpose"
-keypoint_mapping = "human36m"
-min_detection_confidence = 0.5
-input_detector_names = [["body_joints", "vitpose_huge"]]
+# ======================================================================
+#                           MMPose MotionBERT
+# ======================================================================
 
-[algorithms.motionbert.required_assets]
+# generic template for MotionBERT
+# existing 2d points => 3d points from single camera => post-processing
+[templates.motionbert_template]
+algorithm_type = "motionbert"
+camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
+keypoint_mapping = "human36m"
+env_name = "conda:openmmlab"
+device = "cuda:0"
+# SGF filtering
+filtered = true
+window_length = 11
+polyorder = 2
+min_detection_confidence = 0.5
+# visualization
+visualize = true
+save_detector_images = true
+save_detector_predictions = true
+# motionbert models
+[templates.motionbert_template.required_assets]
 pose3d_config_file = "<assets>/mmpose/configs/motionbert_dstformer-243frm_8xb32-240e_h36m.py"
 pose3d_checkpoint = "<assets>/mmpose/configs/motionbert_h36m-f554954f_20230531.pth"
 
+# motionbert for vitpose
+[algorithms.motionbert]
+template = "motionbert_template"
+input_detector_names = [["body_joints", "vitpose_huge"]]
+
+# TODO: add motionbert support for other detectors
+
+
+# ======================================================================
+#                          Body Feature Detectors
+# ======================================================================
 
 # kinematics
 [algorithms.velocity_body]
+algorithm_type = "velocity_body"
 input_detector_names = [["body_joints", "hrnetw48"]]
 visualize = true
 
-
 # proximity
 [algorithms.body_distance]
+algorithm_type = "velocity_body"
 used_keypoints = ["nose"]  # if the list is more than one keypoint, the midpoint
 input_detector_names = [["body_joints", "hrnetw48"]]
 visualize = true
 
-# gaze_interaction
-[algorithms.gaze_distance]
-# camera_names = ["3d"]
-input_detector_names = [["gaze_multiview", "gaze_fusion"],  ["face_landmarks", "hrnetw48"]]
-keypoint_mapping = "coco_wholebody"
-threshold_look_at = 0.4
-visualize = true
-
-[algorithms.gaze_fusion]
-input_detector_names = [["gaze_individual", "multiview_eth_xgaze"]]
-fusion_method = "weighted_average"  # options: "average", "weighted_average"
-filtered = true
-window_length = 11
-polyorder = 2
-ensemble_enabled = true
-# ensemble_weights = [0.5, 0.5]  # TODO should we add this?
-visualize = true
-
-# emotion_individual
-[algorithms.py_feat]
-camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
-env_name = "venv:py_feat"
-log_frame_idx_interval = 200
-# For batch_size, ensure:
-# [(batch_size) * (~Size of one frame (GB))] < Available vRAM (RAM) (GB)
-batch_size = 512
-visualize = true
-
-# head_orientation
-[algorithms.spiga]
-camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
-env_name = "venv:spiga"
-log_frame_idx_interval = 200
-batch_size = 32
-visualize = true
-dataset_name = "wflw" # model name, can be wflw, 300wpublic, 300wprivate or merlrav
-
-[algorithms.spiga.required_assets]
-model_weights_path = "<assets>/spiga/spiga_<dataset_name>.pt" # path to weights folder
-
-[algorithms.whisperx]
-track_names = ["room", "left_mic", "right_mic"]
-env_name = "venv:whisperx"
-model_size = "large-v3"
-compute_type = "float16"
-batch_size = 16
-language = "en"
-vad_onset = 0.9
-vad_offset = 0.9
-alignment_model_name = "WAV2VEC2_ASR_LARGE_LV60K_960H"
-visualize = true
-# Hugging Face / WhisperX model cache root (directory created at inference if missing).
-hf_weights_cache_dir = "<assets>/whisperx"
+# ======================================================================
+#                             SAM 3D Body
+# ======================================================================
 
 [algorithms.sam_3d_body]
+algorithm_type = "sam_3d_body"
 camera_names = ["<cur_cam_top>", "<cur_cam_front>"]
 env_name = "venv:sam_3d_body"
 device = "cuda:0"
 visualize = true
 hf_repo_id = "facebook/sam-3d-body-dinov3"
-# If Empty, use git submodule at submodules/sam-3d-body 
+# If Empty, use git submodule at submodules/sam-3d-body
 # (run: git submodule update --init submodules/sam-3d-body).
 sam3d_repo_path = ""
 detector_name = "vitdet"
 segmentor_name = "sam2"
 fov_name = "moge2"
 inference_type = "body"
-save_vertices = true
-visualize_mesh = true
+save_vertices = false
+visualize_mesh = false
 # Optional single-file 3D mesh viewer (Plotly HTML)
 # visualize_mesh_interactive = true
 # interactive_mesh_frame_stride = 5
@@ -211,3 +192,96 @@ cross_view_consistency = true
 stereo_triangulation_body_joints = true
 triangulation_min_detection_confidence = 0.6
 keypoint_mapping = "sam_3d_body_mhr"
+
+# ======================================================================
+#                               ETH XGaze 
+# ======================================================================
+
+# ETH XGaze for 3d gaze vector detection
+[algorithms.eth_xgaze]
+algorithm_type = "eth_xgaze"
+camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
+env_name = "venv:eth_xgaze"
+log_frame_idx_interval = 200
+filtered = true
+window_length = 11
+polyorder = 2
+visualize = true
+[algorithms.eth_xgaze.required_assets]
+shape_predictor_filename = "<assets>/eth_xgaze/shape_predictor_68_face_landmarks.dat"
+face_model_filename = "<assets>/eth_xgaze/face_model.txt"
+pretrained_model_filename = "<assets>/eth_xgaze/epoch_24_ckpt.pth.tar"
+face_detector_filename = "<assets>/eth_xgaze/mmod_human_face_detector.dat"
+
+# average multiple 3d gaze vectors across cameras
+[algorithms.gaze_fusion]
+algorithm_type = "gaze_fusion"
+input_detector_names = [["gaze_individual", "eth_xgaze"]]
+fusion_method = "weighted_average"  # options: "average", "weighted_average"
+filtered = true
+window_length = 11
+polyorder = 2
+ensemble_enabled = true
+# ensemble_weights = [0.5, 0.5]  # TODO should we add this?
+visualize = true
+
+# gaze_interaction
+[algorithms.gaze_distance]
+algorithm_type = "gaze_distance"
+input_detector_names = [["gaze_multiview", "gaze_fusion"],  ["face_landmarks", "hrnetw48"]]
+keypoint_mapping = "coco_wholebody"
+threshold_look_at = 0.4
+visualize = true
+
+# TODO: add gaze_distance support for other raw gaze_individual
+
+# ======================================================================
+#                                SPIGA
+# ======================================================================
+
+# head_orientation
+[algorithms.spiga]
+algorithm_type = "spiga"
+camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
+env_name = "venv:spiga"
+log_frame_idx_interval = 200
+batch_size = 32
+visualize = true
+dataset_name = "wflw" # model name, can be wflw, 300wpublic, 300wprivate or merlrav
+[algorithms.spiga.required_assets]
+model_weights_path = "<assets>/spiga/spiga_<dataset_name>.pt" # path to weights folder
+
+
+# ======================================================================
+#                        Emotions Detection Py-Feat 
+# ======================================================================
+
+# emotion_individual
+[algorithms.py_feat]
+algorithm_type = "py_feat"
+camera_names = ["<cur_cam_face1>", "<cur_cam_face2>", "<cur_cam_top>", "<cur_cam_front>"]
+env_name = "venv:py_feat"
+log_frame_idx_interval = 200
+# For batch_size, ensure:
+# [(batch_size) * (~Size of one frame (GB))] < Available vRAM (RAM) (GB)
+batch_size = 512
+visualize = true
+
+# ======================================================================
+#                      Audio Transcription WhisperX
+# ======================================================================
+
+[algorithms.whisperx]
+algorithm_type = "whisperx"
+track_names = ["room", "left_mic", "right_mic"]
+env_name = "venv:whisperx"
+model_size = "large-v3"
+compute_type = "float16"
+batch_size = 16
+language = "en"
+vad_onset = 0.9
+vad_offset = 0.9
+alignment_model_name = "WAV2VEC2_ASR_LARGE_LV60K_960H"
+visualize = true
+# Hugging Face / WhisperX model cache root (directory created at inference if missing).
+hf_weights_cache_dir = "<assets>/whisperx"

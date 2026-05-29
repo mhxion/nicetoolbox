@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from ....configs.schemas.detectors_algos_configs import MotionbertAlgorithmConfig
+from ....configs.schemas.detectors_instances_configs import MotionbertAlgorithmConfig
 from ....utils import video as vd
 from ... import config_handler as confh
 from ..filters import SGFilter
@@ -51,16 +51,12 @@ class MMPose3D(BaseMMPose):
     in the lifter's root-relative frame (no PnP or camera alignment).
     """
 
-    def _setup_subprocess_settings(self) -> None:
-        super()._setup_subprocess_settings()
-        self.script_path = self.io.get_inference_path("body_joints", "mmpose_3d")  # TODO: fix me
-
     def post_inference(self):
         """
         Post-inference processing for 3D pose estimation.
         """
         for _component, result_folder in self.result_folders.items():
-            prediction_file = os.path.join(result_folder, f"{self.algorithm}.npz")
+            prediction_file = os.path.join(result_folder, f"{self.algorithm_instance}.npz")
             prediction = np.load(prediction_file, allow_pickle=True)
             data_description = prediction["data_description"].item()
 
@@ -148,11 +144,8 @@ class MotionBERT(MMPose3D):
     Handler for MotionBERT models trained on Human3.6M (17 Keypoints).
     """
 
-    algorithm = "motionbert"
+    algorithm_type = "motionbert"
     components = ["body_joints_local"]
-
-    def __init__(self, io, data, video_context):
-        super().__init__(io, data, video_context)
 
     def compute_viz_folder(self, _visualize: bool) -> Optional[str]:
         """Return None so base __init__ does not mkdir the visualization folder.
@@ -164,7 +157,7 @@ class MotionBERT(MMPose3D):
 
     def visualization(self, _):
         for _, result_folder in self.result_folders.items():
-            viz_dir = os.path.join(result_folder, self.algorithm, "visualization")
+            viz_dir = os.path.join(result_folder, self.algorithm_instance, "visualization")
             for camera_name in self.camera_names:
                 cam_frames_dir = os.path.join(viz_dir, camera_name)
                 out_mp4 = os.path.join(viz_dir, f"{camera_name}.mp4")

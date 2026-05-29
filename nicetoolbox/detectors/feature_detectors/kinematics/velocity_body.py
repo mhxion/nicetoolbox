@@ -24,7 +24,7 @@ class VelocityBody(BaseFeature):
     """
 
     components = ["kinematics"]
-    algorithm = "velocity_body"
+    algorithm_type = "velocity_body"
 
     def _initialize_detector(self) -> None:
         # 1. Find the body_joints input from input_map (using tuple keys)
@@ -156,7 +156,7 @@ class VelocityBody(BaseFeature):
                 }
             )
 
-        save_file_path = os.path.join(self.result_folders["kinematics"], f"{self.algorithm}.npz")
+        save_file_path = os.path.join(self.result_folders["kinematics"], f"{self.algorithm_instance}.npz")
         np.savez_compressed(save_file_path, **out_dict)
 
         logging.info(f"Computation of feature detector for {self.components} completed.")
