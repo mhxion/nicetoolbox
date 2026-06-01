@@ -1,6 +1,6 @@
 ![](docs/graphics/NICE_Toolbox_4.png)
 
-# Non-Verbal Interpersonal Communication Exploration Toolbox
+# Nonverbal Interpersonal Communication Exploration Toolbox
 
 &emsp;&emsp;&emsp;
 [Project page](https://nice.is.tue.mpg.de/) &emsp;&emsp;&emsp;
@@ -65,12 +65,12 @@ The NICE Toolbox is using the following existing tools, methods, and frameworks:
 
 ## Authors
 
+Aleksandr Evgrashin,
 Carolin Schmitt,
-Gökce Ergün,
 Timo Lübbing,
 Ashutosh Jha,
-Aleksandr Evgrashin,
 Sophie Bauer,
+Gökce Ergün,
 Senya Polikovsky.
 
 All authors are with the Optics and Sensing Laboratory at Max Planck Institute for Intelligent Systems.
@@ -79,13 +79,8 @@ We thank the [MPI-IS Software Workshop](https://is.mpg.de/en/software-workshop) 
 
 ## License
 
-[NICE Toolbox](https://github.com/OSLabTools/nicetoolbox) © 2026 by Carolin Schmitt, Gökce Ergün,
-Timo Lübbing, Ashutosh Jha, Aleksandr Evgrashin, Sophie Bauer, Senya Polikovsky is licensed under
+[NICE Toolbox](https://github.com/OSLabTools/nicetoolbox) © 2026 Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V is licensed under
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/?ref=chooser-v1), see [LICENSE.md](https://github.com/OSLabTools/nicetoolbox/blob/main/LICENSE.md).
 
 Some components of the NICE Toolbox further use algorithms that are being distributed under other licenses
 listed in [LICENSES_ALGORITHMS.md](https://github.com/OSLabTools/nicetoolbox/blob/main/LICENSES_ALGORITHMS.md).
-
-## Copyright
-
-Copyright 2026, Max Planck Society / Optics and Sensing Laboratory - Max Planck Institute for Intelligent Systems
