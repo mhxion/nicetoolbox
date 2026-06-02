@@ -88,8 +88,8 @@ class BaseMethod(BaseDetector):
         # Pre-map single component out_folder and viz_folder for backward compatibility... TODO
         if len(self.components) == 1:
             comp = self.components[0]
-            self.out_folder = self.viz_folders[comp]
-            self.viz_folder = self.out_folders[comp]
+            self.out_folder = self.out_folders[comp]
+            self.viz_folder = self.viz_folders[comp]
             inference_config["out_folder"] = self.out_folder
             inference_config["viz_folder"] = self.viz_folder
 
