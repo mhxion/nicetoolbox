@@ -67,6 +67,10 @@ class MethodDetectorRuntime(BaseDetectorRuntime):
     Extends BaseDetectorRuntime with subprocess and inference requirements.
     """
 
+    # Root folder of NICE Toolbox installation (cwd)
+    # Used to find submodules paths
+    nicetoolbox_root: str
+
     # Logging (needed for subprocess)
     log_file: str
     log_level: str

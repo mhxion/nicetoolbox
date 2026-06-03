@@ -10,7 +10,7 @@ from nicetoolbox_core.audio_loaders import AudioStreamLoader
 
 from ....configs.schemas.detectors_instances_configs import MethodDetectorRuntime, WhisperXConfig
 from ....utils.hf_token import effective_hf_hub_token
-from ....utils.video import video_with_subtitles_from_frames
+from ....utils.video import frames_to_video
 from ..base_method import BaseMethod
 
 
@@ -163,17 +163,17 @@ class WhisperX(BaseMethod):
                 if camera_to_use and camera_to_use in video_recipe.camera_names:
                     frame_folder = os.path.join(video_recipe.root_path, camera_to_use, "frames")
                 start_frame = video_recipe.range_start
-                frame_limit = video_recipe.range_end - video_recipe.range_start
+                frame_limit = video_recipe.range_end
 
             logging.info(f"Baking subtitles into {video_out}")
             logging.info(f"Using frame folder: {frame_folder}" if frame_folder else "Using black background fallback.")
 
-            video_with_subtitles_from_frames(
+            frames_to_video(
                 input_folder=frame_folder,
-                audio_path=source,
-                srt_path=srt_path,
-                output_path=video_out,
+                out_filename=video_out,
                 fps=fps,
                 start_frame=start_frame,
+                audio_path=source,
+                srt_path=srt_path,
                 frame_limit=frame_limit,
             )

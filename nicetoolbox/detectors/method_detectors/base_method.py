@@ -12,7 +12,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import final
 
-from nicetoolbox_core.entrypoint import SubprocessError
+from nicetoolbox_core.entrypoint import SubprocessError, get_subprocess_error_path
 
 from ...configs.schemas.detectors_instances_configs import MethodDetectorRuntime
 from ...configs.video_runtime_config import SequenceRuntimeConfig
@@ -116,6 +116,7 @@ class BaseMethod(BaseDetector):
             MethodDetectorRuntime or subclass with detector-specific fields
         """
         return MethodDetectorRuntime(
+            nicetoolbox_root=str(self.io.code_folder),
             result_folders=self.result_folders,
             out_folders=self.out_folders,
             viz_folders=self.viz_folders,
@@ -180,6 +181,10 @@ class BaseMethod(BaseDetector):
 
         command = self._create_command()
 
+        # delete error from previois runs, before starting processing
+        error_file = get_subprocess_error_path(self.config_path)
+        error_file.unlink(missing_ok=True)
+
         sub_env = self._subprocess_env()
         if self.os_type == "windows":
             cmd_result = subprocess.run(command, capture_output=True, text=True, shell=True, check=False, env=sub_env)
@@ -209,21 +214,17 @@ class BaseMethod(BaseDetector):
 
         if self.venv == "conda":
             if self.os_type == "windows":
+                conda_env_path = os.path.join(self.io.code_folder, "envs", self.env_name)
                 # fmt: off
                 command = (
                     f"deactivate && "
-                    f'cmd /s /c "conda activate {self.env_name} && '
+                    f'cmd /s /c "conda activate {conda_env_path} && '
                     f'python {script} {config}"'
                 )
                 # fmt: on
             else:
-                conda_path = os.path.join(self.conda_path, "bin/activate")
-                python_path = os.path.join(self.conda_path, "envs", self.env_name, "bin/python")
-                command = (
-                    f"conda init bash && source ~/.bashrc && "
-                    f"'{conda_path}' {self.env_name} && "
-                    f"'{python_path}' {script} {config}"
-                )
+                python_path = os.path.join(self.io.code_folder, "envs", self.env_name, "bin/python")
+                command = f"'{python_path}' {script} {config}"
         elif self.venv == "venv":
             if self.os_type == "windows":
                 command = f'cmd /s /c ""{self.venv_path}" && python {script} {config}"'
@@ -235,7 +236,7 @@ class BaseMethod(BaseDetector):
 
     def _handle_subprocess_error(self, cmd_result) -> None:
         """Handle subprocess failure by checking for error.json."""
-        error_file = self.config_path.parent / "error.json"
+        error_file = get_subprocess_error_path(self.config_path)
 
         if error_file.exists():
             try:

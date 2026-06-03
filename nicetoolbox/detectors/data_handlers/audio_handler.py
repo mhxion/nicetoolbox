@@ -48,6 +48,7 @@ class AudioDataHandler(BaseModalityHandler):
         super().__init__(io, sequence_context)
         self.audio_start_ms = audio_start_ms
         self.audio_length_ms = audio_length_ms
+        self.audio_end_ms = audio_start_ms + audio_length_ms
         self.tracks_config = tracks_config
 
         self.audio_output_folder = self.nice_input_folder / "audio"
@@ -82,7 +83,7 @@ class AudioDataHandler(BaseModalityHandler):
         return AudioInputRecipe(
             streams=self._streams.copy(),
             start_time_ms=self.audio_start_ms,
-            end_time_ms=self.audio_length_ms,
+            end_time_ms=self.audio_end_ms,
         )
 
     # -------------------------------------------------------------------------

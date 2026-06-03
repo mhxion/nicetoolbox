@@ -3,20 +3,22 @@
 :: Stop on error
 setlocal enableextensions enabledelayedexpansion
 
-:: Initializing conda environment
-:: It should be done at least once after conda installation
+:: This script is called from the Makefile in the root directory (cd = repo root).
+set CONDA_ENV_PATH=.\envs\openmmlab
+
+:: Initializing conda
 echo Initializing conda...
 call conda init
 
-:: OPENMMLAB INSTALLATION 
+:: OPENMMLAB INSTALLATION
 
 :: Create a conda environment
-echo Creating conda environment...
-call conda create --name openmmlab python=3.8 -y
+echo Creating conda environment at %CONDA_ENV_PATH%...
+call conda create -p "%CONDA_ENV_PATH%" python=3.8 -y
 
 :: Activate conda environment
 echo Activating conda environment...
-call conda activate openmmlab
+call conda activate "%CONDA_ENV_PATH%"
 
 :: Install PyTorch with CUDA
 :: note conda installation did not work after conda-forge channel setup
@@ -35,12 +37,14 @@ call conda install fsspec -c conda-forge -y
 call pip install mmengine
 call mim install "mmcv==2.1.0"
 call mim install "mmdet>=3.1.0"
-call mim install "mmpretrain>=1.0.0rc8" 
+call mim install "mmpretrain>=1.0.0rc8"
 echo Navigate Inside to mmpose directory
 cd ./submodules/mmpose/
 echo Installing requirements from MMPose...
 call pip install -r requirements.txt
-call pip install -e .
+call pip install build
+call python -m build --wheel --no-isolation
+for %%f in (dist\mmpose-*.whl) do call pip install "%%f"
 
 :: Install additional dependencies required for nicetoolbox inference scripts
 echo Installing additional dependencies...

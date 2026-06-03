@@ -55,22 +55,14 @@ EXAMPLE_DATASET_URL = https://keeper.mpdl.mpg.de/seafhttp/f/ceb0b695b10c40148ff9
 all: create_machine_specifics create_project install download_assets download_dataset
 
 # ------------------------
-# Clean up an installation
+# Clean a specific virtual environment
+# Usage: make clean_venv NAME=<venv_name>
 # ------------------------
-.PHONY: clean
-clean:
-#	@echo "Cleaning pycache."
-#	@rm -rf __pycache__
-	@echo "Deleting virtual environment $(VENV_DIR)."
-	@rm -rf $(VENV_DIR)
-
-# ------------------------
-# Clean all virtual environments
-# ------------------------
-.PHONY: clean_all
-clean_all:
-	@echo "Deleting all virtual environments from $(VENV_ROOT_DIR)."
-	@rm -rf $(VENV_ROOT_DIR)
+.PHONY: clean_venv
+clean_venv:
+	@if [ -z "$(NAME)" ]; then echo "Usage: make clean_venv NAME=<venv_name>"; exit 1; fi
+	@echo "Deleting virtual environment $(VENV_ROOT_DIR)/$(NAME)."
+	@rm -rf $(VENV_ROOT_DIR)/$(NAME)
 
 # ------------------------
 # Create a separator
@@ -184,53 +176,26 @@ endif
 # -------------------
 # Install nicetoolbox
 # -------------------
-install: $(VENV_EXE_DIR)/activate
-
-#	Install xgaze if not already installed
-ifeq ("$(wildcard $(ETH_XGAZE_EXE_DIR)/activate)","")
-	@make install_eth_xgaze
-endif
-
-#	Install pyfeat if not already installed
-ifeq ("$(wildcard $(PYFEAT_EXE_DIR)/activate)","")
-	@make install_pyfeat
-endif
-
-#	Install SPIGA if not already installed
-ifeq ("$(wildcard $(SPIGA_EXE_DIR)/activate)","")
-	@make install_spiga
-endif
-
-#	Install WhisperX if not already installed
-ifeq ("$(wildcard $(WHISPERX_EXE_DIR)/activate)","")
-	@make install_whisperx
-endif
-
-#	SAM 3D Body venv (optional during make install; failure does not stop other envs)
-ifeq ("$(wildcard $(SAM3D_BODY_EXE_DIR)/activate)","")
+install:
+# core nicetoolbox venv
+	@make install_nicetoolbox_venv
+# detectors venv installations
+	-@make install_eth_xgaze
+	-@make install_pyfeat
+	-@make install_spiga
+	-@make install_whisperx
 	-@make install_sam3d_body
-endif
-
-#	check for conda installation
-ifeq ($(which conda),"")
-	@echo "No CONDA installation found. Check the documentation for instructions: https://nicetoolbox.readthedocs.io/en/stable/installation.html."
-else
-	@$(eval CONDA_DIR=$(CONDA_DIR))
-
-#	Install mmpose if not already installed
-ifeq ("$(wildcard $(CONDA_DIR)/envs/openmmlab)", "")
-	@make install_mmpose
-endif
-endif
+# detectors conda installations
+	-@make install_mmpose
 
 
-# Install the virtual environment
-$(VENV_EXE_DIR)/activate: pyproject.toml
-#	start clean
-	@make clean
-
+# Install nicetoolbox venv
+.PHONY: install_nicetoolbox_venv
+install_nicetoolbox_venv:
 #	create virtual environment
 	@make create_separator
+	@make clean_venv NAME=$(VENV)
+
 	@echo "Creating virtual environment in $(VENV_DIR)..."
 	@$(PYTHON_EXE) -m venv $(VENV_DIR)
 
@@ -254,6 +219,7 @@ endif
 .PHONY: install_eth_xgaze
 install_eth_xgaze:
 	@make create_separator
+	@make clean_venv NAME=eth_xgaze
 	@echo "Creating virtual environment for submodule 'ETH-XGaze'..."
 	@$(PYTHON_EXE) -m venv ./envs/eth_xgaze
 	@echo "Virtual environment created in ./envs/eth_xgaze"
@@ -269,6 +235,7 @@ install_eth_xgaze:
 .PHONY: install_pyfeat
 install_pyfeat:
 	@make create_separator
+	@make clean_venv NAME=py_feat
 	@echo "Installing virtual environment for algorithm 'Py-Feat'..."
 
 	@echo "Creating virtual environment..."
@@ -285,6 +252,7 @@ install_pyfeat:
 .PHONY: install_spiga
 install_spiga:
 	@make create_separator
+	@make clean_venv NAME=spiga
 	@echo "Installing virtual environment for algorithm 'SPIGA'..."
 
 	@echo "Creating virtual environment..."
@@ -302,6 +270,7 @@ install_spiga:
 .PHONY: install_whisperx
 install_whisperx:
 	@make create_separator
+	@make clean_venv NAME=whisperx
 	@echo "Installing virtual environment for algorithm 'WhisperX'..."
 
 	@echo "Creating virtual environment..."
@@ -320,7 +289,8 @@ install_whisperx:
 .PHONY: install_mmpose
 install_mmpose:
 	@make create_separator
-	@echo "Installing virtual environment for submodule 'MMPose'..."
+	@make clean_venv NAME=openmmlab
+	@echo "Installing Conda environment for submodule 'MMPose'..."
 ifeq ($(OS), Windows_NT)
 	@bash -c "$(MMPOSE)"
 else
@@ -332,6 +302,7 @@ endif
 .PHONY: install_sam3d_body
 install_sam3d_body:
 	@make create_separator
+	@make clean_venv NAME=sam_3d_body
 	@echo "Creating SAM 3D Body venv at $(VENV_ROOT_DIR)/sam_3d_body ..."
 	@$(PYTHON_EXE) -m venv ./envs/sam_3d_body
 	@echo "Installing PyTorch (2.8.0, cu129)..."

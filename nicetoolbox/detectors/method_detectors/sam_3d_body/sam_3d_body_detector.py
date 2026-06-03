@@ -197,6 +197,37 @@ def _cross_view_mean_distance(p0: dict[str, Any], p1: dict[str, Any], key: str =
     return float(np.nanmean(d))
 
 
+def _strip_3d_from_body_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Drop every 3D array (and its data_description entry), keeping 2D only.
+
+    Used for the body_joints export when no calibration is available: world-space
+    3D can't be produced, and camera-space 3D belongs in body_joints_local, so the
+    calibration-free body_joints NPZ carries 2D keypoints only.
+    """
+    out = dict(payload)
+    dropped: list[str] = []
+    for key in list(out.keys()):
+        if key == "data_description":
+            continue
+        kl = key.lower()
+        if kl.startswith("3d") or kl.endswith("_3d") or "_3d_" in kl:
+            out.pop(key, None)
+            dropped.append(key)
+    dd_obj = out.get("data_description")
+    if dd_obj is not None:
+        try:
+            dd = dd_obj.item() if hasattr(dd_obj, "item") else dd_obj
+            if isinstance(dd, dict):
+                for key in dropped:
+                    dd.pop(key, None)
+                out["data_description"] = np.asarray(dd, dtype=object)
+        except Exception as e:
+            logging.debug("strip_3d: data_description cleanup skipped: %s", e)
+    if dropped:
+        logging.info("SAM 3D Body: body_joints 2D-only export, dropped 3D keys %s", dropped)
+    return out
+
+
 def _attach_body_meta(
     body_payload: dict[str, Any],
     *,
@@ -267,7 +298,7 @@ def _run_sam3d_post_process(
     _validate_sam3d_npz(raw)
 
     faces = raw["faces"]
-    per_frame = list(raw["per_frame_outputs"])
+    per_frame = [f if isinstance(f, dict) else list(f) for f in raw["per_frame_outputs"]]
     mode = str(np.asarray(raw["mode"]).item()) if "mode" in raw.files else "unknown"
     _, bundle_notes = _bundle_camera_params(calibration, camera_names)
 
@@ -395,6 +426,44 @@ def _run_sam3d_post_process(
         out_body_joints_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(out_body_joints_npz, **body_world)
         logging.info("SAM 3D Body wrote body_joints export %s", out_body_joints_npz)
+    else:
+        # No usable calibration: still write body_joints, but 2D only.
+        # World 3D is impossible without calibration, and camera-space 3D is the
+        # job of body_joints_local — so this file carries 2D keypoints only.
+        body_2d_only = build_body_joints_npz_payload(
+            per_frame,
+            joint_indices=body_indices,
+            joint_names=body_names,
+            camera_names=camera_names,
+            mode=mode,
+            subjects_descr=subjects_descr,
+            cam_sees_subjects=cam_sees_subjects,
+            video_start_frame_index=video_start_frame_index,
+            three_d_primary="camera",
+        )
+        body_2d_only = _strip_3d_from_body_payload(body_2d_only)
+        policy_2d = {
+            "npz_role": "body_joints",
+            "filename_stem": SAM3D_BODY_OUTPUT_NPZ_STEM,
+            "alignment_method": "none_no_calibration",
+            "not_multi_view_triangulation": True,
+            "three_d_primary": "none_2d_only",
+            "note": "No usable calibration; 3D omitted (camera-space 3D is in body_joints_local).",
+        }
+        body_2d_only = _attach_body_meta(
+            body_2d_only,
+            mhr_mapping=mhr_mapping,
+            bundle_notes=bundle_notes,
+            cross_view=cross_view,
+            cross_view_residuals=cross_view_residuals,
+            raw=raw,
+            export_policy=policy_2d,
+        )
+        if out_body_joints_npz is None:
+            raise ValueError("out_body_joints_npz required to write body_joints")
+        out_body_joints_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(out_body_joints_npz, **body_2d_only)
+        logging.info("SAM 3D Body wrote 2D-only body_joints export (no calibration) %s", out_body_joints_npz)
 
     body_local = build_body_joints_npz_payload(
         per_frame,
@@ -692,7 +761,7 @@ class Sam3dBody(BaseMethod):
         cfg = self.detector_config
         calib_ok = _calibration_usable_for_world_alignment(self.data.calibration, list(cfg.camera_names))
 
-        out_body = Path(self.result_folders["body_joints"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz" if calib_ok else None
+        out_body = Path(self.result_folders["body_joints"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz"
         out_body_local = Path(self.result_folders["body_joints_local"]) / f"{SAM3D_BODY_LOCAL_NPZ_STEM}.npz"
         out_hand = Path(self.result_folders["hand_joints"]) / f"{SAM3D_BODY_OUTPUT_NPZ_STEM}.npz" if calib_ok else None
         out_hand_local = Path(self.result_folders["hand_joints_local"]) / f"{SAM3D_BODY_LOCAL_NPZ_STEM}.npz"
