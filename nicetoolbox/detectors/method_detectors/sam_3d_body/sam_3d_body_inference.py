@@ -87,9 +87,12 @@ def pack_person_output(person: dict, save_vertices: bool) -> dict:
 def main(config: dict) -> None:
     logging.info("SAM 3D Body inference starting (algorithm=%s)", config.get("algorithm"))
 
-    ensure_hf_hub_cache_env()
+    # TODO: unify loading non-pip installable submodules
+    nicetoolbox_root = Path(config["nicetoolbox_root"])
+
+    ensure_hf_hub_cache_env(nicetoolbox_root)
     repo_cfg = (config.get("sam3d_repo_path") or os.environ.get("SAM3D_BODY_REPO", "")).strip()
-    repo_root = ensure_sam3d_repo(repo_cfg)
+    repo_root = ensure_sam3d_repo(repo_cfg, nicetoolbox_root)
 
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))

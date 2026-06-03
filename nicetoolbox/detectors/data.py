@@ -82,6 +82,11 @@ class SequenceData:
         self.video_start_ms = timestamp_to_ms(sequence_context.video_start, self.fps)
         self.video_length_ms = timestamp_to_ms(sequence_context.video_length, self.fps)
 
+        # if need full video - take resolved video length in frames
+        if self.video_length_ms < 0:
+            self.video_length_ms = timestamp_to_ms(self.video_length_frames, self.fps)
+        assert self.video_start_ms <= self.video_start_ms + self.video_length_ms
+
         # (2) Prepare audio if available
         self._audio_handler: AudioDataHandler | None = None
         tracks_cfg = dataset_properties.audio.tracks

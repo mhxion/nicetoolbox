@@ -16,18 +16,6 @@ from insightface.app import FaceAnalysis
 from nicetoolbox_core.entrypoint import run_inference_entrypoint
 from nicetoolbox_core.video_loaders import ImagePathsByFrameIndexLoader
 
-# --- Add submodule path ---
-top_level_dir = Path(__file__).resolve().parents[4]
-sys.path.append(str(top_level_dir) + "/submodules/SPIGA")
-
-# --- Now import SPIGA submodule modules ---
-from spiga.demo.visualize.plotter import Plotter  # noqa: E402
-from spiga.inference.config import ModelConfig  # noqa: E402
-from spiga.inference.framework import SPIGAFramework  # noqa: E402
-
-# Enable cuDNN optimization (for PyTorch CNNs)
-torch.backends.cudnn.benchmark = True
-
 # Constants
 NUM_FACIAL_LANDMARKS = 98
 
@@ -53,6 +41,20 @@ def spiga_inference(config: dict) -> None:
     Args:
         config (dict): Configuration dictionary.
     """
+
+    # TODO: unify loading non-pip installable submodules
+    # (0) Load spiga submodule by patching dependencies
+    logging.info("Loading SPIGA submodule...")
+    nicetoolbox_root = config["nicetoolbox_root"]
+    spiga_folder = os.path.join(nicetoolbox_root, "submodules", "SPIGA")
+    sys.path.append(spiga_folder)
+    # --- Now import SPIGA submodule modules ---
+    from spiga.demo.visualize.plotter import Plotter  # noqa: E402
+    from spiga.inference.config import ModelConfig  # noqa: E402
+    from spiga.inference.framework import SPIGAFramework  # noqa: E402
+
+    # Enable cuDNN optimization (for PyTorch CNNs)
+    torch.backends.cudnn.benchmark = True
 
     logging.info("Running SPIGA head orientation detection!")
 

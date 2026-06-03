@@ -46,6 +46,10 @@ def timestamp_to_ms(value: int | str, fps: int) -> float:
 
         return float((hours * 3600 + minutes * 60 + seconds) * 1000 + milliseconds)
 
+    # it's until the end marker (-1)
+    if value < 0:
+        return value
+
     # it's frame index
     return value / fps * 1000
 

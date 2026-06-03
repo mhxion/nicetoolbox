@@ -42,12 +42,16 @@ def init_file_logging(log_path: Path, level: int | str = logging.INFO) -> None:
     """
     # ensure log file parent folder exist
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    # force=True removes any existing handlers so basicConfig is not a no-op
+
+    # Important to start log in "attach" mode
+    # With "write" mode it will corrupt log output as subprocesses will write to it too
+    # To reset log from old sessions, we manually delete old log first
+    log_path.unlink(missing_ok=True)
     logging.basicConfig(
         level=level,
         format=LOGGING_FORMAT,
-        handlers=[logging.FileHandler(log_path, mode="w"), logging.StreamHandler(sys.stdout)],
-        force=True,
+        handlers=[logging.FileHandler(log_path, mode="a"), logging.StreamHandler(sys.stdout)],
+        force=True,  # force=True removes any existing handlers (i.e. previous console log)
     )
 
 

@@ -3,21 +3,22 @@
 # Stop on error
 set -e
 
-# Initializing conda environment
-# It should be done at least once after conda installation
+# This script is called from the Makefile in the root directory (pwd = repo root).
+CONDA_ENV_PATH="./envs/openmmlab"
+
+# Initializing conda
 echo "Initializing conda..."
 conda init
 
 ###OPENMMLAB INSTALLATION###
-
 # Create a conda environment
-echo "Creating conda environment..."
-conda create --name openmmlab python=3.8 -y
+echo "Creating conda environment at $CONDA_ENV_PATH..."
+conda create -p "$CONDA_ENV_PATH" python=3.8 -y
 
 # Activate conda environment
 echo "Activating conda environment..."
 eval "$(conda shell.bash hook)"  # This line is crucial for conda activation to work in scripts
-conda activate openmmlab
+conda activate "$CONDA_ENV_PATH"
 
 # Install PyTorch with CUDA
 echo "Installing PyTorch and dependencies..."
@@ -25,7 +26,7 @@ pip install torch==2.1.0+cu118 torchvision==0.16.0+cu118 torchaudio==2.1.0 --ind
 
 # Install nicetoolbox-core
 echo "Installing nicetoolbox-core dependencies..."
-pip install -e ./nicetoolbox_core  # This script is called from the Makefile in the root directory
+pip install -e ./nicetoolbox_core
 
 # Install MMPose and its dependencies
 echo "Installing MMPose and dependencies..."
@@ -39,7 +40,9 @@ echo "Navigate Inside to mmpose directory"
 cd ./submodules/mmpose/
 echo "Installing requirements from MMPose..."
 pip install -r requirements.txt
-pip install -e .
+pip install build
+python -m build --wheel --no-isolation
+pip install dist/mmpose-*.whl
 
 # Install additional dependencies required for nicetoolbox inference scripts
 echo "Installing additional dependencies..."

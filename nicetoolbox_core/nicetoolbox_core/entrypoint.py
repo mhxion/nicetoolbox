@@ -10,6 +10,10 @@ from typing import Any, Callable, Dict
 import toml
 
 
+def get_subprocess_error_path(config_path: Path) -> Path:
+    return config_path.parent / "error.json"
+
+
 @dataclass
 class SubprocessError:
     """
@@ -80,7 +84,7 @@ def run_inference_entrypoint(main_function: Callable[[Dict[str, Any]], None]) ->
             )
 
             # Save error.json next to the config file (standard detector output location)
-            error_file = config_path.parent / "error.json"
+            error_file = get_subprocess_error_path(config_path)
             try:
                 with open(error_file, "w") as file:
                     json.dump(asdict(safe_error), file, indent=4)

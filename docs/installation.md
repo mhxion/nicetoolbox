@@ -156,7 +156,16 @@ git submodule update --init  # to combine the git submodule init and git submodu
 
 ## Makefile installation
 
-The NICE Toolbox includes a Makefile that handles the installation of all required libraries and dependencies. It also downloads assets and an example dataset, and generates configuration files. Available commands include:
+The NICE Toolbox includes a Makefile that handles the installation of all required libraries and dependencies. It also downloads assets and an example dataset, and generates configuration files. 
+
+Open a **terminal** (on Linux) or **Git Bash** (on Windows) and navigate to the directory of the repository, then run the command `make`:
+
+```bash
+cd /path/to/nicetoolbox/
+make        
+```
+
+Available commands include:
 
 - `make` or `make all`  - Run all the commands below.
 - `make create_machine_specifics` - Generate the machine-specific configuration file.
@@ -171,14 +180,8 @@ If you need to use different versions of Python or CUDA, you can adjust the rele
 The order of specific make commands listed above is essential due to iterated dependencies.
 ```
 
-In case of errors during installation, you can run `make clean_all` to remove all virtual environments. After that, you can restart the installation.
+In case of errors during the installation, you can run `make install` again. It will remove all existing virtual environments and reinstall them. You can also manually reinstall specific detectors with `make install_eth_xgaze` or `make install_whisperx`.
 
-Open a **terminal** (on Linux) or **Git Bash** (on Windows) and navigate to the directory of the repository, then run the command `make`:
-
-```bash
-cd /path/to/nicetoolbox/
-make        
-```
 
 ## Hugging Face Access Token
 

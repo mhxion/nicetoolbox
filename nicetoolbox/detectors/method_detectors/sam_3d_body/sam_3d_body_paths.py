@@ -14,23 +14,13 @@ SAM3D_BODY_LOCAL_NPZ_STEM = "sam_3d_body"
 RAW_INFERENCE_NPZ_NAME = "sam_3d_body_inference_raw.npz"
 
 
-def repo_root_from_this_file() -> Path:
-    """Repository root (parent of the nicetoolbox package)."""
-    return Path(__file__).resolve().parents[4]
-
-
-def default_sam3d_repo_path() -> Path:
+def default_sam3d_repo_path(nicetoolbox_root: Path) -> Path:
     """Default checkout: <repo>/submodules/sam-3d-body."""
-    return repo_root_from_this_file() / SUBMODULES_DIRNAME / SAM3D_REPO_DIRNAME
+    return nicetoolbox_root / SUBMODULES_DIRNAME / SAM3D_REPO_DIRNAME
 
 
-def default_sam3d_assets_root() -> Path:
-    return repo_root_from_this_file() / "nicetoolbox" / "detectors" / "assets" / SAM3D_ASSETS_DIRNAME
-
-
-def default_hf_home(assets_root: Path | None = None) -> Path:
-    root = assets_root or default_sam3d_assets_root()
-    return root / "hf_home"
+def default_sam3d_assets_root(nicetoolbox_root: Path) -> Path:
+    return nicetoolbox_root / "nicetoolbox" / "detectors" / "assets" / SAM3D_ASSETS_DIRNAME
 
 
 def ensure_directory(path: Path) -> Path:
@@ -38,9 +28,13 @@ def ensure_directory(path: Path) -> Path:
     return path
 
 
-def ensure_sam3d_repo(repo: str | None) -> Path:
+def ensure_sam3d_repo(repo: str | None, nicetoolbox_root: Path) -> Path:
     """Resolve sam-3d-body checkout containing the sam_3d_body/ package."""
-    target = Path(repo.strip()).expanduser().resolve() if repo and str(repo).strip() else default_sam3d_repo_path()
+    target = (
+        Path(repo.strip()).expanduser().resolve()
+        if repo and str(repo).strip()
+        else default_sam3d_repo_path(nicetoolbox_root)
+    )
     if not (target / "sam_3d_body").is_dir():
         raise RuntimeError(
             f"SAM 3D Body upstream repo missing or incomplete at {target} (expected package dir "
@@ -52,9 +46,9 @@ def ensure_sam3d_repo(repo: str | None) -> Path:
     return target
 
 
-def ensure_hf_hub_cache_env(assets_root: Path | None = None) -> Path:
+def ensure_hf_hub_cache_env(nicetoolbox_root: Path) -> Path:
     """Set HF_HOME / HUGGINGFACE_HUB_CACHE under assets/sam_3d_body/hf_home if unset."""
-    hf_home = default_hf_home(assets_root)
+    hf_home = default_sam3d_assets_root(nicetoolbox_root)
     ensure_directory(hf_home)
     os.environ.setdefault("HF_HOME", str(hf_home))
     os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(hf_home / "hub"))
