@@ -147,7 +147,7 @@ visualize = true
 
 # proximity
 [algorithms.body_distance]
-algorithm_type = "velocity_body"
+algorithm_type = "body_distance"
 used_keypoints = ["nose"]  # if the list is more than one keypoint, the midpoint
 input_detector_names = [["body_joints", "hrnetw48"]]
 visualize = true
