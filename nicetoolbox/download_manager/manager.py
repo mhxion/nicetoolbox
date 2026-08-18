@@ -145,10 +145,8 @@ class AssetManager:
             if algo_model and hasattr(algo_model, "required_assets"):
                 for val in algo_model.required_assets.values():
                     try:
-                        # 'val' is the fully resolved absolute path.
-                        # This extracts just the relative part to match the manifest keys
-                        clean_key = self._to_manifest_key(val)
-                        required_assets.append(clean_key)
+                        # val will be cleaned in verify_and_download
+                        required_assets.append(val)
                     except ValueError:
                         logging.warning(f"Path '{val}' is not inside the assets root!")
 
